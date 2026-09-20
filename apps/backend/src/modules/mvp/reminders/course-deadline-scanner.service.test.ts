@@ -1,4 +1,3 @@
-import { Logger } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import { CourseDeadlineScanner } from './course-deadline-scanner.service.js';
@@ -32,27 +31,35 @@ function state(over: Record<string, unknown> = {}) {
   };
 }
 
-function make(
-  dispatch = vi
-    .fn()
-    .mockImplementation((input) =>
-      Promise.resolve({ sent: input.recipients.length, skipped: 0, failed: 0 })
-    )
-) {
-  const scanner = new CourseDeadlineScanner({ dispatch } as never, new ReminderSettingsService());
-  return { scanner, dispatch };
+/*
+ * ТЗ 11.3: сканер больше не отправляет сам, а КЛАДЁТ повод в копилку — письма уходят одним на
+ * человека в конце обхода. Проверяемые свойства не изменились: кому, о чём и с каким ключом
+ * подавления повтора; изменилось только то, КУДА это кладётся. Устойчивость самой отправки
+ * переехала в копилку и проверяется её тестом.
+ */
+function make() {
+  const queued: Array<Record<string, unknown>> = [];
+  const queue = vi.fn((_tenantId: string, item: Record<string, unknown>) => {
+    queued.push(item);
+  });
+  const scanner = new CourseDeadlineScanner({ queue } as never, new ReminderSettingsService());
+  return { scanner, queue, queued };
 }
 
 describe('CourseDeadlineScanner.scanTenant', () => {
-  it('dispatches a course_deadline reminder with the 14-day dedupKey', async () => {
-    const { scanner, dispatch } = make();
+  it('queues a course_deadline reminder with the 14-day dedupKey', async () => {
+    const { scanner, queued } = make();
     const summary = await scanner.scanTenant('t1', ASOF, state() as never);
-    expect(summary.remindersDispatched).toBe(1);
-    const arg = dispatch.mock.calls[0]![0];
+    expect(summary.remindersQueued).toBe(1);
+    const arg = queued[0]! as {
+      templateKey: string;
+      variables: { deadline: string };
+      digest: { email: string; dedupKey: string };
+    };
     expect(arg.templateKey).toBe('course_deadline');
-    expect(arg.recipients[0].email).toBe('ivan@example.com');
+    expect(arg.digest.email).toBe('ivan@example.com');
     expect(arg.variables.deadline).toBe('2026-06-15');
-    expect(arg.dedupKey).toBe('deadline:enr1:2026-06-15:14');
+    expect(arg.digest.dedupKey).toBe('deadline:enr1:2026-06-15:14');
   });
 
   it('ignores completed enrollments and enrollments beyond the window', async () => {
@@ -78,7 +85,7 @@ describe('CourseDeadlineScanner.scanTenant', () => {
       ]
     });
     const summary = await scanner.scanTenant('t1', ASOF, completed as never);
-    expect(summary.remindersDispatched).toBe(0);
+    expect(summary.remindersQueued).toBe(0);
   });
 
   it('skips enrollments without a plannedEndAt', async () => {
@@ -87,16 +94,19 @@ describe('CourseDeadlineScanner.scanTenant', () => {
       enrollments: [{ id: 'e3', tenantId: 't1', learnerId: 'l1', groupId: 'g1', status: 'active' }]
     });
     const summary = await scanner.scanTenant('t1', ASOF, noDate as never);
-    expect(summary.remindersDispatched).toBe(0);
+    expect(summary.remindersQueued).toBe(0);
   });
 
-  it('tolerates a dispatch failure without throwing', async () => {
-    const dispatch = vi.fn().mockRejectedValue(new Error('smtp down'));
-    const errorSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
-    const { scanner } = make(dispatch);
+  it('поводы не теряются: сколько насчитано, столько и положено в копилку', async () => {
+    /*
+     * Прежде здесь проверялся частичный успех отправки: отказ почтовика не ронял обход. С
+     * переходом на копилку (ТЗ 11.3) сканер не отправляет вовсе — устойчивость отправки
+     * переехала в копилку и проверяется её тестом. За сканером остаётся другое: не потерять
+     * ни одного повода.
+     */
+    const { scanner, queued } = make();
     const summary = await scanner.scanTenant('t1', ASOF, state() as never);
-    expect(summary.remindersDispatched).toBe(0);
-    errorSpy.mockRestore();
+    expect(summary.remindersQueued).toBe(queued.length);
   });
 
   /*
@@ -107,11 +117,15 @@ describe('CourseDeadlineScanner.scanTenant', () => {
    * требует ровно три ступени в строгом порядке.
    */
   it('progresses through the 14 → 3 → 1 dedupKeys as the deadline approaches', async () => {
-    const { scanner, dispatch } = make(); // enr1 plannedEndAt = 2026-06-15
+    const { scanner, queued } = make(); // enr1 plannedEndAt = 2026-06-15
     await scanner.scanTenant('t1', '2026-06-05', state() as never); // 10 days out → 14
     await scanner.scanTenant('t1', '2026-06-13', state() as never); // 2 days out  → 3
     await scanner.scanTenant('t1', '2026-06-14', state() as never); // 1 day out   → 1
-    const milestones = dispatch.mock.calls.map((c) => String(c[0].dedupKey).split(':').pop());
+    const milestones = queued.map((item) =>
+      String((item.digest as { dedupKey: string }).dedupKey)
+        .split(':')
+        .pop()
+    );
     expect(milestones).toEqual(['14', '3', '1']);
   });
 
@@ -119,7 +133,7 @@ describe('CourseDeadlineScanner.scanTenant', () => {
     // Mirrors the license-expiry scanner's renewed-term test: the dedupKey must embed
     // the deadline date, so moving plannedEndAt yields a *new* key and the milestone
     // nudge fires again for the new deadline instead of being dedup-suppressed.
-    const { scanner, dispatch } = make();
+    const { scanner, queued } = make();
     // Term A: plannedEndAt 2026-06-15, asOf 2026-06-05 → 10 days out → milestone 14.
     await scanner.scanTenant('t1', '2026-06-05', state() as never);
     // Term B: deadline extended to 2026-07-15; asOf 2026-07-05 → 10 days out → milestone 14 again.
@@ -137,41 +151,37 @@ describe('CourseDeadlineScanner.scanTenant', () => {
     });
     await scanner.scanTenant('t1', '2026-07-05', extended as never);
 
-    const keys = dispatch.mock.calls.map((c) => c[0].dedupKey);
+    const keys = queued.map((item) => (item.digest as { dedupKey: string }).dedupKey);
     expect(keys).toEqual(['deadline:enr1:2026-06-15:14', 'deadline:enr1:2026-07-15:14']);
   });
 
   it('includes configured staff recipients (admin-kind) alongside the learner', async () => {
-    const { scanner, dispatch } = make();
+    const { scanner, queued } = make();
     const withStaff = state({
       notificationStaffRecipients: [{ tenantId: 't1', email: 'admin@uc.ru' }]
     });
     const summary = await scanner.scanTenant('t1', ASOF, withStaff as never);
-    const arg = dispatch.mock.calls[0]![0];
-    const emails = arg.recipients.map((r: { email: string }) => r.email);
+    const digests = queued.map((item) => item.digest as { email: string; recipientKind: string });
+    const emails = digests.map((one) => one.email);
     expect(emails).toContain('ivan@example.com');
     expect(emails).toContain('admin@uc.ru');
-    expect(arg.recipients.find((r: { email: string }) => r.email === 'admin@uc.ru').kind).toBe(
-      'admin'
-    );
-    expect(summary.remindersDispatched).toBe(2);
+    expect(digests.find((one) => one.email === 'admin@uc.ru')!.recipientKind).toBe('admin');
+    expect(summary.remindersQueued).toBe(2);
   });
 
   it('notifies staff even when the learner has no email', async () => {
-    const { scanner, dispatch } = make();
+    const { scanner, queued } = make();
     const noLearnerEmail = state({
       learners: [{ id: 'l1', tenantId: 't1', firstName: 'Иван', lastName: 'Иванов' }],
       notificationStaffRecipients: [{ tenantId: 't1', email: 'admin@uc.ru' }]
     });
     const summary = await scanner.scanTenant('t1', ASOF, noLearnerEmail as never);
-    expect(summary.remindersDispatched).toBe(1);
-    expect(dispatch.mock.calls[0]![0].recipients.map((r: { email: string }) => r.email)).toEqual([
-      'admin@uc.ru'
-    ]);
+    expect(summary.remindersQueued).toBe(1);
+    expect(queued.map((item) => (item.digest as { email: string }).email)).toEqual(['admin@uc.ru']);
   });
 
   it('sends the 1-day reminder for an already-overdue active enrollment', async () => {
-    const { scanner, dispatch } = make();
+    const { scanner, queued } = make();
     const overdue = state({
       enrollments: [
         {
@@ -185,7 +195,7 @@ describe('CourseDeadlineScanner.scanTenant', () => {
       ]
     });
     const summary = await scanner.scanTenant('t1', '2026-06-05', overdue as never);
-    expect(summary.remindersDispatched).toBe(1);
-    expect(dispatch.mock.calls[0]![0].dedupKey).toBe('deadline:enr1:2026-05-01:1');
+    expect(summary.remindersQueued).toBe(1);
+    expect((queued[0]!.digest as { dedupKey: string }).dedupKey).toBe('deadline:enr1:2026-05-01:1');
   });
 });

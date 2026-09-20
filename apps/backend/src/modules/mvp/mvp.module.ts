@@ -75,6 +75,7 @@ import { CourseDeadlineScanner } from './reminders/course-deadline-scanner.servi
 import { DocumentRevokedEmailListener } from './reminders/document-revoked-email.listener.js';
 import { KnowledgeRetestScanner } from './reminders/knowledge-retest-scanner.service.js';
 import { LicenseExpiryScanner } from './reminders/license-expiry-scanner.service.js';
+import { ReminderOutbox } from './reminders/reminder-outbox.service.js';
 import { ReminderSettingsService } from './reminders/reminder-settings.service.js';
 import { RemindersSchedulerService } from './reminders/reminders-scheduler.service.js';
 import { RostechnadzorRegistryController } from './rostechnadzor-registry/rostechnadzor-registry.controller.js';
@@ -266,6 +267,7 @@ import { BackgroundTasksModule } from '../background-tasks/background-tasks.modu
     ReminderSettingsService,
     LicenseExpiryScanner,
     KnowledgeRetestScanner,
+    ReminderOutbox,
     RemindersSchedulerService,
     DocumentRevokedEmailListener,
     IdentityRetentionScanner,

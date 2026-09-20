@@ -1,10 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { pickMilestone } from './milestone.util.js';
+import { ReminderOutbox } from './reminder-outbox.service.js';
 import { buildStaffRecipients } from './reminder-recipients.js';
 import { ReminderSettingsService } from './reminder-settings.service.js';
 import { addDays } from '../../../common/utils/date-math.util.js';
-import { NotificationDispatcher } from '../../communication/notification-dispatcher.service.js';
 import { LicensesService } from '../../org/licenses.service.js';
 
 import type { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
@@ -12,7 +12,8 @@ import type { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js'
 /** Look-ahead window: active licenses with validUntil ≤ today+90d enter the scan. */
 
 export interface LicenseExpiryScanSummary {
-  remindersDispatched: number;
+  /** Сколько поводов положено в копилку (ТЗ 11.3): отправка — в конце обхода. */
+  remindersQueued: number;
 }
 
 /**
@@ -29,7 +30,8 @@ export class LicenseExpiryScanner {
 
   constructor(
     @Inject(LicensesService) private readonly licenses: LicensesService,
-    @Inject(NotificationDispatcher) private readonly dispatcher: NotificationDispatcher,
+    /* ТЗ 11.3: копилка вместо прямой отправки — одно письмо в день на человека. */
+    @Inject(ReminderOutbox) private readonly outbox: ReminderOutbox,
     /* ТЗ 11.3: окно предупреждения о лицензии тоже настраивается центром. */
     @Inject(ReminderSettingsService) private readonly settings: ReminderSettingsService
   ) {}
@@ -41,7 +43,7 @@ export class LicenseExpiryScanner {
   ): Promise<LicenseExpiryScanSummary> {
     const recipients = buildStaffRecipients(state, tenantId);
     if (recipients.length === 0) {
-      return { remindersDispatched: 0 };
+      return { remindersQueued: 0 };
     }
 
     const milestones = await this.settings.milestones(tenantId, 'licenseExpiry');
@@ -49,34 +51,46 @@ export class LicenseExpiryScanner {
     const horizon = addDays(asOf, Math.max(...milestones));
     const expiring = await this.licenses.findActiveExpiringBefore(tenantId, horizon);
 
-    let remindersDispatched = 0;
+    let remindersQueued = 0;
     for (const license of expiring) {
       if (!license.validUntil) continue;
       const milestone = pickMilestone(asOf, license.validUntil, milestones);
       if (milestone === null) continue;
 
       try {
-        const summary = await this.dispatcher.dispatch({
-          tenantId,
-          templateKey: 'license_expiring',
-          recipients,
-          variables: {
-            licenseNumber: license.licenseNumber,
-            issuerName: license.issuerName,
-            validUntil: license.validUntil
-          },
-          relatedEntityType: 'org.training_license',
-          relatedEntityId: license.id,
-          dedupKey: `license:${license.id}:${license.validUntil}:${milestone}`
-        });
-        remindersDispatched += summary.sent;
+        const dedupKey = `license:${license.id}:${license.validUntil}:${milestone}`;
+        for (const recipient of recipients) {
+          /* ТЗ 11.3: копилка вместо прямой отправки — одно письмо в день на человека. */
+          this.outbox.queue(tenantId, {
+            templateKey: 'license_expiring',
+            variables: {
+              licenseNumber: license.licenseNumber,
+              issuerName: license.issuerName,
+              validUntil: license.validUntil
+            },
+            relatedEntityType: 'org.training_license',
+            relatedEntityId: license.id,
+            ...('userId' in recipient && recipient.userId ? { userId: recipient.userId } : {}),
+            digest: {
+              email: recipient.email,
+              recipientKind: recipient.kind,
+              ...(recipient.name ? { recipientName: recipient.name } : {}),
+              /* У лицензии центра нет «кого касается»: она общая, а не чья-то личная. */
+              reasonTitle: 'Срок действия лицензии центра',
+              about: `№ ${license.licenseNumber}`,
+              dueDate: license.validUntil.slice(0, 10),
+              dedupKey
+            }
+          });
+          remindersQueued += 1;
+        }
       } catch (err) {
         this.logger.error(
-          `Failed to dispatch license_expiring for license ${license.id}: ${err instanceof Error ? err.message : String(err)}`
+          `Failed to queue license_expiring for license ${license.id}: ${err instanceof Error ? err.message : String(err)}`
         );
       }
     }
 
-    return { remindersDispatched };
+    return { remindersQueued };
   }
 }

@@ -125,14 +125,15 @@ describe('reminders nightly scan (nested MvpTenantRunner → DocumentsTenantRunn
       );
 
       const drafts = new InMemoryRecertificationDraftsState();
-      const fakeDispatch = vi
-        .fn()
-        .mockImplementation((input) =>
-          Promise.resolve({ sent: input.recipients.length, skipped: 0, failed: 0 })
-        );
+      /*
+       * ТЗ 11.3: сканер кладёт поводы в копилку — письма уходят одним на человека в конце
+       * обхода. Проверяемое здесь не изменилось: сквозной проход поднимает оба хранилища и
+       * создаёт черновик.
+       */
+      const fakeQueue = vi.fn();
       const recertScanner = new RecertificationScanner(
         drafts,
-        { dispatch: fakeDispatch } as never,
+        { queue: fakeQueue } as never,
         documentsRunner,
         new ReminderSettingsService()
       );
@@ -143,7 +144,7 @@ describe('reminders nightly scan (nested MvpTenantRunner → DocumentsTenantRunn
 
       expect(summary.draftsCreated).toBe(1);
       expect((await drafts.list('t1', {})).length).toBe(1);
-      expect(fakeDispatch).toHaveBeenCalledTimes(1);
+      expect(fakeQueue).toHaveBeenCalledTimes(1);
       // Confirm both persistence backends were actually exercised (real runners ran).
       expect(fakeMvpPersistence.loadIntoState).toHaveBeenCalledWith(
         't1',

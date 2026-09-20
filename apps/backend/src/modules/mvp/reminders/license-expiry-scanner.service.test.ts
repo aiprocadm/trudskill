@@ -1,4 +1,3 @@
-import { Logger } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import { LicenseExpiryScanner } from './license-expiry-scanner.service.js';
@@ -26,57 +25,65 @@ function stateWithStaff(emails: string[] = ['admin@uc.ru']) {
   return { notificationStaffRecipients: emails.map((email) => ({ tenantId: 't1', email })) };
 }
 
-function make(opts: { dispatch?: ReturnType<typeof vi.fn>; expiring?: unknown[] } = {}) {
-  const dispatch =
-    opts.dispatch ??
-    vi
-      .fn()
-      .mockImplementation((input) =>
-        Promise.resolve({ sent: input.recipients.length, skipped: 0, failed: 0 })
-      );
+/*
+ * ТЗ 11.3: сканер больше не отправляет сам, а КЛАДЁТ повод в копилку — письма уходят одним на
+ * человека в конце обхода. Проверяемые свойства не изменились: кому, о чём и с каким ключом
+ * подавления повтора. Устойчивость отправки и подсчёт «сколько ушло на самом деле» переехали
+ * в копилку и проверяются её тестом.
+ */
+function make(opts: { expiring?: unknown[] } = {}) {
+  const queued: Array<Record<string, unknown>> = [];
+  const queue = vi.fn((_tenantId: string, item: Record<string, unknown>) => {
+    queued.push(item);
+  });
   const findActiveExpiringBefore = vi.fn().mockResolvedValue(opts.expiring ?? [license()]);
   const scanner = new LicenseExpiryScanner(
     { findActiveExpiringBefore } as never,
-    { dispatch } as never,
+    { queue } as never,
     new ReminderSettingsService()
   );
-  return { scanner, dispatch, findActiveExpiringBefore };
+  return { scanner, queue, queued, findActiveExpiringBefore };
 }
 
 describe('LicenseExpiryScanner.scanTenant', () => {
-  it('dispatches license_expiring to staff with the 90-day dedupKey and license vars', async () => {
-    const { scanner, dispatch } = make();
+  it('queues license_expiring for staff with the 90-day dedupKey and license vars', async () => {
+    const { scanner, queued } = make();
     const summary = await scanner.scanTenant('t1', ASOF, stateWithStaff() as never);
-    expect(summary.remindersDispatched).toBe(1);
-    const arg = dispatch.mock.calls[0]![0];
+    expect(summary.remindersQueued).toBe(1);
+    const arg = queued[0]! as {
+      templateKey: string;
+      variables: { licenseNumber: string; validUntil: string };
+      digest: { email: string; recipientKind: string; dedupKey: string };
+    };
     expect(arg.templateKey).toBe('license_expiring');
-    expect(arg.recipients).toEqual([{ email: 'admin@uc.ru', kind: 'admin' }]);
+    expect(arg.digest.email).toBe('admin@uc.ru');
+    expect(arg.digest.recipientKind).toBe('admin');
     expect(arg.variables.licenseNumber).toBe('L-001');
     expect(arg.variables.validUntil).toBe('2026-08-20');
-    expect(arg.dedupKey).toBe('license:lic1:2026-08-20:90');
+    expect(arg.digest.dedupKey).toBe('license:lic1:2026-08-20:90');
   });
 
   it('does nothing when no staff recipients are configured (opt-in)', async () => {
-    const { scanner, dispatch, findActiveExpiringBefore } = make();
+    const { scanner, queue, findActiveExpiringBefore } = make();
     const summary = await scanner.scanTenant('t1', ASOF, {
       notificationStaffRecipients: []
     } as never);
-    expect(summary.remindersDispatched).toBe(0);
-    expect(dispatch).not.toHaveBeenCalled();
+    expect(summary.remindersQueued).toBe(0);
+    expect(queue).not.toHaveBeenCalled();
     expect(findActiveExpiringBefore).not.toHaveBeenCalled();
   });
 
-  it('skips a license still beyond the largest milestone (no dispatch)', async () => {
-    const { scanner, dispatch } = make({ expiring: [license({ validUntil: '2026-11-01' })] });
+  it('skips a license still beyond the largest milestone (nothing queued)', async () => {
+    const { scanner, queue } = make({ expiring: [license({ validUntil: '2026-11-01' })] });
     const summary = await scanner.scanTenant('t1', ASOF, stateWithStaff() as never);
-    expect(summary.remindersDispatched).toBe(0);
-    expect(dispatch).not.toHaveBeenCalled();
+    expect(summary.remindersQueued).toBe(0);
+    expect(queue).not.toHaveBeenCalled();
   });
 
   it('uses the 7-day dedupKey for an already-expired license', async () => {
-    const { scanner, dispatch } = make({ expiring: [license({ validUntil: '2026-01-01' })] });
+    const { scanner, queued } = make({ expiring: [license({ validUntil: '2026-01-01' })] });
     await scanner.scanTenant('t1', ASOF, stateWithStaff() as never);
-    expect(dispatch.mock.calls[0]![0].dedupKey).toBe('license:lic1:2026-01-01:7');
+    expect((queued[0]!.digest as { dedupKey: string }).dedupKey).toBe('license:lic1:2026-01-01:7');
   });
 
   it('renewed license (new validUntil) re-reminds at the same milestone', async () => {
@@ -88,29 +95,13 @@ describe('LicenseExpiryScanner.scanTenant', () => {
     const termBValidUntil = '2027-08-20';
     const asOfB = '2027-05-22';
 
-    const dispatchA = vi
-      .fn()
-      .mockImplementation((input) =>
-        Promise.resolve({ sent: input.recipients.length, skipped: 0, failed: 0 })
-      );
-    const { scanner: scannerA } = make({
-      dispatch: dispatchA,
-      expiring: [license({ validUntil: termAValidUntil })]
-    });
-    await scannerA.scanTenant('t1', ASOF, stateWithStaff() as never);
-    const dedupKeyA: string = dispatchA.mock.calls[0]![0].dedupKey;
+    const a = make({ expiring: [license({ validUntil: termAValidUntil })] });
+    await a.scanner.scanTenant('t1', ASOF, stateWithStaff() as never);
+    const dedupKeyA: string = (a.queued[0]!.digest as { dedupKey: string }).dedupKey;
 
-    const dispatchB = vi
-      .fn()
-      .mockImplementation((input) =>
-        Promise.resolve({ sent: input.recipients.length, skipped: 0, failed: 0 })
-      );
-    const { scanner: scannerB } = make({
-      dispatch: dispatchB,
-      expiring: [license({ validUntil: termBValidUntil })]
-    });
-    await scannerB.scanTenant('t1', asOfB, stateWithStaff() as never);
-    const dedupKeyB: string = dispatchB.mock.calls[0]![0].dedupKey;
+    const b = make({ expiring: [license({ validUntil: termBValidUntil })] });
+    await b.scanner.scanTenant('t1', asOfB, stateWithStaff() as never);
+    const dedupKeyB: string = (b.queued[0]!.digest as { dedupKey: string }).dedupKey;
 
     // Both hits are at milestone 90, same license id — but DIFFERENT validUntil → must differ
     expect(dedupKeyA).toBe(`license:lic1:${termAValidUntil}:90`);
@@ -118,21 +109,15 @@ describe('LicenseExpiryScanner.scanTenant', () => {
     expect(dedupKeyA).not.toBe(dedupKeyB);
   });
 
-  it('tolerates a dispatch failure without throwing', async () => {
-    const dispatch = vi.fn().mockRejectedValue(new Error('smtp down'));
-    const errorSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
-    const { scanner } = make({ dispatch });
+  it('сводка сканера считает поводы, а не письма (ТЗ 11.3)', async () => {
+    /*
+     * Прежде здесь проверялись две вещи про ОТПРАВКУ: отказ почтовика не роняет обход и
+     * подавленный повтор не завышает счётчик. Обе переехали в копилку вместе с самой
+     * отправкой и проверяются её тестом. За сканером осталось своё: он считает то, что
+     * положил, и не теряет ни одного повода.
+     */
+    const { scanner, queued } = make();
     const summary = await scanner.scanTenant('t1', ASOF, stateWithStaff() as never);
-    expect(summary.remindersDispatched).toBe(0);
-    errorSpy.mockRestore();
-  });
-
-  it('a fully-deduped re-dispatch does not overcount (audit tail regression)', async () => {
-    // Simulate the dispatcher returning sent:0 when all recipients were already delivered.
-    const dispatch = vi.fn().mockResolvedValue({ sent: 0, skipped: 1, failed: 0 });
-    const { scanner } = make({ dispatch });
-    const summary = await scanner.scanTenant('t1', ASOF, stateWithStaff() as never);
-    // Despite having 1 recipient in the roster, the counter must reflect actual sends (0).
-    expect(summary.remindersDispatched).toBe(0);
+    expect(summary.remindersQueued).toBe(queued.length);
   });
 });

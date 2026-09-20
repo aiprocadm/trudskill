@@ -14,10 +14,12 @@ function make(opts: { locked?: boolean; tenantIds?: string[] } = {}) {
   const recertScanner = {
     scanTenant: vi.fn().mockResolvedValue({ draftsCreated: 0, emailsDispatched: 0 })
   };
-  const deadlineScanner = { scanTenant: vi.fn().mockResolvedValue({ remindersDispatched: 0 }) };
-  const licenseScanner = { scanTenant: vi.fn().mockResolvedValue({ remindersDispatched: 0 }) };
+  const deadlineScanner = { scanTenant: vi.fn().mockResolvedValue({ remindersQueued: 0 }) };
+  const licenseScanner = { scanTenant: vi.fn().mockResolvedValue({ remindersQueued: 0 }) };
   /* ТЗ 11.3 + 10.4: сканер повторной проверки знаний — четвёртый в ночном обходе. */
-  const retestScanner = { scanTenant: vi.fn().mockResolvedValue({ remindersDispatched: 0 }) };
+  const retestScanner = { scanTenant: vi.fn().mockResolvedValue({ remindersQueued: 0 }) };
+  /* ТЗ 11.3: копилка — письма уходят одним на человека ПОСЛЕ всех сканеров. */
+  const outbox = { flush: vi.fn().mockResolvedValue({ lettersSent: 0, reasonsCovered: 0 }) };
   const mvpRunner = {
     runWithTenantState: async (_t: string, fn: (state: unknown) => Promise<unknown>) => fn({})
   };
@@ -32,15 +34,32 @@ function make(opts: { locked?: boolean; tenantIds?: string[] } = {}) {
     deadlineScanner as never,
     licenseScanner as never,
     retestScanner as never,
+    outbox as never,
     db as never
   );
-  return { service, recertScanner, deadlineScanner, licenseScanner, retestScanner, tenants, db };
+  return {
+    service,
+    recertScanner,
+    deadlineScanner,
+    licenseScanner,
+    retestScanner,
+    outbox,
+    tenants,
+    db
+  };
 }
 
 describe('RemindersSchedulerService.runScanAllTenants', () => {
   it('runs all scanners once per active tenant when the lock is acquired', async () => {
-    const { service, recertScanner, deadlineScanner, licenseScanner, retestScanner, tenants } =
-      make();
+    const {
+      service,
+      recertScanner,
+      deadlineScanner,
+      licenseScanner,
+      retestScanner,
+      outbox,
+      tenants
+    } = make();
     await service.runScanAllTenants('2026-06-05');
     expect(tenants.listActiveTenantIds).toHaveBeenCalledTimes(1);
     expect(recertScanner.scanTenant).toHaveBeenCalledTimes(2);
@@ -52,6 +71,11 @@ describe('RemindersSchedulerService.runScanAllTenants', () => {
      * так и вышло с самими порогами, которые лежали в настройках, пока сканера не было.
      */
     expect(retestScanner.scanTenant).toHaveBeenCalledTimes(2);
+    /*
+     * ТЗ 11.3: письма уходят ПОСЛЕ сканеров, по одному на человека. Без этой проверки копилка
+     * могла бы наполняться и никогда не опустошаться — люди не получали бы ничего вовсе.
+     */
+    expect(outbox.flush).toHaveBeenCalledTimes(2);
   });
 
   it('skips scanning entirely when the advisory lock is held by another instance', async () => {

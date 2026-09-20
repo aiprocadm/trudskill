@@ -1,4 +1,3 @@
-import { Logger } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import { InMemoryRecertificationDraftsState } from './in-memory-recertification-drafts.state.js';
@@ -40,15 +39,17 @@ function state() {
   };
 }
 
-function make(over: { dispatch?: ReturnType<typeof vi.fn>; docs?: unknown[] } = {}) {
+/*
+ * ТЗ 11.3: сканер больше не отправляет сам, а КЛАДЁТ повод в копилку — письма уходят одним на
+ * человека в конце обхода. Проверяемые свойства не изменились: черновик создан, кому и с каким
+ * ключом подавления повтора. Устойчивость отправки переехала в копилку и проверяется её тестом.
+ */
+function make(over: { docs?: unknown[] } = {}) {
   const drafts = new InMemoryRecertificationDraftsState();
-  const dispatch =
-    over.dispatch ??
-    vi
-      .fn()
-      .mockImplementation((input) =>
-        Promise.resolve({ sent: input.recipients.length, skipped: 0, failed: 0 })
-      );
+  const queued: Array<Record<string, unknown>> = [];
+  const queue = vi.fn((_tenantId: string, item: Record<string, unknown>) => {
+    queued.push(item);
+  });
   const documentsRunner = {
     runWithTenantDocuments: async (
       _tenantId: string,
@@ -57,11 +58,11 @@ function make(over: { dispatch?: ReturnType<typeof vi.fn>; docs?: unknown[] } = 
   };
   const scanner = new RecertificationScanner(
     drafts,
-    { dispatch } as never,
+    { queue } as never,
     documentsRunner as never,
     new ReminderSettingsService()
   );
-  return { scanner, drafts, dispatch };
+  return { scanner, drafts, queue, queued };
 }
 
 describe('scanForRecertification (pure)', () => {
@@ -83,67 +84,78 @@ describe('scanForRecertification (pure)', () => {
 
 describe('RecertificationScanner.scanTenant', () => {
   it('creates a draft and dispatches a recertification_due email with the 60-day dedupKey', async () => {
-    const { scanner, drafts, dispatch } = make();
+    const { scanner, drafts, queue, queued } = make();
     const summary = await scanner.scanTenant('t1', ASOF, state() as never);
     expect(summary.draftsCreated).toBe(1);
     expect((await drafts.list('t1', {})).length).toBe(1);
-    expect(dispatch).toHaveBeenCalledTimes(1);
-    const arg = dispatch.mock.calls[0]![0];
+    expect(queue).toHaveBeenCalledTimes(1);
+    const arg = queued[0]! as {
+      templateKey: string;
+      variables: { courseTitle: string };
+      digest: { email: string; dedupKey: string };
+    };
     expect(arg.templateKey).toBe('recertification_due');
-    expect(arg.recipients[0].email).toBe('ivan@example.com');
+    expect(arg.digest.email).toBe('ivan@example.com');
     expect(arg.variables.courseTitle).toBe('Охрана труда');
-    expect(arg.dedupKey).toMatch(/^recert:.+:60$/);
+    expect(arg.digest.dedupKey).toMatch(/^recert:.+:60$/);
   });
 
-  it('re-uses the existing draft on a second scan (no new draft) and still dispatches (dispatcher dedups)', async () => {
-    const { scanner, drafts, dispatch } = make();
+  it('re-uses the existing draft on a second scan (no new draft) and still queues (dispatcher dedups)', async () => {
+    const { scanner, drafts, queued } = make();
     await scanner.scanTenant('t1', ASOF, state() as never);
     const summary = await scanner.scanTenant('t1', ASOF, state() as never);
     expect(summary.draftsCreated).toBe(0);
     expect((await drafts.list('t1', {})).length).toBe(1);
-    expect(dispatch.mock.calls.every((c) => /^recert:.+:60$/.test(c[0].dedupKey))).toBe(true);
+    expect(
+      queued.every((item) => /^recert:.+:60$/.test((item.digest as { dedupKey: string }).dedupKey))
+    ).toBe(true);
   });
 
   it('uses the 7-day dedupKey for an already-expired document', async () => {
-    const { scanner, dispatch } = make({ docs: [doc({ validUntil: '2026-01-01' })] });
+    const { scanner, queued } = make({ docs: [doc({ validUntil: '2026-01-01' })] });
     await scanner.scanTenant('t1', ASOF, state() as never);
-    expect(dispatch.mock.calls[0]![0].dedupKey).toMatch(/^recert:.+:7$/);
+    expect((queued[0]!.digest as { dedupKey: string }).dedupKey).toMatch(/^recert:.+:7$/);
   });
 
-  it('tolerates a dispatch failure — draft still created, scan does not throw', async () => {
-    const dispatch = vi.fn().mockRejectedValue(new Error('smtp down'));
-    const errorSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
-    const { scanner, drafts } = make({ dispatch });
+  it('черновик переаттестации создаётся независимо от писем (ТЗ 11.3)', async () => {
+    /*
+     * Прежде здесь проверялось, что отказ почтовика не мешает создать черновик. С переходом
+     * на копилку сканер не отправляет вовсе — устойчивость отправки переехала в копилку и
+     * проверяется её тестом. Самое важное здесь осталось: ЧЕРНОВИК создаётся, и это не
+     * зависит от судьбы письма. Черновик — рабочая запись центра, письмо — лишь извещение.
+     */
+    const { scanner, drafts, queued } = make();
     const summary = await scanner.scanTenant('t1', ASOF, state() as never);
     expect(summary.draftsCreated).toBe(1);
-    expect(summary.emailsDispatched).toBe(0);
     expect((await drafts.list('t1', {})).length).toBe(1);
-    errorSpy.mockRestore();
+    expect(summary.emailsDispatched).toBe(queued.length);
   });
 
   it('includes configured staff recipients (admin-kind) alongside the learner', async () => {
-    const { scanner, dispatch } = make();
+    const { scanner, queued } = make();
     const withStaff = {
       ...state(),
       notificationStaffRecipients: [{ tenantId: 't1', email: 'admin@uc.ru' }]
     };
     const summary = await scanner.scanTenant('t1', ASOF, withStaff as never);
-    const arg = dispatch.mock.calls[0]![0];
-    const emails = arg.recipients.map((r: { email: string }) => r.email);
+    const digests = queued.map((item) => item.digest as { email: string; recipientKind: string });
+    const emails = digests.map((one) => one.email);
     expect(emails).toContain('ivan@example.com');
     expect(emails).toContain('admin@uc.ru');
-    expect(arg.recipients.find((r: { email: string }) => r.email === 'admin@uc.ru').kind).toBe(
-      'admin'
-    );
+    expect(digests.find((one) => one.email === 'admin@uc.ru')!.recipientKind).toBe('admin');
     expect(summary.emailsDispatched).toBe(2);
   });
 
   it('progresses through the 60 → 30 → 7 dedupKeys as the deadline approaches', async () => {
-    const { scanner, dispatch } = make(); // default doc validUntil = '2026-08-01'
+    const { scanner, queued } = make(); // default doc validUntil = '2026-08-01'
     await scanner.scanTenant('t1', '2026-06-05', state() as never); // 57 days out → 90
     await scanner.scanTenant('t1', '2026-07-10', state() as never); // 22 days out → 30
     await scanner.scanTenant('t1', '2026-07-28', state() as never); // 4 days out  → 7
-    const milestones = dispatch.mock.calls.map((c) => String(c[0].dedupKey).split(':').pop());
+    const milestones = queued.map((item) =>
+      String((item.digest as { dedupKey: string }).dedupKey)
+        .split(':')
+        .pop()
+    );
     expect(milestones).toEqual(['60', '30', '7']);
   });
 });

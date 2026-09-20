@@ -31,17 +31,25 @@ const makeState = (): InMemoryMvpState =>
     notificationStaffRecipients: []
   }) as unknown as InMemoryMvpState;
 
+/*
+ * ТЗ 11.3: сканер больше не отправляет сам, а КЛАДЁТ повод в копилку — письма уходят одним на
+ * человека в конце обхода. Проверяемые свойства от этого не изменились: кому, по какому поводу
+ * и с каким ключом подавления повтора. Изменилось только то, КУДА это кладётся.
+ */
 const makeScanner = (
   tasks: Array<Record<string, unknown>>,
   milestones: readonly number[] = [3, 7, 14]
 ) => {
-  const dispatch = vi.fn().mockResolvedValue({ sent: 1 });
+  const queued: Array<Record<string, unknown>> = [];
+  const queue = vi.fn((_tenantId: string, item: Record<string, unknown>) => {
+    queued.push(item);
+  });
   const scanner = new KnowledgeRetestScanner(
-    { dispatch } as never,
+    { queue } as never,
     { milestones: vi.fn().mockResolvedValue(milestones) } as never,
     { retakes: vi.fn().mockResolvedValue(tasks) } as never
   );
-  return { scanner, dispatch };
+  return { scanner, queue, queued };
 };
 
 const task = (over: Record<string, unknown> = {}) => ({
@@ -57,11 +65,11 @@ const task = (over: Record<string, unknown> = {}) => ({
 });
 
 describe('напоминание о повторной проверке уходит (ТЗ 11.3 + 10.4)', () => {
-  it('за 7 дней до срока письмо отправляется', async () => {
-    const { scanner, dispatch } = makeScanner([task()]);
+  it('за 7 дней до срока повод попадает в копилку', async () => {
+    const { scanner, queue } = makeScanner([task()]);
     const summary = await scanner.scanTenant(T, '2026-09-24', makeState());
-    expect(summary.remindersDispatched).toBe(1);
-    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(summary.remindersQueued).toBe(1);
+    expect(queue).toHaveBeenCalledTimes(1);
   });
 
   it('до самого дальнего порога письма нет', async () => {
@@ -70,9 +78,9 @@ describe('напоминание о повторной проверке уход
      * до срока это ещё порог «за 14» — письмо уходит, и это верно. А за два месяца до срока
      * не уходит ничего: иначе напоминание превращается в фоновый шум и его перестают читать.
      */
-    const { scanner, dispatch } = makeScanner([task()]);
+    const { scanner, queue } = makeScanner([task()]);
     await scanner.scanTenant(T, '2026-08-01', makeState());
-    expect(dispatch).not.toHaveBeenCalled();
+    expect(queue).not.toHaveBeenCalled();
   });
 
   it('письмо уходит слушателю, а копия — сотрудникам центра', async () => {
@@ -85,19 +93,19 @@ describe('напоминание о повторной проверке уход
     (state as unknown as { notificationStaffRecipients: unknown[] }).notificationStaffRecipients = [
       { tenantId: T, email: 'admin@example.ru', kind: 'admin' }
     ];
-    const { scanner, dispatch } = makeScanner([task()]);
+    const { scanner, queued } = makeScanner([task()]);
     await scanner.scanTenant(T, '2026-09-24', state);
-    const recipients = dispatch.mock.calls[0]![0].recipients as Array<{ kind: string }>;
-    expect(recipients.map((r) => r.kind)).toContain('learner');
-    expect(recipients.map((r) => r.kind)).toContain('admin');
+    const kinds = queued.map((item) => (item.digest as { recipientKind: string }).recipientKind);
+    expect(kinds).toContain('learner');
+    expect(kinds).toContain('admin');
   });
 
   it('без почты и без сотрудников письма нет, но и падения нет', async () => {
-    const { scanner, dispatch } = makeScanner([task({ learnerId: 'l2' })]);
+    const { scanner, queue } = makeScanner([task({ learnerId: 'l2' })]);
     await expect(scanner.scanTenant(T, '2026-09-24', makeState())).resolves.toEqual({
-      remindersDispatched: 0
+      remindersQueued: 0
     });
-    expect(dispatch).not.toHaveBeenCalled();
+    expect(queue).not.toHaveBeenCalled();
   });
 
   it('в ключе повтора есть дата срока — перенос проверки будит напоминание заново', async () => {
@@ -106,9 +114,9 @@ describe('напоминание о повторной проверке уход
      * перенёс проверку, а человек об этом не узнал. Та же грабля, что чинили у сроков
      * обучения и лицензий (§5.150).
      */
-    const { scanner, dispatch } = makeScanner([task()]);
+    const { scanner, queued } = makeScanner([task()]);
     await scanner.scanTenant(T, '2026-09-24', makeState());
-    expect(dispatch.mock.calls[0]![0].dedupKey).toBe('retest:l1:t1:2026-10-01:7');
+    expect((queued[0]!.digest as { dedupKey: string }).dedupKey).toBe('retest:l1:t1:2026-10-01:7');
   });
 
   it('пороги берутся из настроек центра, а не из кода', async () => {
@@ -119,11 +127,11 @@ describe('напоминание о повторной проверке уход
      */
     const narrow = makeScanner([task()], [3]);
     await narrow.scanner.scanTenant(T, '2026-09-24', makeState());
-    expect(narrow.dispatch).not.toHaveBeenCalled();
+    expect(narrow.queue).not.toHaveBeenCalled();
 
     const wide = makeScanner([task()], [7]);
     await wide.scanner.scanTenant(T, '2026-09-24', makeState());
-    expect(wide.dispatch).toHaveBeenCalledTimes(1);
+    expect(wide.queue).toHaveBeenCalledTimes(1);
   });
 
   it('срок берётся у службы итогов, а не считается заново', async () => {
@@ -132,27 +140,22 @@ describe('напоминание о повторной проверке уход
      * списка центра. Второй расчёт разошёлся бы с первым молча: письмо говорило бы одну
      * дату, экран — другую.
      */
-    const { scanner, dispatch } = makeScanner([task({ dueAt: '2026-10-01T00:00:00.000Z' })]);
+    const { scanner, queued } = makeScanner([task({ dueAt: '2026-10-01T00:00:00.000Z' })]);
     await scanner.scanTenant(T, '2026-09-24', makeState());
-    expect(dispatch.mock.calls[0]![0].variables.dueDate).toBe('2026-10-01');
+    expect((queued[0]!.variables as { dueDate: string }).dueDate).toBe('2026-10-01');
   });
 
-  it('отказ отправки одному не отменяет остальных', async () => {
-    /* Частичный успех: одна плохая строка не должна ронять весь ночной обход. */
-    const dispatch = vi
-      .fn()
-      .mockRejectedValueOnce(new Error('smtp down'))
-      .mockResolvedValue({ sent: 1 });
-    const scanner = new KnowledgeRetestScanner(
-      { dispatch } as never,
-      { milestones: vi.fn().mockResolvedValue([7]) } as never,
-      {
-        retakes: vi.fn().mockResolvedValue([task(), task({ testId: 't2' })])
-      } as never
-    );
+  it('оба повода попадают в копилку, а не теряются по дороге', async () => {
+    /*
+     * Прежде здесь проверялся частичный успех отправки: один отказ почтовика не отменял
+     * остальных. С переходом на копилку (ТЗ 11.3) сканер не отправляет вовсе, и проверять
+     * ему нечего — устойчивость отправки переехала в саму копилку и проверяется её тестом.
+     * Здесь остаётся то, за что отвечает сканер: он не теряет поводы.
+     */
+    const { scanner, queued } = makeScanner([task(), task({ testId: 't2' })], [7]);
     const summary = await scanner.scanTenant(T, '2026-09-24', makeState());
-    expect(summary.remindersDispatched).toBe(1);
-    expect(dispatch).toHaveBeenCalledTimes(2);
+    expect(summary.remindersQueued).toBe(2);
+    expect(queued).toHaveLength(2);
   });
 });
 

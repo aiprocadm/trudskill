@@ -4,6 +4,7 @@ export type EmailTemplateKey =
   | 'recertification_due'
   | 'course_deadline'
   | 'knowledge_retest'
+  | 'reminder_digest'
   | 'document_revoked'
   | 'license_expiring'
   | 'pre_exam_auth'
@@ -68,6 +69,18 @@ export const EMAIL_TEMPLATE_DEFAULTS: Record<EmailTemplateKey, EmailTemplateBody
       'Открыть проверку можно в личном кабинете. Если у вас есть вопросы или нужна другая ' +
       'дата — напишите в учебный центр.\n\n' +
       'С уважением, {{tenantName}}.'
+  },
+  /*
+   * ТЗ 11.3: одно письмо в день на человека, несколько поводов в одном (журнал 601).
+   *
+   * Тело собирается службой копилки: список сроков зависит от того, что накопилось за ночь, и
+   * записать его шаблоном нельзя. Шаблон здесь — оболочка с подписью центра, чтобы письмо не
+   * выпадало из общего ряда и участвовало в переопределении шаблонов центром наравне с
+   * остальными.
+   */
+  reminder_digest: {
+    subject: 'Напоминания об учебных сроках',
+    body: '{{lines}}'
   },
   document_revoked: {
     subject: 'Документ по программе «{{courseTitle}}» аннулирован',
