@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ProgressBar } from '@trudskill/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { courseCompletionPercent, formatPercent } from './completion';
 import {
   buildProgressMap,
   useCourseTree,
@@ -139,7 +140,13 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
     for (const p of progressByMaterial.values()) if (p.status === 'completed') n += 1;
     return n;
   }, [progressByMaterial]);
-  const completionPercent = totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
+  /*
+   * Доля пройденного считается ТЕМ ЖЕ правилом, что на сервере (журнал 604). Прежний расчёт
+   * расходился с ним дважды: у курса без материалов давал 0 вместо 100, а округление до
+   * целого превращало 79,6% в «80%» — человек видел пороговое число и не понимал, почему его
+   * не допускают.
+   */
+  const completionPercent = courseCompletionPercent(completedCount, totalCount);
 
   const handleFlush = useCallback(
     (studiedSeconds: number) => {
@@ -235,7 +242,7 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
           <ProgressBar
             value={completionPercent}
             label="Общий прогресс по курсу"
-            caption={`Пройдено ${completedCount} из ${totalCount} материалов — ${completionPercent}%`}
+            caption={`Пройдено ${completedCount} из ${totalCount} материалов — ${formatPercent(completionPercent)}`}
           />
         </div>
       ) : null}
