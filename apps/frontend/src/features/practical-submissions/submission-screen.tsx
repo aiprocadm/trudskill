@@ -24,6 +24,7 @@ import {
   SectionCard,
   SectionError
 } from '../../components/state-wrappers';
+import { useUnsavedForm } from '../../components/use-unsaved-form';
 import { SUBMISSION_ACCEPT, UPLOAD_MAX_SIZE_MB } from '../../lib/files/limits';
 import { useObjectCrumb } from '../navigation/use-object-crumb';
 
@@ -48,6 +49,28 @@ export function SubmissionScreen({ assignmentId }: { assignmentId: string }) {
    * осталась бы заблокированной навсегда.
    */
   const [draftHydrated, setDraftHydrated] = useState(false);
+  /*
+   * Ошибка вложения. Объявление стоит здесь, а не ниже по тексту, где оно нужно: ниже идут
+   * ранние возвраты («идёт загрузка», «задание недоступно»), и хук, объявленный после них,
+   * вызывается не в каждой отрисовке. React считает хуки по порядку, поэтому в переходе
+   * «грузится → загрузилось» их число менялось, и экран падал целиком — вместе с набранным
+   * ответом слушателя. Поймано правилом `react-hooks/rules-of-hooks`, включённым в этой же
+   * задаче (журнал 592).
+   */
+  const [fileError, setFileError] = useState<string | null>(null);
+
+  /*
+   * Защита от потери набранного (ТЗ 10.3). Здесь она нужна больше, чем где-либо: это работа
+   * слушателя, которую он писал сам, и второй раз он её не напишет. Исходное — подставленный
+   * с сервера ответ; пока подстановка не случилась, форма считается нетронутой.
+   */
+  const unsavedGuard = useUnsavedForm(
+    { answerText },
+    {
+      saving: createSubmission.isPending || updateSubmission.isPending,
+      baselineKey: draftHydrated ? 'ready' : 'loading'
+    }
+  );
 
   // Resolve the active submission id before the early returns so the data hook is called
   // unconditionally (rules of hooks). The full DTO carries the file's antivirus status (V1.1).
@@ -82,7 +105,6 @@ export function SubmissionScreen({ assignmentId }: { assignmentId: string }) {
 
   const editable = isSubmissionEditable(summary.status);
   const submitBlocked = submitBlockedReason(summary.status);
-  const [fileError, setFileError] = useState<string | null>(null);
 
   const ensureSubmission = async (): Promise<string | null> => {
     if (activeSubmissionId) return activeSubmissionId;
@@ -120,6 +142,7 @@ export function SubmissionScreen({ assignmentId }: { assignmentId: string }) {
 
   return (
     <PageContainer>
+      {unsavedGuard}
       <PageHeader
         title={summary.title}
         subtitle={`Статус: ${formatSubmissionStatus(summary.status)}`}

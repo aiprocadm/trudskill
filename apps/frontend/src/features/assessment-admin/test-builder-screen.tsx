@@ -21,6 +21,7 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import { useUnsavedForm } from '../../components/use-unsaved-form';
 import { useCourseNames } from '../courses/course-picker';
 import { useObjectCrumb } from '../navigation/use-object-crumb';
 
@@ -66,6 +67,21 @@ export function TestBuilderScreen({ testId }: Props) {
     setHydrated(true);
   }
 
+  /*
+   * Защита от потери правок (ТЗ 10.3): исходное — то, чем форму наполнил сервер.
+   *
+   * Вызов стоит ДО первого раннего возврата намеренно: ниже экран уходит в «Загрузка теста…»,
+   * и хук, объявленный после, при переходе «грузится → загрузилось» менял бы число хуков —
+   * React падает с потерей всего набранного.
+   */
+  const unsavedGuard = useUnsavedForm(
+    { title, description, ruleForm },
+    {
+      saving: updateTest.isPending || upsertRule.isPending,
+      baselineKey: hydrated ? 'ready' : 'loading'
+    }
+  );
+
   if (test.isLoading) return <LoadingState message="Загрузка теста…" />;
   if (test.error || !test.data) {
     return (
@@ -80,14 +96,23 @@ export function TestBuilderScreen({ testId }: Props) {
   const isPublished = t.status === 'published';
   const isArchived = t.isArchived;
 
+  /*
+   * После сохранения форма перечитывается с сервера: `setHydrated(false)` заставляет блок выше
+   * наполнить её заново. Без этого защита от потери правок (ТЗ 10.3) продолжала бы считать
+   * форму изменённой — она сравнивала бы её с тем, что было ДО сохранения, и спрашивала «уйти
+   * без сохранения?» у человека, который только что сохранил. Ответ сервера приходится
+   * дожидаться: иначе форма на миг вернётся к досохранённому виду.
+   */
   const saveMeta = async () => {
     await updateTest.mutate(testId, { title: title.trim(), description: description.trim() });
-    void test.refetch();
+    await test.refetch();
+    setHydrated(false);
   };
 
   const saveRule = async () => {
     await upsertRule.mutate(testId, ruleForm);
-    void test.refetch();
+    await test.refetch();
+    setHydrated(false);
   };
 
   const onPublish = async () => {
@@ -107,6 +132,7 @@ export function TestBuilderScreen({ testId }: Props) {
 
   return (
     <PageContainer>
+      {unsavedGuard}
       <PageHeader
         title={t.title}
         subtitle={

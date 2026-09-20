@@ -11,6 +11,7 @@ import {
   SectionCard,
   SectionError
 } from '../../components/state-wrappers';
+import { useUnsavedForm } from '../../components/use-unsaved-form';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 import { useTenantBranding } from '../branding/context';
@@ -227,6 +228,15 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
   };
 
   /*
+   * Защита от потери правок (ТЗ 10.3). Исходное — роли, которые вернул сервер: галочки
+   * наполняются из них отдельным эффектом, поэтому «первое увиденное» тут не годится.
+   */
+  const unsavedGuard = useUnsavedForm(
+    { selected },
+    { initial: { selected: userRoles?.map((role) => role.code) ?? selected } }
+  );
+
+  /*
    * Записи нет — говорим это прямо. Прежде открывалась карточка-призрак: заголовок на месте,
    * разделы пустые, кнопки действий рабочие, а под ними строка ошибки, которую человек
    * принимает за временный сбой.
@@ -239,6 +249,7 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
 
   return (
     <PageContainer>
+      {unsavedGuard}
       {/* TPL-002: заголовок карточки — имя объекта, как и последняя крошка (ТЗ 3.5/4.3). */}
       <PageHeader title={user?.displayName ?? 'Пользователь'} />
       {loading ? <LoadingState message="Загрузка…" /> : null}

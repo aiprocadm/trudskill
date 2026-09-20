@@ -12,6 +12,7 @@ import {
   useTemplateVersions
 } from './hooks';
 import { SectionEmpty } from '../../components/state-wrappers';
+import { useUnsavedForm } from '../../components/use-unsaved-form';
 import { useAuth } from '../auth/context';
 import { useCoursesList, useDirectionsList, useGroupsList } from '../mvp/hooks';
 import {
@@ -182,8 +183,18 @@ export const TemplateSetupSection = ({
         ? (courses.data?.items ?? []).map((c) => ({ id: c.id, label: c.title }))
         : (directions.data?.items ?? []).map((d) => ({ id: d.id, label: d.name }));
 
+  /*
+   * Защита от потери набранного при уходе со страницы (ТЗ 10.3). Шаблон документа назван в ТЗ
+   * прямо: настраивают его подолгу и по частям.
+   */
+  const unsavedGuard = useUnsavedForm(
+    { varCode, varDisplayName, varCategory, bindType, bindTargetId, blank: blankFile?.name ?? '' },
+    { saving: uploading }
+  );
+
   return (
     <div className="ui-stack">
+      {unsavedGuard}
       <p className="ui-hint">
         Загрузите бланк в формате <code>.docx</code> — система создаст новую версию, сделает её
         действующей и покажет, какие метки в бланке распознаны. «Пример PDF» заполнит бланк

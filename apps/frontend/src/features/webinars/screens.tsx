@@ -12,6 +12,7 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import { useUnsavedForm } from '../../components/use-unsaved-form';
 import { useAuth } from '../auth/context';
 import { providerLabels, providerNameRu } from '../texts/providers.ru';
 
@@ -25,8 +26,12 @@ export function WebinarsAdminScreen() {
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
 
+  /* Защита от потери набранного при уходе со страницы (ТЗ 10.3). */
+  const unsavedGuard = useUnsavedForm({ title, start, end });
+
   return (
     <PageContainer>
+      {unsavedGuard}
       <PageHeader title="Вебинары" subtitle="Создание, участники, посещаемость" />
       <SectionCard title="Создать вебинар">
         <div className="ui-inline">

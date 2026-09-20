@@ -23,6 +23,7 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import { useUnsavedForm } from '../../components/use-unsaved-form';
 import { apiRequest } from '../../lib/api/client';
 import { formatDate } from '../mvp/screen-helpers';
 
@@ -121,8 +122,16 @@ export const IntegrationSettingsScreen = () => {
     }
   };
 
+  /*
+   * Защита от потери набранного при уходе со страницы (ТЗ 10.3). Здесь она нужнее всего:
+   * общий ключ подключения набирают вручную из чужой панели, и второй раз его достают долго.
+   * Порядок сортировки в список полей не входит — это не работа человека, а способ смотреть.
+   */
+  const unsavedGuard = useUnsavedForm({ providerId, name, secret });
+
   return (
     <PageContainer>
+      {unsavedGuard}
       <PageHeader
         title="Интеграции"
         subtitle="Внешние системы, с которыми центр обменивается данными: подключения и состояние связи"

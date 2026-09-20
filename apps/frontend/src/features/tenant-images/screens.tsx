@@ -12,6 +12,7 @@ import {
   tenantImagesApi
 } from './api';
 import { SectionCard, SectionError } from '../../components/state-wrappers';
+import { useUnsavedForm } from '../../components/use-unsaved-form';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 
@@ -141,8 +142,12 @@ export function TenantImagesSection() {
       'Не удалось убрать картинку'
     );
 
+  /* Защита от потери набранного при уходе со страницы (ТЗ 10.3). */
+  const unsavedGuard = useUnsavedForm({ widths }, { saving: busySlot !== null });
+
   return (
     <SectionCard title="Подпись и печать">
+      {unsavedGuard}
       <p className="ui-text-muted">
         Загруженные картинки подставляются в бланк по тегу — их не нужно вставлять в файл руками.
         Юридически это факсимиле: усиленная подпись выдаётся отдельно, через электронную подпись.

@@ -12,6 +12,7 @@ import {
   saveSmsProviderSettings
 } from './api';
 import { SectionCard, SectionError } from '../../components/state-wrappers';
+import { useUnsavedForm } from '../../components/use-unsaved-form';
 import { useAuth } from '../auth/context';
 
 /**
@@ -61,6 +62,16 @@ export function SmsProviderSettingsSection() {
     };
   }, [allowed]);
 
+  /*
+   * Защита от потери несохранённых правок (ТЗ 10.3). Исходное запоминается заново, когда
+   * приходят настройки с сервера и когда их сохранили: иначе приход данных сам выглядел бы
+   * как правка человека.
+   */
+  const unsavedGuard = useUnsavedForm(
+    { code, senderName, enabled },
+    { saving, baselineKey: JSON.stringify(settings) }
+  );
+
   if (!allowed) return null;
 
   const save = async () => {
@@ -82,6 +93,7 @@ export function SmsProviderSettingsSection() {
 
   return (
     <SectionCard title="Оповещения по СМС">
+      {unsavedGuard}
       {error ? <SectionError message={error} /> : null}
       {loading ? (
         <LoadingState />

@@ -10,6 +10,7 @@ import {
   SectionCard,
   SectionError
 } from '../../components/state-wrappers';
+import { useUnsavedForm } from '../../components/use-unsaved-form';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -36,6 +37,16 @@ export function NotificationRecipientsSection(): ReactElement {
     setEmails((prev) => (prev.length <= 1 ? [''] : prev.filter((_, i) => i !== index)));
   const addRow = () => setEmails((prev) => [...prev, '']);
 
+  /*
+   * Защита от потери правок (ТЗ 10.3). Исходное — то, что вернул сервер; пока он не ответил,
+   * исходным считается текущее, иначе наполнение списка выглядело бы как работа человека.
+   */
+  const savedEmails = data ? (data.length > 0 ? data : ['']) : emails;
+  const unsavedGuard = useUnsavedForm(
+    { emails },
+    { saving: savePending, initial: { emails: savedEmails } }
+  );
+
   const cleaned = emails.map((e) => e.trim()).filter(Boolean);
   const hasInvalid = cleaned.some((e) => !EMAIL_RE.test(e));
 
@@ -57,6 +68,7 @@ export function NotificationRecipientsSection(): ReactElement {
 
   return (
     <SectionCard title="Уведомления сотрудникам">
+      {unsavedGuard}
       <p className="ui-text-muted">
         Адреса, на которые дублируются письма о переаттестации, приближении срока и отзыве документа
         (помимо слушателя и заказчика). Пустой список — копии выключены.

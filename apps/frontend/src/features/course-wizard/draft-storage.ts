@@ -1,4 +1,5 @@
 import { type CourseWizardDraft, emptyDraft } from './wizard-state';
+import { clearDraftIn, readDraftFrom, writeDraftTo } from '../../lib/forms/local-draft';
 
 /**
  * Черновик мастера между шагами и между заходами (ФТ-E1, Фаза 2 Task 11b).
@@ -7,10 +8,19 @@ import { type CourseWizardDraft, emptyDraft } from './wizard-state';
  * список модулей — согласовать. Потерять введённое из-за закрытой вкладки недопустимо,
  * поэтому черновик пишется в `localStorage` на каждое изменение.
  *
- * Ключ версионированный: при смене формы черновика старый просто перестаёт читаться,
- * а не ломает мастер «наполовину знакомыми» полями.
+ * **ТЗ 10.3 (журнал 591): черновик ПРЕДЛАГАЕТСЯ, а не подставляется молча.** Раньше человек
+ * открывал «Создание курса» и видел наполовину заполненную форму, не понимая, откуда она:
+ * его это работа или чужая, вчерашняя или месячной давности. Дальше два исхода, и оба плохие
+ * — он затирает нужное или создаёт второй такой же курс. Отметка времени и есть ответ на
+ * «моё ли это»: человек помнит, когда он тут был.
+ *
+ * Ключ версионированный: при смене формы хранения старый просто перестаёт читаться,
+ * а не ломает мастер «наполовину знакомыми» полями. `v3` — переход на запись с отметкой
+ * времени; записи `v2` без отметки предложить нельзя (не на что опереться в ответе), поэтому
+ * они не читаются и стираются при первом же открытии, чтобы не лежать вечно.
  */
-export const COURSE_WIZARD_DRAFT_KEY = 'lms.course.wizard.draft.v2';
+export const COURSE_WIZARD_DRAFT_KEY = 'lms.course.wizard.draft.v3';
+const LEGACY_DRAFT_KEY = 'lms.course.wizard.draft.v2';
 
 /**
  * Разбор сохранённого черновика. Любой сбой — пустой черновик, а не исключение:
@@ -87,24 +97,36 @@ function normalizeMaterial(
 }
 
 /** Запись черновика; сбой хранилища (приватный режим, переполнение) не ломает мастер. */
-export function saveDraft(draft: CourseWizardDraft, storage?: Storage): void {
-  const store = storage ?? safeStorage();
-  if (!store) return;
-  try {
-    store.setItem(COURSE_WIZARD_DRAFT_KEY, JSON.stringify(draft));
-  } catch {
-    /* приватный режим или переполнение — молча продолжаем */
-  }
+export function saveDraft(draft: CourseWizardDraft, storage?: Storage, now?: Date): void {
+  writeDraftTo(
+    storage ?? safeStorage() ?? undefined,
+    COURSE_WIZARD_DRAFT_KEY,
+    draft,
+    now ?? new Date()
+  );
 }
 
-export function loadDraft(storage?: Storage): CourseWizardDraft {
-  const store = storage ?? safeStorage();
-  if (!store) return emptyDraft();
-  try {
-    return parseDraft(store.getItem(COURSE_WIZARD_DRAFT_KEY));
-  } catch {
-    return emptyDraft();
+/**
+ * Что лежит в черновике — БЕЗ подстановки в форму.
+ *
+ * Возвращает и сами данные, и когда их записали: решение «восстановить или начать заново»
+ * принимает человек, а не мастер. Просроченный черновик стирается сразу — предлагать работу
+ * недельной давности значит подсовывать незнакомый текст под видом своего.
+ */
+export function peekDraft(
+  storage?: Storage,
+  now?: Date
+): { savedAt: Date; draft: CourseWizardDraft } | null {
+  const store = storage ?? safeStorage() ?? undefined;
+  /* Записи прежнего вида предложить нечем — убираем, чтобы не лежали вечно. */
+  clearDraftIn(store, LEGACY_DRAFT_KEY);
+  const state = readDraftFrom<unknown>(store, COURSE_WIZARD_DRAFT_KEY, now ?? new Date());
+  if (state.status === 'stale') {
+    clearDraft(storage);
+    return null;
   }
+  if (state.status !== 'ready') return null;
+  return { savedAt: state.savedAt, draft: parseDraft(JSON.stringify(state.value)) };
 }
 
 /** Чистим черновик только после успешного создания — иначе потеряем работу методиста. */

@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 import { type NumberResetPeriod, type NumberingRuleDto, numberingApi, previewNumber } from './api';
 import { SectionCard, SectionEmpty, SectionError } from '../../components/state-wrappers';
+import { useUnsavedForm } from '../../components/use-unsaved-form';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 
@@ -112,8 +113,15 @@ export function NumberingRulesSection() {
       'Не удалось переключить нумератор'
     );
 
+  /* Защита от потери набранного при уходе со страницы (ТЗ 10.3). */
+  const unsavedGuard = useUnsavedForm(
+    { documentType, prefix, suffix, pattern, resetPeriod, startCounter },
+    { saving: busy }
+  );
+
   return (
     <SectionCard title="Нумераторы документов">
+      {unsavedGuard}
       <p className="ui-text-muted">
         Маска, стартовое значение и период сброса — отдельно для каждого типа документа. Активным
         может быть один нумератор на тип; новый заменяет прежний.

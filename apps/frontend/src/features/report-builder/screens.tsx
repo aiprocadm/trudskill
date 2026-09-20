@@ -12,6 +12,7 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import { useUnsavedForm } from '../../components/use-unsaved-form';
 import { FORMS, withPlural } from '../../lib/format/plural';
 
 import type {
@@ -167,8 +168,15 @@ export function ReportBuilderScreen(): ReactElement {
     ...row
   }));
 
+  /*
+   * Защита от потери собранного (ТЗ 10.3). Отчёт собирают долго: сущность, поля, фильтры —
+   * потерять это кликом по меню особенно обидно, потому что заново вспоминать надо ВСЁ.
+   */
+  const unsavedGuard = useUnsavedForm({ state, templateName }, { saving: savePending });
+
   return (
     <PageContainer>
+      {unsavedGuard}
       <PageHeader
         title="Конструктор отчётов"
         subtitle="Выберите сущность, поля и фильтры — получите превью и выгрузку в Excel."

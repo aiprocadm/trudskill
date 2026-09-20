@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import { clearDraft, loadDraft, saveDraft } from './draft-storage';
+import { clearDraft, peekDraft, saveDraft } from './draft-storage';
 import {
   type CourseWizardDraft,
   STEP_TITLES,
@@ -23,6 +23,8 @@ import {
   SectionCard,
   SectionError
 } from '../../components/state-wrappers';
+import { useUnsavedForm } from '../../components/use-unsaved-form';
+import { DRAFT_DISCARD_LABEL, DRAFT_RESTORE_LABEL, draftPrompt } from '../../lib/forms/local-draft';
 import { useDirectionsList, useDomainMutations } from '../mvp/hooks';
 import { RECERT_PRESETS } from '../recertification/expiring';
 
@@ -62,15 +64,47 @@ export function CourseWizardScreen() {
   const [error, setError] = useState<string | null>(null);
   const [showErrors, setShowErrors] = useState(false);
 
-  // Черновик читаем один раз при открытии — вернуться к недособранному курсу можно
-  // и на следующий день.
-  useEffect(() => {
-    setDraft(loadDraft());
-  }, []);
+  /*
+   * Черновик читаем один раз при открытии — вернуться к недособранному курсу можно и на
+   * следующий день. Но ПОДСТАВЛЯЕМ его только с согласия человека (ТЗ 10.3, журнал 591):
+   * форма, наполнившаяся сама, неотличима от чужой работы, и человек либо затирает нужное,
+   * либо создаёт второй такой же курс.
+   */
+  const [offered, setOffered] = useState<{ savedAt: Date; draft: CourseWizardDraft } | null>(null);
+  const [draftAnswered, setDraftAnswered] = useState(false);
 
   useEffect(() => {
+    const found = peekDraft();
+    if (found) setOffered(found);
+    else setDraftAnswered(true);
+  }, []);
+
+  /*
+   * Запись начинается только после ответа. Иначе первый же проход сохранил бы ПУСТОЙ черновик
+   * поверх найденного — и предлагать было бы уже нечего.
+   */
+  useEffect(() => {
+    if (!draftAnswered) return;
     saveDraft(draft);
-  }, [draft]);
+  }, [draft, draftAnswered]);
+
+  const restoreDraft = () => {
+    if (offered) setDraft(offered.draft);
+    setOffered(null);
+    setDraftAnswered(true);
+  };
+
+  const discardDraft = () => {
+    clearDraft();
+    setOffered(null);
+    setDraftAnswered(true);
+  };
+
+  /*
+   * Защита от ухода со страницы (ТЗ 10.3). Черновик спасает от закрытой вкладки, но не от
+   * клика по меню: человек уходит, возвращается через неделю — и черновик уже просрочен.
+   */
+  const unsavedGuard = useUnsavedForm({ draft }, { saving: busy });
 
   const patch = (changes: Partial<CourseWizardDraft>) =>
     setDraft((current) => ({ ...current, ...changes }));
@@ -156,6 +190,42 @@ export function CourseWizardScreen() {
 
   return (
     <PageContainer>
+      {unsavedGuard}
+      {/*
+        Предложение восстановить черновик (ТЗ 10.3). Стоит ВЫШЕ формы и до первого поля:
+        человек должен ответить раньше, чем начнёт печатать, иначе его собственный ввод
+        придётся затирать восстановлением. `role="status"` — чтобы плашку прочитала и
+        программа чтения с экрана: молча появившийся текст она не объявляет.
+      */}
+      {offered ? (
+        <div className="ui-callout ui-callout--info" role="status">
+          <div className="ui-stack" style={{ gap: 8 }}>
+            <strong>{draftPrompt(offered.savedAt, new Date())}</strong>
+            <p className="ui-hint">
+              В прошлый раз курс остался недособранным. Можно продолжить с того же места или начать
+              с чистой формы — тогда черновик будет удалён.
+            </p>
+            <div className="ui-inline">
+              <button
+                type="button"
+                className="ui-button ui-button--primary"
+                onClick={restoreDraft}
+                data-testid="wizard-draft-restore"
+              >
+                {DRAFT_RESTORE_LABEL}
+              </button>
+              <button
+                type="button"
+                className="ui-button"
+                onClick={discardDraft}
+                data-testid="wizard-draft-discard"
+              >
+                {DRAFT_DISCARD_LABEL}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <PageHeader
         title="Создание курса"
         subtitle="Карточка → программа и часы → модули и материалы → правила прохождения → проверка"
