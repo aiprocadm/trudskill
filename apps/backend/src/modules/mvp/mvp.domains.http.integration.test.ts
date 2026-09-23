@@ -187,6 +187,10 @@ describe('MVP HTTP integration (domain invariants)', () => {
       { ManagerDashboardService },
       { ExamOutcomeService },
       { MethodistDashboardService },
+      { MvpNormalizedReadsService },
+      { COUNTERPARTIES_REPOSITORY },
+      { GROUPS_REPOSITORY },
+      { InMemoryRegistryRepository },
       { DOCUMENTS_STATE },
       { InMemoryDocumentsState },
       { MemoryDocumentsPersistenceBackend },
@@ -231,6 +235,10 @@ describe('MVP HTTP integration (domain invariants)', () => {
       import('./dashboards/manager-dashboard.service.js'),
       import('./exam/exam-outcome.service.js'),
       import('./dashboards/methodist-dashboard.service.js'),
+      import('./infrastructure/mvp-normalized-reads.service.js'),
+      import('./infrastructure/repositories/counterparties.repository.js'),
+      import('./infrastructure/repositories/groups.repository.js'),
+      import('./infrastructure/repositories/in-memory-registry.repository.js'),
       import('../documents/documents-state.token.js'),
       import('../documents/in-memory-documents.state.js'),
       import('../documents/infrastructure/memory-documents-persistence.backend.js'),
@@ -330,6 +338,14 @@ describe('MVP HTTP integration (domain invariants)', () => {
           scope: Scope.REQUEST,
           useClass: MethodistDashboardService
         },
+        // Фаза 1 перехода с CDOPROF (срез 1b): чтение из нормализованных таблиц под флагом.
+        // Флаг здесь выключен, репозитории — пустые реестры в памяти.
+        { provide: COUNTERPARTIES_REPOSITORY, useValue: new InMemoryRegistryRepository([], 'id') },
+        {
+          provide: GROUPS_REPOSITORY,
+          useValue: new InMemoryRegistryRepository([], 'counterpartyId')
+        },
+        MvpNormalizedReadsService,
         // ФТ-D4.2 (Фаза 4 Task 5): гейт лимита слушателей на создании. Заглушка-пропуск:
         // здесь проверяются доменные инварианты, лимиты тарифа покрыты юнитами гейта.
         {
