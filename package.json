@@ -26,6 +26,7 @@
     "seed:staging": "pnpm --filter @trudskill/backend seed:staging",
     "seed:demo": "pnpm --filter @trudskill/backend seed:demo",
     "export:cdoprof": "pnpm --filter @trudskill/backend export:cdoprof",
+    "perf:synth": "pnpm --filter @trudskill/backend perf:synth",
     "contracts:lint": "pnpm --filter @trudskill/api-contracts contracts:lint",
     "contracts:build": "pnpm --filter @trudskill/api-contracts build",
     "contracts:typecheck": "pnpm --filter @trudskill/api-contracts typecheck",
