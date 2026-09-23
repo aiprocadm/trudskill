@@ -55,7 +55,7 @@ handoff §5.564 (разведка + 3a), трекер, README, план. `pnpm c
 
 **Files:** Create `repositories/enrollments.repository.ts` (`list(tenantId, query, access: { learnerIds: string[] | null; counterpartyId?: string })`, `get(tenantId, id)`, `history(tenantId, enrollmentId)`), `postgres-enrollments.repository.ts` (anti-IDOR: `learner_id = any($n)` при ограничении; скоуп: `exists (select 1 from learning.groups g where g.tenant_id = $1 and g.id = e.group_id and g.counterparty_id = $m)`; фильтры; `rowToEntity`), `in-memory-enrollments.repository.ts`; Modify `registry-list-query.ts` (расширение: `groupId, learnerId, createdFrom/To, plannedEndFrom/To`), `mvp-normalized-reads.service.ts` (`listEnrollments/getEnrollment/listEnrollmentStatusHistory` с `resolveActorLearnerIds` через `LearnersRepository.findByUser`? — нужен метод `learnerIdsByUser(tenantId, userId)` в `LearnersRepository` по `user_id` или `payload->>'linkedIamUserId'` — json-фильтр в `where` требует индекса (`json-filters-indexed`) → индекс по выражению в миграции 0111 или хранить `linked_iam_user_id` отдельной колонкой; выбрать колонку `linked_iam_user_id` (0111) — проекция пишет её всегда, `user_id` остаётся FK-проверенной), `normalized-collections.ts` (+`enrollments`), `mvp.controller.ts` (3 ручки), `mvp.module.ts`, `mvp.domains.http.integration.test.ts`, тесты, `.env.example`, документ env.
 
-- [ ] Commit `feat(backend): /enrollments читается из learning.enrollments под флагом — anti-IDOR и скоуп заказчика в SQL`.
+- [x] Commit `feat(backend): /enrollments читается из learning.enrollments под флагом — anti-IDOR и скоуп заказчика в SQL`.
 
 ### Task 5: документация 3b
 
