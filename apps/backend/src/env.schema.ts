@@ -313,6 +313,8 @@ export const backendEnvSchema = z
      * это заведомо дольше любого честного выпуска документа вместе с конвертацией в PDF.
      */
     DOCUMENT_TASK_STUCK_MINUTES: z.coerce.number().int().positive().default(15),
+    /** ТЗ перехода с CDOPROF §4: свой комментарий к задаче можно удалить в течение окна. */
+    TASKS_COMMENT_DELETE_WINDOW_MINUTES: z.coerce.number().int().positive().default(15),
     /**
      * Сроки хранения (Фаза 6 Task 9). Таблицы росли без всякой чистки.
      *

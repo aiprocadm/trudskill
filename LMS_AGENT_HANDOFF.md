@@ -4,7 +4,7 @@
 
 ## 1. Current Date / Session
 
-- Date: 2026-09-23 (UTC+3), последняя запись — §5.555 (позиция 4 ТЗ перехода с CDOPROF: аддитивные миграции 0099–0102 — роль curator, migration.\*, схема tasks, external_id; дальше позиция 5 — модуль tasks)
+- Date: 2026-09-23 (UTC+3), последняя запись — §5.556 (позиция 5 ТЗ перехода с CDOPROF: модуль tasks на бэкенде в нормализованных таблицах; дальше позиция 6 — экран /tasks)
 - Agent: Claude Code
 - Repository: `D:/Создание LMS/Cursor LMS/cdoprof-`
 - Branch, if known: `main`
@@ -5552,6 +5552,61 @@ PR #493 построил `LearnersListScreen`, но его не импортир
 3 ошибки import-x/order в моих же файлах — починены `eslint --fix`). Светлая тема
 сверена после правок: вид не изменился (surface-muted и neutral-100 в светлой палитре
 совпадают побитово).
+
+### 5.556 ТЗ перехода с CDOPROF, позиция 5: модуль `tasks` на бэкенде — первый домен в нормализованных таблицах
+
+**Зачем.** «Календарь» CDOPROF — это планировщик задач сотрудников (§0 п. 2); без задач куратор
+не уйдёт из старой системы. И это первый модуль, который пишет СРАЗУ в нормализованные таблицы
+(`tasks.*`, 0101) через репозиторий — образец для Фазы 1 после спайка §5.554.
+
+**План:** `docs/superpowers/plans/2026-09-23-cdoprof-migration-phase-0-tasks-module.md`.
+
+**Что сделано** (`apps/backend/src/modules/tasks/`, по образцу `org/licenses`):
+
+- `0103_iam_tasks_permissions.sql` — `tasks.read`, `tasks.write` всем сотрудникам
+  (`platform_admin`, `tenant_admin`, `manager`, `methodist`, `teacher`, `curator`),
+  `tasks.manage_all` — администраторам и руководителю (РМ25). Снимок `ROLE_RIGHTS_SNAPSHOT`
+  обновлён; `tasks.manage_all` — в `ENFORCED_ELSEWHERE` сторожа `permission-coverage` (проверяется в
+  сервисе: та же ручка отдаёт свои задачи без права и все — с ним).
+- `tasks.types.ts`, `tasks.repository.ts` (токен + интерфейс), `postgres-tasks.repository.ts`
+  (каждый запрос с `tenant_id`; список режет база с полным порядком «срок, создание, id»;
+  задача + исполнители + файлы — одной `withTransaction`), `in-memory-tasks.repository.ts`.
+- `tasks.service.ts` — правила §4/§5.4: исполнитель «взять в работу» (`new → in_progress`) и
+  «выполнить» (`in_progress → done`); постановщик (или `manage_all`) — «подтвердить»,
+  «вернуть» (комментарий обязателен), «отменить», перенести, править; чужая задача — `404
+task_not_found` (не 403: факт существования — тоже сведения); недопустимый переход — `409
+task_status_transition_invalid`; не тот актор — `403 task_action_forbidden`; исполнитель
+  только из активных сотрудников центра (`400 task_assignee_not_staff`); `due ≥ start`; свой
+  комментарий удаляется в окне `TASKS_COMMENT_DELETE_WINDOW_MINUTES` (15); `POST /tasks/bulk`
+  — частичный успех поимённо; аудит `writeCritical` на каждой мутации (`tasks.task_created`,
+  `task_updated`, `task_status_changed`, `task_rescheduled`, `comment_added`, `comment_deleted`).
+- `tasks.dto.ts` (class-validator: название ≤ 200, текст ≤ 5000, файлов ≤ 10, исполнителей ≤ 50,
+  массово ≤ 100), `tasks.controller.ts` (`@Controller('tasks')`, `TenantGuard` + `PermissionGuard`,
+  `assertValidDto`; параметры списка §16 разбираются с 400 на неизвестный отбор),
+  `tasks.module.ts` — в `domainModules` ПОСЛЕ `WorkspaceModule`: `GET /tasks/inbox` живёт там и
+  регистрируется раньше `GET /tasks/:id` (закреплено HTTP-тестом).
+- Контракт `packages/api-contracts/src/domains/tasks.ts` — типы `StaffTask*` рядом с заготовкой
+  про фоновые задачи (переименовывать её — чужой объём).
+
+**Отклонения от ТЗ (решения агента):** РМ24 — `POST /tasks/:id/comments` под `tasks.write`, а не
+`tasks.read` из §16: сторож `mutation-under-read-permission` не даёт менять данные под правом
+«смотреть». РМ25 — преподавателю тоже `tasks.write` (§3 давал только `read (свои)`): переходы
+стоят под `write`, а «своё / чужое» решает сервис. РМ26 — уведомления `task_*` (§11, P0) — в
+позиции 11 «новые события и каналы» (тройное согласие каталог/матрица/код). РМ27 — проверка
+принадлежности `groupId/learnerId/counterpartyId` центру — Фаза 1: эти сущности живут в
+JSON-снимке, читать 25 МБ ради одной задачи нельзя; FK добавит Фаза 1 (РМ23).
+
+**Тесты:** модуль — 44 (6 файлов): сервис 18, DTO 6, Postgres-репозиторий на фейковой базе 8
+(каждый запрос с `tenant_id`, транзакции, порядок), изоляция центров 2 (семь ручек → 404),
+миграция 3, HTTP-граница 7 (401/403/конверт/`filter=all`/переход/комментарий/`/tasks/inbox`).
+Сторожа: 372 (`src/common`, `src/infrastructure/database`, `app.module.di`, `env-coverage`,
+`permissions-exist`) — все зелёные после трёх поправок, которые они потребовали (условие
+`tenant_id` буквально в SQL списка, коды в снимке администраторов, `writeChildren` в реестре
+с причиной). 0103 применена дважды на копии базы — 0 ошибок. `pnpm ci:check` — см. PR.
+
+**Следующая задача:** позиция 6 — экран `/tasks` (`TPL-001`), пункт меню, `docs/ia/routes.md`,
+чертёж меню куратора, словарь ролей, снимок прав, снимки сторожей. **От владельца (не
+блокирует):** О1, О2, О3, О7.
 
 ### 5.555 ТЗ перехода с CDOPROF, позиция 4: аддитивные миграции без изменения поведения (0099–0102)
 

@@ -16,7 +16,7 @@ When docs disagree, follow the order in [docs/DOCUMENTATION_MAP.md](docs/DOCUMEN
    - **Стабилизация** — [TZ_TRUDSKILL_STABILIZATION_UX.md](TZ_TRUDSKILL_STABILIZATION_UX.md) (стабилизация, блокеры, UX и развитие; фазы 1–18, решения Р1–Р19, чек-лист приёмки 1–26). Очередь закрыта по коду; **решения Р1–Р19 действуют для всех ТЗ**. Статус — [docs/TZ_STABILIZATION_UX_STATUS.md](docs/TZ_STABILIZATION_UX_STATUS.md).
    - **Как это должно себя вести** — [TZ_TRUDSKILL_ARENDNAYA_SDO.md](TZ_TRUDSKILL_ARENDNAYA_SDO.md) (эпики A–I, ФТ-\*, фазы 0–6; в рамках его эпиков при конфликте деталей приоритет у него). Требования закрыты, остаётся каноном. Статус — [docs/TZ_ARENDNAYA_SDO_STATUS.md](docs/TZ_ARENDNAYA_SDO_STATUS.md).
    - **Как это должно выглядеть** — [docs/TZ_UI_REDESIGN_TRUDSKILL.md](docs/TZ_UI_REDESIGN_TRUDSKILL.md) (ИА, визуальный язык, компоненты, тексты интерфейса, ребрендинг UI; требования `IA-*`/`UI-*`/`CMP-*`/`TPL-*`/`TXT-*`/`A11Y-*`/`BR-*`, фазы 0–8; по вопросам представления приоритет у него). Требования закрыты (94 из 94), остаётся каноном. Статус — [docs/TZ_UI_REDESIGN_STATUS.md](docs/TZ_UI_REDESIGN_STATUS.md).
-3. Code + tests; described in [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §5.\* (sequentially numbered, currently up to §5.555 — always take the next number from the file) and [docs/TZ_MVP_TRACEABILITY.md](docs/TZ_MVP_TRACEABILITY.md) (BL → file paths).
+3. Code + tests; described in [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §5.\* (sequentially numbered, currently up to §5.556 — always take the next number from the file) and [docs/TZ_MVP_TRACEABILITY.md](docs/TZ_MVP_TRACEABILITY.md) (BL → file paths).
 4. [README.md](README.md) §2 «AI Agent State» — operational snapshot.
 
 ### «Продолжай по ТЗ» — что делать
@@ -213,7 +213,7 @@ When adding a feature, the typical test trio: unit tests for the service, DTO va
 - **Pre-commit** runs `lint-staged` (ESLint `--max-warnings=0 --fix --cache` + Prettier) on staged files only. Pre-existing lint failures elsewhere do NOT block your commit; check your own file with `npx eslint <path> --max-warnings=0`.
 - **Pre-push** runs `pnpm typecheck` across the whole monorepo.
 - **Never bypass hooks** (no `--no-verify`) unless explicitly asked. If a hook fails, fix root cause and create a new commit (not `--amend` — the failed commit didn't happen).
-- **Migrations** are numbered SQL in [`apps/backend/migrations/`](apps/backend/migrations/). **Don't edit historical files.** Latest is `0102_external_ids_on_domain_tables.sql` as of 2026-09-23. Pick the next free number for new ones (numbers in the CDOPROF migration TZ are proposals).
+- **Migrations** are numbered SQL in [`apps/backend/migrations/`](apps/backend/migrations/). **Don't edit historical files.** Latest is `0103_iam_tasks_permissions.sql` as of 2026-09-23. Pick the next free number for new ones (numbers in the CDOPROF migration TZ are proposals).
 - **PR description** template: `## Summary` (1-3 bullets) + `## Test plan` (checklist). PRs are squash-merged.
 
 ## Gotchas (Windows + Cyrillic path)

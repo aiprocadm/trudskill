@@ -41,6 +41,10 @@ const WITHOUT_TRANSACTION: ReadonlyArray<Allowed> = [
   {
     where: 'modules/communication/postgres-webinars.repository.ts::upsertParticipantAttendance',
     why: 'это ДВЕ ВЕТВИ условия, а не две операции подряд: строка участия либо правится, либо создаётся — выполняется ровно одна. Гонку двух одновременных входов закрывает «on conflict … do update» у вставки (§5.430, журнал 356)'
+  },
+  {
+    where: 'modules/tasks/postgres-tasks.repository.ts::writeChildren',
+    why: 'приватный шаг ВНУТРИ транзакции: принимает PoolClient и вызывается только из insert/update, которые целиком обёрнуты в withTransaction; половины не бывает — откат покрывает и задачу, и её исполнителей с файлами (сторож multi-write-is-atomic это видит по PoolClient в сигнатуре)'
   }
 ];
 
