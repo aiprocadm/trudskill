@@ -481,6 +481,11 @@ const projectEnrollment = (entity: Entity, tenantId: string): ProjectedRow => {
   const { status, extra } = safeStatus(entity.status, ENROLLMENT_STATUSES, 'pending');
   const completedAt =
     str(entity.completedAt) ?? (status === 'completed' ? str(entity.updatedAt) : null);
+  // Подстановки для NOT NULL/CHECK базы: запомнить, какие даты выдуманы, чтобы обратная
+  // проекция не вернула поле, которого в снимке не было (форма ответа — как у снимка).
+  const synthesized: string[] = [];
+  if (str(entity.enrolledAt) === null) synthesized.push('enrolledAt');
+  if (str(entity.completedAt) === null && completedAt !== null) synthesized.push('completedAt');
   return assemble(
     entity,
     tenantId,
@@ -506,7 +511,7 @@ const projectEnrollment = (entity: Entity, tenantId: string): ProjectedRow => {
       'externalId',
       'sourceSystem'
     ],
-    extra
+    { ...extra, ...(synthesized.length > 0 ? { [SYNTHESIZED_KEY]: synthesized } : {}) }
   );
 };
 
@@ -760,6 +765,14 @@ export function canonicalHash(spec: TableSpec, columns: Record<string, unknown>)
  * ПДн слушателя возвращаются шифртекстом (`enc:…`) — расшифровка остаётся на границе
  * чтения, как у снимка (`decryptLearnerPiiAtRest`).
  */
+/** Ключ `payload`, в котором проекция перечисляет поля, выдуманные ради колонок базы. */
+export const SYNTHESIZED_KEY = '__synthesized';
+
+/** Колонки, которых у сущности снимка нет: обратная проекция их не отдаёт. */
+const HIDDEN_COLUMNS: Partial<Record<HotCollection, ReadonlyArray<string>>> = {
+  enrollmentStatusHistory: ['created_at']
+};
+
 const COLUMN_TO_FIELD: Partial<Record<HotCollection, Record<string, string>>> = {
   learners: {
     user_id: 'linkedIamUserId',
@@ -798,16 +811,19 @@ export function rowToEntity(
 ): Record<string, unknown> {
   const spec = TABLE_SPECS[collection];
   const entity: Record<string, unknown> = {};
+  const hidden = new Set(HIDDEN_COLUMNS[collection] ?? []);
   for (const [name, type] of Object.entries(spec.columns)) {
     const value = row[name];
-    if (value === null || value === undefined) continue;
+    if (value === null || value === undefined || hidden.has(name)) continue;
     entity[COLUMN_TO_FIELD[collection]?.[name] ?? toCamel(name)] = fromColumn(type, value);
   }
   const payload = row.payload;
   if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
     for (const [key, value] of Object.entries(payload as Record<string, unknown>)) {
       if (key === 'sourceStatus') entity.status = value;
-      else entity[key] = value;
+      else if (key === SYNTHESIZED_KEY) {
+        for (const field of Array.isArray(value) ? value : []) delete entity[String(field)];
+      } else entity[key] = value;
     }
   }
   return entity;

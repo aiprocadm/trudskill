@@ -179,3 +179,28 @@ export async function loadUserIds(
   );
   return new Set(found.rows.map((r) => r.id));
 }
+
+/**
+ * История статусов подчинена зачислению: перед удалением зачислений (`deleted`) или чисткой
+ * лишних (`keep` — остальные) убрать их историю, иначе `delete` упрётся во внешний ключ.
+ */
+export async function detachHistoryFromEnrollments(
+  client: PoolClient,
+  tenantId: string,
+  scope: { deleted: string[] } | { keep: string[] }
+): Promise<void> {
+  if ('deleted' in scope) {
+    if (scope.deleted.length === 0) return;
+    await client.query(
+      `delete from learning.enrollment_status_history
+        where tenant_id = $1 and enrollment_id = any($2::text[])`,
+      [tenantId, scope.deleted]
+    );
+    return;
+  }
+  await client.query(
+    `delete from learning.enrollment_status_history
+      where tenant_id = $1 and not (enrollment_id = any($2::text[]))`,
+    [tenantId, scope.keep]
+  );
+}
