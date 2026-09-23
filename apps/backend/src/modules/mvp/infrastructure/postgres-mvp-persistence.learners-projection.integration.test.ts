@@ -199,11 +199,11 @@ describe.skipIf(!dockerAvailable)('проекция слушателей на ж
       const started = Date.now();
       await backend.saveFromState(T, fourth);
       const seconds = (Date.now() - started) / 1000;
-      const [{ n }] = await db.query<{ n: string }>(
+      const counted = await db.query<{ n: string }>(
         `select count(*)::text as n from learning.learners where tenant_id = $1`,
         [T]
       );
-      expect(Number(n)).toBe(2000);
+      expect(Number(counted[0]?.n)).toBe(2000);
       expect(seconds).toBeLessThan(30);
     });
   }, 240_000);
