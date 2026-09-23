@@ -432,6 +432,8 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
       await step();
       await client.query('release savepoint projection_row');
     } catch (error) {
+      // Отказ одной сущности не должен откатить снимок (РМ35): шаг откатывается до точки
+      // сохранения, а причина уходит в журнал сверки projection_failed и в лог.
       await client.query('rollback to savepoint projection_row');
       await this.logProjectionFailure(tenantId, col, entityId, error);
     }

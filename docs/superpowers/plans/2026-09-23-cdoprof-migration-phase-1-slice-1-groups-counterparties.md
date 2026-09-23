@@ -74,15 +74,15 @@ export function rowToEntity(
 ): Record<string, unknown>; // колонки → camelCase по обратной таблице, payload разворачивается, sourceStatus → status, payload.counterpartyId/inn → поля; Date → ISO
 ```
 
-- [ ] Тест кругового прохода: `rowToEntity(projectEntity(x))` для контрагента с плохим ИНН и статусом `blocked`, группы с `whatever`/`cp_missing` и полями импорта возвращает исходную сущность (с точностью до `createdAt/updatedAt` ISO).
-- [ ] Реализация; бэкфилл переходит на `upsertRow`. Commit `refactor(backend): общий upsert нормализованных таблиц и обратная проекция rowToEntity`.
+- [x] Тест кругового прохода: `rowToEntity(projectEntity(x))` для контрагента с плохим ИНН и статусом `blocked`, группы с `whatever`/`cp_missing` и полями импорта возвращает исходную сущность (с точностью до `createdAt/updatedAt` ISO).
+- [x] Реализация; бэкфилл переходит на `upsertRow`. Commit `refactor(backend): общий upsert нормализованных таблиц и обратная проекция rowToEntity`.
 
 ### Task 2: флаг `LMS_NORMALIZED_COLLECTIONS`
 
 **Files:** Modify `apps/backend/src/config/env.schema.ts` (или где `LMS_READ_MODEL`), `apps/backend/.env.example`, `docs/environment-and-config.md`; Create `apps/backend/src/modules/mvp/infrastructure/normalized-collections.ts` (`isNormalizedRead(collection): boolean`, разбор строки в `Set`, отказ на неизвестном имени) + `normalized-collections.test.ts`.
 
-- [ ] Тест: пусто → ничего; `groups,counterparties` → оба; `learners` (не в срезе) → ошибка конфигурации с понятным текстом.
-- [ ] Реализация. Commit `feat(backend): флаг LMS_NORMALIZED_COLLECTIONS — чтение по коллекциям (РМ32)`.
+- [x] Тест: пусто → ничего; `groups,counterparties` → оба; `learners` (не в срезе) → ошибка конфигурации с понятным текстом.
+- [x] Реализация. Commit `feat(backend): флаг LMS_NORMALIZED_COLLECTIONS — чтение по коллекциям (РМ32)`.
 
 ### Task 3: поштучные отпечатки состояния
 
@@ -90,14 +90,14 @@ export function rowToEntity(
 
 **Interfaces:** `PROJECTED_COLLECTIONS = ['counterparties','groups']`; `changedEntities(collection): { upserted: unknown[]; deletedIds: string[] } | 'all'`; `hasChanged` кешируется на время сохранения (сброс при `set`/`markDirty`).
 
-- [ ] Тесты: правка одной группы → `upserted` из одной; удаление из массива → `deletedIds`; присваивание целиком или `markDirty` → `'all'`; отпечаток коллекции байт-в-байт равен `JSON.stringify(items)` (старые тесты не меняются); соседние коллекции не материализуются.
-- [ ] Реализация (в `readCollection` для проецируемых коллекций — `Map<id, string>`; отпечаток коллекции собирается из частей). Commit `feat(backend): поштучные отпечатки проецируемых коллекций состояния`.
+- [x] Тесты: правка одной группы → `upserted` из одной; удаление из массива → `deletedIds`; присваивание целиком или `markDirty` → `'all'`; отпечаток коллекции байт-в-байт равен `JSON.stringify(items)` (старые тесты не меняются); соседние коллекции не материализуются.
+- [x] Реализация (в `readCollection` для проецируемых коллекций — `Map<id, string>`; отпечаток коллекции собирается из частей). Commit `feat(backend): поштучные отпечатки проецируемых коллекций состояния`.
 
 ### Task 4: проекция в транзакции снимка
 
 **Files:** Modify `postgres-mvp-persistence.backend.ts` (метод `projectChanged(client, tenantId, state)` после цикла записи, при `tableName === authoritativeTable()`; порядок: upsert контрагентов → upsert групп → delete групп → delete контрагентов; `'all'` → полный upsert + `deleteAbsent`; точка сохранения на сущность, отказ → `learning.mvp_reconciliation_log` с `issue_type = 'projection_failed'` и текстом), `postgres-mvp-persistence.backend.test.ts` (мок: `withTransaction` отдаёт клиента, `query` возвращает `{ rows: [], rowCount: N }` для вставок; ожидания `insert into crm.counterparties`/`learning.groups`), Create `postgres-mvp-persistence.projection.integration.test.ts` (withTestDb, вся цепочка: сохранение снимка с новой группой → строка в `learning.groups`; дубль кода → снимок сохранён, строка в журнале сверки; удаление контрагента с группами → порядок; `'all'` удаляет лишние).
 
-- [ ] Тесты → реализация. Commit `feat(backend): проекция изменённых контрагентов и групп в нормализованные таблицы при сохранении снимка (РМ35)`.
+- [x] Тесты → реализация. Commit `feat(backend): проекция изменённых контрагентов и групп в нормализованные таблицы при сохранении снимка (РМ35)`.
 
 ### Task 5: документация 1a
 
