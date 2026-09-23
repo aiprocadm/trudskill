@@ -4,7 +4,7 @@ import {
   DEFAULT_SYNTHETIC_SHAPE,
   buildSyntheticCdoprofTenant,
   toRuntimeRows
-} from './synthetic-cdoprof-tenant.js';
+} from './synthetic-volume-tenant.js';
 import { MVP_COLLECTIONS } from '../modules/mvp/infrastructure/mvp-collections.js';
 
 const SMALL = { counterparties: 7, courses: 5, groups: 40, learners: 30, enrollments: 90 };

@@ -12,7 +12,7 @@
  * репозитория, сторож `multi-write-is-atomic`) удаляются строки ТОЛЬКО этого тенанта и ТОЛЬКО
  * заливаемых коллекций, потом вставка пачками. Чужие тенанты и остальные коллекции не трогаются.
  */
-import type { RuntimeRow } from './synthetic-cdoprof-tenant.js';
+import type { RuntimeRow } from './synthetic-volume-tenant.js';
 import type { Pool } from 'pg';
 
 /** Минимум от `pg.PoolClient`, чтобы тест подставил заглушку. */

@@ -34,8 +34,8 @@
 
 **Files:**
 
-- Create: `apps/backend/src/perf/synthetic-cdoprof-tenant.ts`
-- Test: `apps/backend/src/perf/synthetic-cdoprof-tenant.test.ts`
+- Create: `apps/backend/src/perf/synthetic-volume-tenant.ts`
+- Test: `apps/backend/src/perf/synthetic-volume-tenant.test.ts`
 
 **Interfaces:** `interface SyntheticShape { counterparties; courses; groups; learners; enrollments }`; `DEFAULT_SYNTHETIC_SHAPE`; `buildSyntheticCdoprofTenant(tenantId, shape = DEFAULT, seed = 1): SyntheticTenant` → `{ counterparties: Counterparty[]; courses: Course[]; groups: GroupEntity[]; groupCourses: GroupCourse[]; learners: Learner[]; enrollments: Enrollment[] }`; `toRuntimeRows(tenant): Array<{ collection; id; data }>`.
 

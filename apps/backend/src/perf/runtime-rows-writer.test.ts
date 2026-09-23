@@ -7,7 +7,7 @@ import {
 } from './runtime-rows-writer.js';
 
 import type { SqlClient, TransactionRunner } from './runtime-rows-writer.js';
-import type { RuntimeRow } from './synthetic-cdoprof-tenant.js';
+import type { RuntimeRow } from './synthetic-volume-tenant.js';
 import type { Pool } from 'pg';
 
 const rowsOf = (count: number, collection = 'groups'): RuntimeRow[] =>
