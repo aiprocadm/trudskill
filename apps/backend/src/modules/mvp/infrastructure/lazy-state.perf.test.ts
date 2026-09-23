@@ -130,6 +130,8 @@ describe('поштучные отпечатки не возвращают жад
       deletedIds: []
     });
     expect(state.changedEntities('counterparties')).toEqual({ upserted: [], deletedIds: [] });
+    // Слушатели (срез 2a): вопрос о них не раскладывает и не расшифровывает коллекцию.
+    expect(state.changedEntities('learners')).toEqual({ upserted: [], deletedIds: [] });
     expect(materialized).toEqual(['groups']);
   });
 });

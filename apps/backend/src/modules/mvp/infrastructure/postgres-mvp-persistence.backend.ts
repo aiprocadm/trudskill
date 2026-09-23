@@ -26,6 +26,7 @@ import {
   deleteRows,
   detachGroupsFromCounterparties,
   loadCounterpartyIds,
+  loadUserIds,
   upsertRows
 } from '../../migration/backfill/normalized/normalized-upsert.js';
 
@@ -339,7 +340,20 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
       emptyContext()
     );
 
-    // 2. Группы: ссылка на контрагента допустима, только если он есть в таблице И не уходит.
+    // 2. Слушатели (срез 2a): ПДн шифруются проекцией; учётная запись — только существующая
+    // (иначе `user_id` обнулился бы после бэкфилла, а исходник ушёл бы в payload).
+    const learners = upsertedOf('learners') as Array<{ linkedIamUserId?: unknown }>;
+    const learnerCtx = emptyContext();
+    learnerCtx.users = await loadUserIds(client, tenantId, [
+      ...new Set(
+        learners
+          .map((l) => l.linkedIamUserId)
+          .filter((v): v is string => typeof v === 'string' && v !== '')
+      )
+    ]);
+    await this.projectRows(client, tenantId, 'learners', learners, learnerCtx);
+
+    // 3. Группы: ссылка на контрагента допустима, только если он есть в таблице И не уходит.
     const groups = upsertedOf('groups') as Array<{ counterpartyId?: unknown }>;
     const ctx = emptyContext();
     const referenced = [
@@ -357,8 +371,9 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
     }
     await this.projectRows(client, tenantId, 'groups', groups, ctx);
 
-    // 3. Удаления: сначала группы, потом контрагенты (FK). Присвоение целиком — убрать лишнее.
-    for (const col of ['groups', 'counterparties'] as const) {
+    // 4. Удаления: группы, слушатели, затем контрагенты (FK; на слушателя могут ссылаться
+    // зачисления из бэкфилла — отказ уйдёт в журнал). Присвоение целиком — убрать лишнее.
+    for (const col of ['groups', 'learners', 'counterparties'] as const) {
       await this.projectSafely(client, tenantId, col, null, async () => {
         if (changes[col] === 'all') {
           if (col === 'counterparties') {

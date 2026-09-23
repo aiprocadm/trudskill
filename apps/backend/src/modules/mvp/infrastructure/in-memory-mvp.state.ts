@@ -55,7 +55,7 @@ import type {
 } from '../mvp.types.js';
 
 /** Коллекции, которые проецируются в нормализованные таблицы при сохранении (Фаза 1, срез 1). */
-export const PROJECTED_COLLECTIONS = ['counterparties', 'groups'] as const;
+export const PROJECTED_COLLECTIONS = ['counterparties', 'learners', 'groups'] as const;
 export type ProjectedCollection = (typeof PROJECTED_COLLECTIONS)[number];
 export type ChangedEntities = { upserted: unknown[]; deletedIds: string[] } | 'all';
 

@@ -100,6 +100,10 @@ describe('PII at-rest encryption (ФТ-C3.3, Фаза 0 Task 7)', () => {
           list.push(JSON.parse(params[3] as string));
           stored.set(col, list);
         }
+        // Проекция слушателей в learning.learners (срез 2a): мок отвечает «записано».
+        if (/^insert into learning\.learners/i.test(sql.trimStart())) {
+          return { rows: [], rowCount: (sql.match(/\)\s*,\s*\(/g) ?? []).length + 1 };
+        }
         return [];
       })
     };
@@ -185,7 +189,9 @@ describe('PII at-rest encryption (ФТ-C3.3, Фаза 0 Task 7)', () => {
 
 describe('проекция контрагентов и групп в нормализованные таблицы (Фаза 1, срез 1a, РМ35)', () => {
   const isProjectionWrite = (sql: string): boolean =>
-    /^(insert into|delete from) (crm\.counterparties|learning\.groups)\b/i.test(sql.trimStart());
+    /^(insert into|delete from) (crm\.counterparties|learning\.groups|learning\.learners)\b/i.test(
+      sql.trimStart()
+    );
 
   /** Мок базы, который помнит запросы проекции и умеет «уронить» одну из них. */
   function makeProjectionDb(failWhen?: (sql: string, params: unknown[]) => boolean) {
@@ -276,11 +282,12 @@ describe('проекция контрагентов и групп в норма�
     const backend = new PostgresMvpPersistenceBackend(db as never);
     const state = new InMemoryMvpState();
     state.setRawSnapshot(snapshot(), (_c, raw) => [...raw]);
-    state.learners.push({
-      id: 'l1',
+    // Зачисления в срезе 2 ещё не проецируются — их правка не должна трогать таблицы.
+    state.enrollments.push({
+      id: 'e1',
       tenantId: 'tenant_demo',
-      firstName: 'А',
-      lastName: 'Б'
+      groupId: 'g1',
+      learnerId: 'l1'
     } as never);
 
     await backend.writeLegacy('tenant_demo', state);
@@ -342,5 +349,101 @@ describe('проекция контрагентов и групп в норма�
     ]);
     expect(projection[1]!.sql).toMatch(/not \(id = any/);
     expect(projection[1]!.params).toEqual(['tenant_demo', ['g9']]);
+  });
+});
+
+describe('проекция слушателей (Фаза 1, срез 2a): ПДн только шифртекстом', () => {
+  const isLearnersWrite = (sql: string): boolean =>
+    /^(insert into|delete from) learning\.learners\b/i.test(sql.trimStart());
+
+  function makeLearnersDb() {
+    const writes: Array<{ sql: string; params: unknown[] }> = [];
+    const client = {
+      query: vi.fn(async (sql: string, params: unknown[] = []) => {
+        if (isLearnersWrite(sql)) {
+          writes.push({ sql: sql.trimStart(), params });
+          return { rows: [], rowCount: (sql.match(/\)\s*,\s*\(/g) ?? []).length + 1 };
+        }
+        if (/^select id from iam\.users/i.test(sql.trimStart())) {
+          return { rows: [{ id: 'u_known' }], rowCount: 1 };
+        }
+        return [];
+      })
+    };
+    return {
+      writes,
+      db: {
+        withTransaction: async (fn: (c: typeof client) => Promise<void>) => fn(client),
+        query: vi.fn(async () => [])
+      }
+    };
+  }
+
+  const learner = {
+    id: 'l1',
+    tenantId: 'tenant_demo',
+    firstName: 'Иван',
+    lastName: 'Иванов',
+    snils: '112-233-445 95',
+    email: 'ivan@example.com',
+    phone: '+7 900 000-00-00',
+    dateOfBirth: '1990-01-01',
+    linkedIamUserId: 'u_known',
+    status: 'active',
+    createdAt: '2026-09-01T00:00:00.000Z',
+    updatedAt: '2026-09-01T00:00:00.000Z'
+  };
+
+  it('в параметрах записи нет открытого СНИЛС, почты и телефона; слепой индекс — 64 hex; учётная запись из контекста', async () => {
+    const { db, writes } = makeLearnersDb();
+    const backend = new PostgresMvpPersistenceBackend(db as never);
+    const state = new InMemoryMvpState();
+    state.setRawSnapshot(new Map([['learners', []]]), (_c, raw) => [...raw]);
+    state.learners.push(learner as never);
+
+    await backend.writeLegacy('tenant_demo', state);
+
+    expect(writes).toHaveLength(1);
+    const text = JSON.stringify(writes[0]!.params);
+    expect(text).not.toContain('11223344595');
+    expect(text).not.toContain('112-233-445');
+    expect(text).not.toContain('ivan@example.com');
+    expect(text).not.toContain('900 000');
+    expect(text).not.toContain('1990-01-01');
+    expect(
+      writes[0]!.params.filter((p) => typeof p === 'string' && p.startsWith('enc:'))
+    ).toHaveLength(4);
+    expect(writes[0]!.params.some((p) => typeof p === 'string' && /^[0-9a-f]{64}$/.test(p))).toBe(
+      true
+    );
+    expect(writes[0]!.params).toContain('u_known');
+    // Память не тронута: рантайм видит открытый СНИЛС.
+    expect(state.learners[0]!.snils).toBe('112-233-445 95');
+  });
+
+  it('стирание ПДн (152-ФЗ) обнуляет колонки шифртекста и слепой индекс', async () => {
+    const { db, writes } = makeLearnersDb();
+    const backend = new PostgresMvpPersistenceBackend(db as never);
+    const state = new InMemoryMvpState();
+    state.setRawSnapshot(new Map([['learners', [learner]]]), (_c, raw) =>
+      raw.map((r) => ({ ...(r as object) }))
+    );
+    Object.assign(state.learners[0]!, {
+      snils: undefined,
+      email: undefined,
+      phone: undefined,
+      dateOfBirth: undefined,
+      linkedIamUserId: undefined,
+      firstName: 'Удалено',
+      lastName: 'Удалено'
+    });
+
+    await backend.writeLegacy('tenant_demo', state);
+
+    expect(writes).toHaveLength(1);
+    const params = writes[0]!.params;
+    expect(params.filter((p) => typeof p === 'string' && p.startsWith('enc:'))).toHaveLength(0);
+    expect(params.some((p) => typeof p === 'string' && /^[0-9a-f]{64}$/.test(p))).toBe(false);
+    expect(params).toContain('Удалено');
   });
 });
