@@ -43,7 +43,7 @@
 
 - Produces: `cdoprofListEnvelope(itemSchema)` → zod-схема `{ success, data: { items: T[], pagination } }`; `cdoprofTrainingsEnvelopeSchema` → после `.transform` даёт `{ contragent, items: Array<{ student, trainings: Array<{ course, group, result }> }>, pagination? }`; типы `CdoprofContragent`, `CdoprofStudent`, `CdoprofCourse`, `CdoprofParentCourse`, `CdoprofGroup`, `CdoprofPagination`, `CdoprofTrainingsResponse`.
 
-- [ ] **Step 1: Тест — конверт списка и нормализация обучений**
+- [x] **Step 1: Тест — конверт списка и нормализация обучений**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -92,15 +92,15 @@ describe('cdoprof-api.schemas', () => {
 });
 ```
 
-- [ ] **Step 2: Запустить — падает (`Cannot find module`)**
+- [x] **Step 2: Запустить — падает (`Cannot find module`)**
 
 Run: `pnpm --filter @trudskill/backend exec vitest run src/modules/import-cdoprof/sources/cdoprof-api.schemas.test.ts --no-file-parallelism`
 
-- [ ] **Step 3: Реализация**
+- [x] **Step 3: Реализация**
 
 Все поля сущностей `nullable().optional()` (OpenAPI объявляет `nullable`, а живой API может и не прислать поле); `.passthrough()` — неизвестные колонки не ошибка, а предмет аудита. Для `items`/`trainings` — `z.union([z.array(x), x]).transform(toArray)`.
 
-- [ ] **Step 4: Запустить — зелёный. Commit `feat(backend): схемы ответов API CDOPROF (Фаза 0)`**
+- [x] **Step 4: Запустить — зелёный. Commit `feat(backend): схемы ответов API CDOPROF (Фаза 0)`**
 
 ### Task 2: HTTP-транспорт с паузами, повторами и защитой ключа
 
@@ -114,7 +114,7 @@ Run: `pnpm --filter @trudskill/backend exec vitest run src/modules/import-cdopro
 
 - Produces: `interface CdoprofTransport { get(method: string, query?: CdoprofQuery): Promise<unknown> }`; `type CdoprofQuery = Record<string, string | number | undefined>`; `class CdoprofApiError extends Error { code: 'unauthorized' | 'http_error' | 'invalid_json' | 'api_error' | 'network_error'; status?: number }`; `class HttpCdoprofTransport implements CdoprofTransport` с опциями `{ baseUrl, apiKey, pauseMs = 300, maxRetries = 3, retryBaseMs = 1000, fetchImpl = globalThis.fetch, sleep = setTimeout-обёртка }`; `redactApiKey(text: string): string`.
 
-- [ ] **Step 1: Тесты**
+- [x] **Step 1: Тесты**
 
 ```ts
 it('добавляет api_key и параметры в строку запроса', …)      // url содержит api_key=secret&page=2&limit=100
@@ -126,7 +126,7 @@ it('не-JSON → invalid_json; success:false → api_error', …)
 it('ни одно сообщение об ошибке не содержит ключ', …)           // все ошибки выше: expect(err.message).not.toContain('secret')
 ```
 
-- [ ] **Step 2: Запустить — падает. Step 3: Реализация. Step 4: Зелёный. Commit `feat(backend): HTTP-транспорт API CDOPROF — паузы, повторы, ключ не утекает`**
+- [x] **Step 2: Запустить — падает. Step 3: Реализация. Step 4: Зелёный. Commit `feat(backend): HTTP-транспорт API CDOPROF — паузы, повторы, ключ не утекает`**
 
 ### Task 3: Транспорт на фикстурах и клиент с постраничными итераторами
 
@@ -143,9 +143,9 @@ it('ни одно сообщение об ошибке не содержит к�
 - Consumes: Task 1 схемы, Task 2 `CdoprofTransport`.
 - Produces: `interface CdoprofDataset { contragents; students; parentCourses; courses; groups; trainings: Record<string, TrainingItem[]> }`; `loadFixtureDataset(): CdoprofDataset`; `class FixtureCdoprofTransport implements CdoprofTransport` (`constructor(dataset)`, `calls: Array<{ method, query }>`); `class CdoprofApiClient` — `constructor(transport, { pageLimit = 100 })`, методы `listContragents(page, search?)`, `getContragentByInn(inn)`, `listContragentStudents(contragentId, page)`, `listStudents(page, search?, searchColumn?)`, `listCourses(page, …)`, `listParentCourses(page, …)`, `listGroups(page, …)`, `getContragentTrainings(contragentId)`, и `iterateContragents()`, `iterateStudents()`, `iterateCourses()`, `iterateParentCourses()`, `iterateGroups()` — `AsyncGenerator<T>`.
 
-- [ ] **Step 1: Тесты клиента** — итератор собирает все элементы через 3 страницы при `pageLimit: 3`; останавливается при `has_next: false`; останавливается при пустой странице и при `page > pages` даже если `has_next: true` (подставной транспорт); `byInn` возвращает одного; `listContragentStudents` фильтрует по `id_organiz`; `getContragentTrainings` для контрагента без обучений даёт `items: []`; неизвестный метод у фикстур — ошибка.
-- [ ] **Step 2: Сторож фикстур** — для каждого ИНН `isValidInnChecksum(inn) === false`; для каждой почты `endsWith('@example.invalid')`; телефон `startsWith('+7 000')`.
-- [ ] **Step 3: Реализация. Step 4: Зелёный. Commit `feat(backend): клиент API CDOPROF только на чтение + обезличенные фикстуры`**
+- [x] **Step 1: Тесты клиента** — итератор собирает все элементы через 3 страницы при `pageLimit: 3`; останавливается при `has_next: false`; останавливается при пустой странице и при `page > pages` даже если `has_next: true` (подставной транспорт); `byInn` возвращает одного; `listContragentStudents` фильтрует по `id_organiz`; `getContragentTrainings` для контрагента без обучений даёт `items: []`; неизвестный метод у фикстур — ошибка.
+- [x] **Step 2: Сторож фикстур** — для каждого ИНН `isValidInnChecksum(inn) === false`; для каждой почты `endsWith('@example.invalid')`; телефон `startsWith('+7 000')`.
+- [x] **Step 3: Реализация. Step 4: Зелёный. Commit `feat(backend): клиент API CDOPROF только на чтение + обезличенные фикстуры`**
 
 ### Task 4: Выгрузка в JSON с манифестом-профилем колонок
 
@@ -160,8 +160,8 @@ it('ни одно сообщение об ошибке не содержит к�
 - Consumes: `CdoprofApiClient` (Task 3).
 - Produces: `interface ExportSink { write(name: string, payload: unknown): Promise<void> }`; `class FsExportSink implements ExportSink` (`constructor(dir)`, файлы `0600`, папка `0700`); `runCdoprofExport(client, sink, { withTrainings = true, now = () => new Date(), log = () => {} }): Promise<CdoprofExportManifest>`; манифест `{ exportedAt, durationMs, entities: Record<name, { file, count, columns: Record<col, { filled, empty, undefinedStrings }> }>, trainings: { requested, exported, failed: Array<{ contragentId, reason }> }, warnings: string[] }`.
 
-- [ ] **Step 1: Тесты** — на фикстурах пишет 7 файлов (`contragents.json`, `students.json`, `parent-courses.json`, `courses.json`, `groups.json`, `trainings.json`, `manifest.json`); счётчики равны размеру фикстур; профиль колонок: `students.dolznost.undefinedStrings === 1`, `contragents.inn.empty === 1`; отказ обучений по одному контрагенту (обёртка над транспортом бросает на `contragent_id=2`) → `failed: [{ contragentId: 2 }]`, остальные выгружены, `warnings` содержит строку с id; `withTrainings: false` → файла `trainings.json` нет; в манифесте нет ни одного значения из фикстур (ФИО/почта) — только числа.
-- [ ] **Step 2–4: Реализация, зелёный, Commit `feat(backend): выгрузка CDOPROF в JSON с профилем колонок без ПДн`**
+- [x] **Step 1: Тесты** — на фикстурах пишет 7 файлов (`contragents.json`, `students.json`, `parent-courses.json`, `courses.json`, `groups.json`, `trainings.json`, `manifest.json`); счётчики равны размеру фикстур; профиль колонок: `students.dolznost.undefinedStrings === 1`, `contragents.inn.empty === 1`; отказ обучений по одному контрагенту (обёртка над транспортом бросает на `contragent_id=2`) → `failed: [{ contragentId: 2 }]`, остальные выгружены, `warnings` содержит строку с id; `withTrainings: false` → файла `trainings.json` нет; в манифесте нет ни одного значения из фикстур (ФИО/почта) — только числа.
+- [x] **Step 2–4: Реализация, зелёный, Commit `feat(backend): выгрузка CDOPROF в JSON с профилем колонок без ПДн`**
 
 ### Task 5: Скрипт на стенде + команда + пример env
 
@@ -174,7 +174,7 @@ it('ни одно сообщение об ошибке не содержит к�
 
 Поведение скрипта: env `CDOPROF_API_BASE_URL`, `CDOPROF_API_KEY`, `CDOPROF_EXPORT_DIR` (обязательны без `--fixtures`), `CDOPROF_REQUEST_PAUSE_MS` (300), `CDOPROF_PAGE_LIMIT` (100), `CDOPROF_MAX_RETRIES` (3); флаги `--fixtures` (учебный прогон без сети, папка по умолчанию — `os.tmpdir()/cdoprof-export-fixtures`), `--no-trainings`. Печатает состав манифеста по-русски; код выхода 1 при отказе.
 
-- [ ] **Step 1: Тест стража папки. Step 2: Реализация стража и скрипта. Step 3: Прогон `pnpm export:cdoprof -- --fixtures` руками — 7 файлов в tmp. Commit `feat(backend): скрипт выгрузки CDOPROF (env, --fixtures, отказ писать в репозиторий)`**
+- [x] **Step 1: Тест стража папки. Step 2: Реализация стража и скрипта. Step 3: Прогон `pnpm export:cdoprof -- --fixtures` руками — 7 файлов в tmp. Commit `feat(backend): скрипт выгрузки CDOPROF (env, --fixtures, отказ писать в репозиторий)`**
 
 ### Task 6: Документ источника + трекер + handoff
 
@@ -183,7 +183,7 @@ it('ни одно сообщение об ошибке не содержит к�
 - Create: `docs/audit/cdoprof-source-2026-09.md` — колонки по каждому методу API (из OpenAPI + тип + что с ними делает §13.2), известные объёмы (1 622 / 13 755 / 24 756 / ~427 / 18), чего в API нет, известная грязь, что снять в живом прогоне (🚫 О1/О2: форматы дат, лимиты частоты, реальная форма `items` в trainings, колонки Excel), как запускать скрипт на стенде, что лежит в манифесте.
 - Modify: `docs/TZ_CDOPROF_MIGRATION_STATUS.md` («Где мы сейчас» → позиция 3; очередь п. 2 → ✅ по коду / живой прогон 🚫; статус МГ-K1.1; журнал решений РМ15+; журнал сессий), `LMS_AGENT_HANDOFF.md` (§5.553), `README.md` §2.
 
-- [ ] **Step 1: Написать документ. Step 2: Обновить трекер/handoff/README. Step 3: `pnpm ci:check` зелёный → PR.**
+- [x] **Step 1: Написать документ. Step 2: Обновить трекер/handoff/README. Step 3: `pnpm ci:check` зелёный → PR.**
 
 ## Решения агента (в журнал трекера)
 
