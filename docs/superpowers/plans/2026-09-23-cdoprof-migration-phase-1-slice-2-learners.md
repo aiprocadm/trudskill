@@ -34,13 +34,13 @@
 
 **Files:** Modify `normalized-upsert.ts` (`loadUserIds(client, tenantId, ids): Promise<Set<string>>` — `select id from iam.users where tenant_id = $1 and id = any($2::text[])`), `normalized-backfill.service.ts` (использует `loadUserIds`), `in-memory-mvp.state.ts` (`PROJECTED_COLLECTIONS = ['counterparties', 'groups', 'learners']`), `postgres-mvp-persistence.backend.ts` (`projectChanged`: шаг слушателей между контрагентами и группами — `ctx.users = await loadUserIds(...)` по `linkedIamUserId` изменённых; удаления слушателей после групп — на них ссылаются зачисления/документы таблиц, отказ → журнал), `postgres-mvp-persistence.backend.test.ts` (`isProjectionWrite` += `learning.learners`; мок отвечает `{ rows: [], rowCount: N }`; тест: параметры upsert не содержат открытого СНИЛС, `snils_hash` — 64 hex; стирание → `null` в колонках ПДн), `lazy-state.perf.test.ts` (`changedEntities('learners')` на неразложенной коллекции не раскладывает её).
 
-- [ ] Тесты → реализация. Commit `feat(backend): проекция слушателей в learning.learners при сохранении снимка — ПДн шифртекстом, учётная запись по контексту`.
+- [x] Тесты → реализация. Commit `feat(backend): проекция слушателей в learning.learners при сохранении снимка — ПДн шифртекстом, учётная запись по контексту`.
 
 ### Task 2: интеграционный тест проекции слушателей
 
 **Files:** Create `postgres-mvp-persistence.learners-projection.integration.test.ts` (withTestDb, вся цепочка): сохранение слушателя с открытым СНИЛС → в таблице `snils` NULL, `snils_enc` `enc:`, `snils_hash` = `snilsBlindIndex`; правка почты → перешифрована только она (сравнить `snils_enc` до/после — не изменился, т.к. сущность изменилась целиком → изменился; проверять по `snils_hash` и расшифровке); `linkedIamUserId` на существующего `iam.users` → `user_id`; на несуществующего → NULL + `payload.linkedIamUserId`; два слушателя с одним `user_id` → один в журнале; стирание ПДн → колонки NULL; `markDirty` на 2 000 строк → полный upsert < 15 с.
 
-- [ ] Commit `test(backend): проекция слушателей на живой базе — ПДн, учётные записи, стирание, полный upsert`.
+- [x] Commit `test(backend): проекция слушателей на живой базе — ПДн, учётные записи, стирание, полный upsert`.
 
 ### Task 3: документация 2a
 
