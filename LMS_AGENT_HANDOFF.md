@@ -5592,6 +5592,11 @@ integration.test.ts` (Docker, вся цепочка): шифртекст рас�
   полный upsert < 30 с (фактически секунды). `lazy-state.perf`: вопрос о слушателях не раскладывает
   и не расшифровывает коллекцию.
 
+**Грабля слияния #808:** коммиты с поправкой `mvp.domains.http.integration.test.ts` (провайдеры чтения)
+остались на локальной ветке — `git push` тихо не дошёл, а слияние ушло без них; в этом PR они
+перенесены (cherry-pick). Правило: после каждого push сверять `git rev-parse HEAD` с
+`git ls-remote --heads origin <ветка>`.
+
 **Файлы (9):** `normalized-upsert.ts`, `normalized-backfill.service.ts`, `in-memory-mvp.state.ts`,
 `postgres-mvp-persistence.backend.ts` + тест + интеграционный тест, `lazy-state.perf.test.ts`,
 план; документация сессии.
