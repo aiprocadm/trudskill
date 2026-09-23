@@ -10,7 +10,7 @@ import {
   emptyContext,
   projectEntity
 } from './normalized-projection.js';
-import { loadCounterpartyIds, upsertRow } from './normalized-upsert.js';
+import { loadCounterpartyIds, loadUserIds, upsertRow } from './normalized-upsert.js';
 import { DatabaseService } from '../../../../infrastructure/database/database.service.js';
 
 import type {
@@ -249,14 +249,7 @@ export class NormalizedBackfillService {
     ];
 
     if (collection === 'learners') {
-      const ids = field('linkedIamUserId');
-      if (ids.length > 0) {
-        const users = await client.query<{ id: string }>(
-          'select id from iam.users where tenant_id = $1 and id = any($2::text[])',
-          [tenantId, ids]
-        );
-        for (const u of users.rows) ctx.users.add(u.id);
-      }
+      ctx.users = await loadUserIds(client, tenantId, field('linkedIamUserId'));
     }
     if (collection === 'groups') {
       ctx.counterparties = await loadCounterpartyIds(client, tenantId, field('counterpartyId'));

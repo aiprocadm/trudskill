@@ -165,3 +165,17 @@ export async function detachGroupsFromCounterparties(
     [tenantId, scope.keep]
   );
 }
+
+/** Какие из учётных записей центра существуют — для `learners.user_id` (уникальный частичный индекс 0110). */
+export async function loadUserIds(
+  client: PoolClient,
+  tenantId: string,
+  ids: string[]
+): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const found = await client.query<{ id: string }>(
+    'select id from iam.users where tenant_id = $1 and id = any($2::text[])',
+    [tenantId, ids]
+  );
+  return new Set(found.rows.map((r) => r.id));
+}
