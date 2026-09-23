@@ -85,12 +85,13 @@ export function handleSummary(data) {
   const p = (name) => {
     const m = data.metrics[name];
     return m
-      ? `p50 ${Math.round(m.values.med)} мс · p95 ${Math.round(m.values['p(95)'])} мс · max ${Math.round(m.values.max)} мс · n=${m.values.count}`
+      ? `p50 ${Math.round(m.values.med)} мс · p95 ${Math.round(m.values['p(95)'])} мс · max ${Math.round(m.values.max)} мс`
       : 'нет';
   };
   const failed = data.metrics.http_req_failed ? data.metrics.http_req_failed.values.rate : 0;
+  const requests = data.metrics.http_reqs ? data.metrics.http_reqs.values.count : 0;
   const lines = [
-    `Объём CDOPROF, VUS=${VUS}, ${DURATION}`,
+    `Объём CDOPROF, VUS=${VUS}, ${DURATION}, запросов ${requests}`,
     `  /groups   ${p('groups_list_ms')}`,
     `  /learners ${p('learners_list_ms')}`,
     `  /search   ${p('search_ms')}`,

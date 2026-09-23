@@ -39,8 +39,8 @@
 
 **Interfaces:** `interface SyntheticShape { counterparties; courses; groups; learners; enrollments }`; `DEFAULT_SYNTHETIC_SHAPE`; `buildSyntheticCdoprofTenant(tenantId, shape = DEFAULT, seed = 1): SyntheticTenant` → `{ counterparties: Counterparty[]; courses: Course[]; groups: GroupEntity[]; groupCourses: GroupCourse[]; learners: Learner[]; enrollments: Enrollment[] }`; `toRuntimeRows(tenant): Array<{ collection; id; data }>`.
 
-- [ ] Тесты: размеры равны форме; детерминизм (два вызова с одним seed → одинаковый JSON); все ссылки существуют; у слушателей нет `snils/email/phone/dateOfBirth`; `toRuntimeRows` даёт `collection ∈ MVP_COLLECTIONS`; статусы зачислений из допустимого набора.
-- [ ] Реализация (seeded LCG; коды групп `YYYY-NNNNN`; даты 2021–2026), зелёный, commit.
+- [x] Тесты: размеры равны форме; детерминизм (два вызова с одним seed → одинаковый JSON); все ссылки существуют; у слушателей нет `snils/email/phone/dateOfBirth`; `toRuntimeRows` даёт `collection ∈ MVP_COLLECTIONS`; статусы зачислений из допустимого набора.
+- [x] Реализация (seeded LCG; коды групп `YYYY-NNNNN`; даты 2021–2026), зелёный, commit.
 
 ### Task 2: Скрипт заливки
 
@@ -57,7 +57,7 @@
 
 ### Task 4: Прогон и отчёт
 
-- [ ] База `trudskill_perf` в `test-postgres`; бэкенд из worktree с env стенда, но своей базой и портом 3091 (`MVP_PERSISTENCE_DRIVER=postgres`, `ALLOW_IN_MEMORY_STATE=false`), проверка `/health/ready`.
-- [ ] `pnpm perf:synth`; токен `tenant_admin`; k6: VUS=1 (одиночная задержка) и VUS=10 (очередь); снять `mvp_persistence_load_duration_ms` из `/metrics`, если доступно.
-- [ ] `docs/LOAD_TEST_RESULTS.md` — новый раздел «2026-09-23 объём CDOPROF»: таблица p95/среднее по ручкам, время загрузки снимка, размер снимка в базе, вывод для Фазы 1; трекер МГ-A3.1/МГ-A4.1 — база «до»; handoff §5.554; README §2.
-- [ ] Погасить бэкенд, оставить базу `trudskill_perf` (пригодится Фазе 1 для «после»); `pnpm ci:check`; PR.
+- [x] База `trudskill_perf` в `test-postgres`; бэкенд из worktree с env стенда, но своей базой и портом 3091 (`MVP_PERSISTENCE_DRIVER=postgres`, `ALLOW_IN_MEMORY_STATE=false`), проверка `/health/ready`.
+- [x] `pnpm perf:synth`; токен `tenant_admin`; k6: VUS=1 (одиночная задержка) и VUS=10 (очередь); снять `mvp_persistence_load_duration_ms` из `/metrics`, если доступно.
+- [x] `docs/LOAD_TEST_RESULTS.md` — новый раздел «2026-09-23 объём CDOPROF»: таблица p95/среднее по ручкам, время загрузки снимка, размер снимка в базе, вывод для Фазы 1; трекер МГ-A3.1/МГ-A4.1 — база «до»; handoff §5.554; README §2.
+- [x] Погасить бэкенд, оставить базу `trudskill_perf` (пригодится Фазе 1 для «после»); `pnpm ci:check`; PR.
