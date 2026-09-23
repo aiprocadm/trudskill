@@ -87,6 +87,7 @@ export const TABLE_SPECS: Record<HotCollection, TableSpec> = {
     columns: {
       ...BASE_COLUMNS,
       user_id: 'text',
+      linked_iam_user_id: 'text',
       learner_no: 'text',
       first_name: 'text',
       last_name: 'text',
@@ -390,6 +391,8 @@ const projectLearner = (entity: Entity, tenantId: string, ctx: ProjectionContext
     tenantId,
     {
       user_id: userKnown ? linked : null,
+      // Привязка «как в снимке», без FK (0111): по ней anti-IDOR в SQL; `user_id` — только существующая.
+      linked_iam_user_id: linked,
       learner_no: str(atRest.learnerNo),
       first_name: str(atRest.firstName) ?? '',
       last_name: str(atRest.lastName) ?? '',
@@ -776,6 +779,7 @@ const HIDDEN_COLUMNS: Partial<Record<HotCollection, ReadonlyArray<string>>> = {
 const COLUMN_TO_FIELD: Partial<Record<HotCollection, Record<string, string>>> = {
   learners: {
     user_id: 'linkedIamUserId',
+    linked_iam_user_id: 'linkedIamUserId',
     snils_enc: 'snils',
     snils_hash: 'snilsHash',
     email_enc: 'email',

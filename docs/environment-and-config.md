@@ -37,7 +37,7 @@ Configuration is validated via Zod at startup (fail-fast).
   - `READINESS_OUTBOX_BACKLOG_THRESHOLD`
 - Слой хранения домена (Фаза 1 ТЗ перехода с CDOPROF):
   - `LMS_READ_MODEL=legacy|normalized|shadow` — откуда читать JSON-снимок центра (`normalized` = зеркало stage1; смысл не менялся, РМ32); `LMS_DUAL_WRITE_ENABLED` — писать снимок в обе таблицы.
-  - `LMS_NORMALIZED_COLLECTIONS` — коллекции, которые читаются из нормализованных таблиц, через запятую (`groups,counterparties,learners`); по умолчанию пусто — всё из снимка. Порядок включения: бэкфилл `POST /migration/backfill/runs/start` `{ "domain": "lms_normalized" }` → зелёный отчёт сверки → флаг. Откат — пустое значение; проекция при сохранении снимка пишет таблицы всегда (РМ35), так что данные не отстают. Неизвестное имя — ошибка старта.
+  - `LMS_NORMALIZED_COLLECTIONS` — коллекции, которые читаются из нормализованных таблиц, через запятую (`groups,counterparties,learners,enrollments`); по умолчанию пусто — всё из снимка. Порядок включения: бэкфилл `POST /migration/backfill/runs/start` `{ "domain": "lms_normalized" }` → зелёный отчёт сверки → флаг. Откат — пустое значение; проекция при сохранении снимка пишет таблицы всегда (РМ35), так что данные не отстают. Неизвестное имя — ошибка старта.
 
 ## Health/readiness behavior
 

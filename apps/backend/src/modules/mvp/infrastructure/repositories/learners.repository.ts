@@ -18,4 +18,6 @@ export interface LearnersRepository {
   lookup(tenantId: string, query: RegistryListQuery): Promise<RegistryListPage<LookupItem>>;
   /** Все слушатели центра с этим СНИЛС (по слепому индексу; вход в любом написании). */
   findBySnils(tenantId: string, snils: string): Promise<Learner[]>;
+  /** Слушатели, привязанные к учётной записи (anti-IDOR §5.160; колонка 0111). */
+  learnerIdsByUser(tenantId: string, userId: string): Promise<string[]>;
 }

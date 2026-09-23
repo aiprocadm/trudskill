@@ -47,7 +47,8 @@ import { MvpPersistenceRepositoryAdapter } from './infrastructure/mvp-persistenc
 import { MVP_PERSISTENCE_BACKEND } from './infrastructure/mvp-persistence.token.js';
 import { PostgresMvpPersistenceBackend } from './infrastructure/postgres-mvp-persistence.backend.js';
 import { COUNTERPARTIES_REPOSITORY } from './infrastructure/repositories/counterparties.repository.js';
-import { GROUPS_REPOSITORY } from './infrastructure/repositories/groups.repository.js';
+import { ENROLLMENTS_REPOSITORY } from './infrastructure/repositories/enrollments.repository.js';
+import { InMemoryEnrollmentsRepository } from './infrastructure/repositories/in-memory-enrollments.repository.js';
 import { InMemoryLearnersRepository } from './infrastructure/repositories/in-memory-learners.repository.js';
 import { InMemoryRegistryRepository } from './infrastructure/repositories/in-memory-registry.repository.js';
 import { LEARNERS_REPOSITORY } from './infrastructure/repositories/learners.repository.js';
@@ -151,6 +152,8 @@ import {
   type VideoProviderRegistry
 } from '../../infrastructure/video-provider/video.provider.js';
 import { BackgroundTasksModule } from '../background-tasks/background-tasks.module.js';
+import { GROUPS_REPOSITORY } from './infrastructure/repositories/groups.repository.js';
+import { PostgresEnrollmentsRepository } from './infrastructure/repositories/postgres-enrollments.repository.js';
 import { PostgresGroupsRepository } from './infrastructure/repositories/postgres-groups.repository.js';
 import { PostgresLearnersRepository } from './infrastructure/repositories/postgres-learners.repository.js';
 
@@ -373,6 +376,14 @@ import { PostgresLearnersRepository } from './infrastructure/repositories/postgr
         backendEnv.ALLOW_IN_MEMORY_STATE
           ? new InMemoryLearnersRepository([])
           : new PostgresLearnersRepository(db),
+      inject: [DatabaseService]
+    },
+    {
+      provide: ENROLLMENTS_REPOSITORY,
+      useFactory: (db: DatabaseService) =>
+        backendEnv.ALLOW_IN_MEMORY_STATE
+          ? new InMemoryEnrollmentsRepository([])
+          : new PostgresEnrollmentsRepository(db),
       inject: [DatabaseService]
     },
     MvpNormalizedReadsService,
