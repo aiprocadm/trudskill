@@ -191,6 +191,8 @@ describe('MVP HTTP integration (domain invariants)', () => {
       { COUNTERPARTIES_REPOSITORY },
       { GROUPS_REPOSITORY },
       { InMemoryRegistryRepository },
+      { LEARNERS_REPOSITORY },
+      { InMemoryLearnersRepository },
       { DOCUMENTS_STATE },
       { InMemoryDocumentsState },
       { MemoryDocumentsPersistenceBackend },
@@ -239,6 +241,8 @@ describe('MVP HTTP integration (domain invariants)', () => {
       import('./infrastructure/repositories/counterparties.repository.js'),
       import('./infrastructure/repositories/groups.repository.js'),
       import('./infrastructure/repositories/in-memory-registry.repository.js'),
+      import('./infrastructure/repositories/learners.repository.js'),
+      import('./infrastructure/repositories/in-memory-learners.repository.js'),
       import('../documents/documents-state.token.js'),
       import('../documents/in-memory-documents.state.js'),
       import('../documents/infrastructure/memory-documents-persistence.backend.js'),
@@ -345,6 +349,7 @@ describe('MVP HTTP integration (domain invariants)', () => {
           provide: GROUPS_REPOSITORY,
           useValue: new InMemoryRegistryRepository([], 'counterpartyId')
         },
+        { provide: LEARNERS_REPOSITORY, useValue: new InMemoryLearnersRepository([]) },
         MvpNormalizedReadsService,
         // ФТ-D4.2 (Фаза 4 Task 5): гейт лимита слушателей на создании. Заглушка-пропуск:
         // здесь проверяются доменные инварианты, лимиты тарифа покрыты юнитами гейта.

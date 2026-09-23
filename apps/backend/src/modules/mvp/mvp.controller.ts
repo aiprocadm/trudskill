@@ -318,10 +318,13 @@ export class MvpController {
   @Get('learners')
   @UseGuards(PermissionGuard)
   @RequirePermissions('learners.read')
-  listLearners(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    const page = this.mvpService.listLearners(c.tenantId!, q, {
-      counterpartyId: c.counterpartyId
-    });
+  @ReadsNormalized('learners')
+  async listLearners(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
+    /* Срез 2b: из таблицы читает персонал; актор со скоупом заказчика идёт снимком (РМ37). */
+    const page =
+      isNormalizedRead('learners') && !c.counterpartyId
+        ? await this.normalizedReads.listLearners(c.tenantId!, q)
+        : this.mvpService.listLearners(c.tenantId!, q, { counterpartyId: c.counterpartyId });
     /*
      * ТЗ 17.2: в СПИСКЕ персональные номера показаны частично — всегда, независимо от прав.
      *
@@ -355,15 +358,22 @@ export class MvpController {
   @Get('learners/lookup')
   @UseGuards(PermissionGuard)
   @RequirePermissions('learners.read')
+  @ReadsNormalized('learners')
   learnersLookup(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    return this.mvpService.lookupLearners(c.tenantId!, q);
+    return isNormalizedRead('learners')
+      ? this.normalizedReads.lookupLearners(c.tenantId!, q)
+      : this.mvpService.lookupLearners(c.tenantId!, q);
   }
   @Get('learners/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('learners.read')
-  getLearner(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+  @ReadsNormalized('learners')
+  async getLearner(@CurrentContext() c: RequestContext, @Param('id') id: string) {
     /* ТЗ 17.2: карточка тоже отдаёт номера частично — полностью только по явному действию. */
-    return maskLearnerRow(this.mvpService.getLearner(c.tenantId!, id));
+    const learner = isNormalizedRead('learners')
+      ? await this.normalizedReads.getLearner(c.tenantId!, id)
+      : this.mvpService.getLearner(c.tenantId!, id);
+    return maskLearnerRow(learner);
   }
 
   /**

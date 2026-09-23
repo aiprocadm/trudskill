@@ -1,16 +1,20 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
+import { decryptLearnerPiiAtRest } from '../../../infrastructure/crypto/pii-crypto.js';
 import { resolveCounterpartyScope, scopeAllows } from '../counterparty-scope.js';
 import { COUNTERPARTIES_REPOSITORY } from './repositories/counterparties.repository.js';
 import { GROUPS_REPOSITORY } from './repositories/groups.repository.js';
+import { LEARNERS_REPOSITORY } from './repositories/learners.repository.js';
 import { COUNTERPARTY_SORT_COLUMNS } from './repositories/postgres-counterparties.repository.js';
 import { GROUP_SORT_COLUMNS } from './repositories/postgres-groups.repository.js';
+import { LEARNER_SORT_COLUMNS } from './repositories/postgres-learners.repository.js';
 import { parseRegistryListQuery } from './repositories/registry-list-query.js';
 
 import type { BaseFilterQuery } from '../mvp.dto.js';
-import type { Counterparty, GroupEntity } from '../mvp.types.js';
+import type { Counterparty, GroupEntity, Learner } from '../mvp.types.js';
 import type { CounterpartiesRepository } from './repositories/counterparties.repository.js';
 import type { GroupsRepository } from './repositories/groups.repository.js';
+import type { LearnersRepository } from './repositories/learners.repository.js';
 import type { LookupItem, RegistryListPage } from './repositories/registry-list-query.js';
 
 /**
@@ -27,7 +31,9 @@ import type { LookupItem, RegistryListPage } from './repositories/registry-list-
 export class MvpNormalizedReadsService {
   constructor(
     @Inject(COUNTERPARTIES_REPOSITORY) private readonly counterparties: CounterpartiesRepository,
-    @Inject(GROUPS_REPOSITORY) private readonly groups: GroupsRepository
+    @Inject(GROUPS_REPOSITORY) private readonly groups: GroupsRepository,
+    /* Срез 2b: слушатели. ПДн из таблицы — шифртекст; расшифровка здесь, до маскирования в контроллере. */
+    @Inject(LEARNERS_REPOSITORY) private readonly learners: LearnersRepository
   ) {}
 
   listCounterparties(
@@ -86,5 +92,37 @@ export class MvpNormalizedReadsService {
 
   lookupGroups(tenantId: string, query: BaseFilterQuery): Promise<RegistryListPage<LookupItem>> {
     return this.groups.lookup(tenantId, parseRegistryListQuery(query, GROUP_SORT_COLUMNS));
+  }
+
+  /**
+   * Слушатели (срез 2b). Из таблицы ПДн приходят шифртекстом — расшифровываем каждую запись,
+   * как это делает загрузка снимка; `maskLearnerRow` в контроллере работает уже с открытым
+   * значением (иначе маска взяла бы цифры из шифртекста). Скоуп представителя не применяется:
+   * у него нет `learners.read`, а портал остаётся на снимке до среза 3 (РМ37).
+   */
+  async listLearners(tenantId: string, query: BaseFilterQuery): Promise<RegistryListPage<Learner>> {
+    const page = await this.learners.list(
+      tenantId,
+      parseRegistryListQuery(query, LEARNER_SORT_COLUMNS)
+    );
+    return { ...page, items: page.items.map((item) => this.decrypt(item)) };
+  }
+
+  async getLearner(tenantId: string, id: string): Promise<Learner> {
+    const found = await this.learners.get(tenantId, id);
+    if (!found) throw new NotFoundException({ code: 'not_found', message: 'Entity not found' });
+    return this.decrypt(found);
+  }
+
+  lookupLearners(tenantId: string, query: BaseFilterQuery): Promise<RegistryListPage<LookupItem>> {
+    return this.learners.lookup(tenantId, parseRegistryListQuery(query, LEARNER_SORT_COLUMNS));
+  }
+
+  async findLearnersBySnils(tenantId: string, snils: string): Promise<Learner[]> {
+    return (await this.learners.findBySnils(tenantId, snils)).map((item) => this.decrypt(item));
+  }
+
+  private decrypt(learner: Learner): Learner {
+    return decryptLearnerPiiAtRest(learner) as Learner;
   }
 }

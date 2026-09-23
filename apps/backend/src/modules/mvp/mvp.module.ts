@@ -48,7 +48,9 @@ import { MVP_PERSISTENCE_BACKEND } from './infrastructure/mvp-persistence.token.
 import { PostgresMvpPersistenceBackend } from './infrastructure/postgres-mvp-persistence.backend.js';
 import { COUNTERPARTIES_REPOSITORY } from './infrastructure/repositories/counterparties.repository.js';
 import { GROUPS_REPOSITORY } from './infrastructure/repositories/groups.repository.js';
+import { InMemoryLearnersRepository } from './infrastructure/repositories/in-memory-learners.repository.js';
 import { InMemoryRegistryRepository } from './infrastructure/repositories/in-memory-registry.repository.js';
+import { LEARNERS_REPOSITORY } from './infrastructure/repositories/learners.repository.js';
 import { PostgresCounterpartiesRepository } from './infrastructure/repositories/postgres-counterparties.repository.js';
 import { LearnerPdfCardService } from './learner-pdf-card.service.js';
 import { LearnersBulkImportService } from './learners-bulk-import.service.js';
@@ -150,6 +152,7 @@ import {
 } from '../../infrastructure/video-provider/video.provider.js';
 import { BackgroundTasksModule } from '../background-tasks/background-tasks.module.js';
 import { PostgresGroupsRepository } from './infrastructure/repositories/postgres-groups.repository.js';
+import { PostgresLearnersRepository } from './infrastructure/repositories/postgres-learners.repository.js';
 
 @Module({
   imports: [
@@ -362,6 +365,14 @@ import { PostgresGroupsRepository } from './infrastructure/repositories/postgres
         backendEnv.ALLOW_IN_MEMORY_STATE
           ? new InMemoryRegistryRepository([], 'counterpartyId')
           : new PostgresGroupsRepository(db),
+      inject: [DatabaseService]
+    },
+    {
+      provide: LEARNERS_REPOSITORY,
+      useFactory: (db: DatabaseService) =>
+        backendEnv.ALLOW_IN_MEMORY_STATE
+          ? new InMemoryLearnersRepository([])
+          : new PostgresLearnersRepository(db),
       inject: [DatabaseService]
     },
     MvpNormalizedReadsService,
