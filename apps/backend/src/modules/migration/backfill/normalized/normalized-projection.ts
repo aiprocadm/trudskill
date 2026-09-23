@@ -734,6 +734,8 @@ const safeParse = (text: string): unknown => {
   try {
     return JSON.parse(text);
   } catch {
+    // Не JSON — это и есть ответ: колонка jsonb хранит строку (например, шифртекст `enc:…`),
+    // сравнивать её нужно как текст, а не как разобранный объект. Ошибка тут не событие.
     return text;
   }
 };
