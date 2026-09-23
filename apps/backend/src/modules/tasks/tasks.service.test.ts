@@ -57,7 +57,7 @@ describe('TasksService — создание (§5.4 МГ-G2.1)', () => {
     expect(task.creatorUserId).toBe('u_author');
     expect(task.assignees.map((a) => a.userId)).toEqual(['u_author']);
     expect(task.priority).toBe('normal');
-    expect(audit.records.map((r) => r.action)).toEqual(['tasks.task_created']);
+    expect((await audit.list(TENANT)).map((r) => r.action)).toEqual(['tasks.task_created']);
   });
 
   it('исполнитель не сотрудник центра → 400 task_assignee_not_staff', async () => {
@@ -176,7 +176,9 @@ describe('TasksService — переходы (§5.4 МГ-G2.2)', () => {
     const confirmed = await service.transition(TENANT, author, task.id, 'confirm');
     expect(confirmed.status).toBe('confirmed');
     expect(confirmed.confirmedAt).toBeTruthy();
-    expect(audit.records.filter((r) => r.action === 'tasks.task_status_changed')).toHaveLength(3);
+    expect(
+      (await audit.list(TENANT)).filter((r) => r.action === 'tasks.task_status_changed')
+    ).toHaveLength(3);
   });
 
   it('постановщик не может «взять в работу», исполнитель — «подтвердить»: 403 task_action_forbidden', async () => {
