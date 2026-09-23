@@ -47,6 +47,23 @@ Production requirement:
 - `MVP_PERSISTENCE_DRIVER=postgres`
 - `DOCUMENTS_PERSISTENCE_DRIVER=postgres`
 
+## Фаза 1 (ТЗ перехода с CDOPROF): нормализованные таблицы горячих коллекций
+
+Домен переезжает из снимка в таблицы по срезам (план `docs/superpowers/plans/2026-09-23-cdoprof-migration-phase-1-slice-0-migrations.md`). Срез 0 (миграции 0104–0109, §5.558) привёл таблицы в состояние, в которое можно вставить строку из снимка:
+
+| Коллекция снимка          | Таблица                              | Миграции формы                           | Заметки                                                                           |
+| ------------------------- | ------------------------------------ | ---------------------------------------- | --------------------------------------------------------------------------------- |
+| `counterparties`          | `crm.counterparties`                 | 0002, 0039, 0102, 0106                   | реквизиты §17; ИНН без уникальности (филиалы)                                     |
+| `learners`                | `learning.learners`                  | 0002, 0036, 0046, 0102, 0106             | ПДн — только `*_enc` + `snils_hash`; открытые `snils`, `date_of_birth` deprecated |
+| `groups`                  | `learning.groups`                    | 0013, 0014, 0039, 0102, 0104             | `study_groups` (0002) — deprecated-близнец; CHECK статусов объединён              |
+| `groupCourses`            | `learning.group_courses`             | 0002, 0023, 0044, 0050, 0051, 0105       | ключ на `learning.groups` NOT VALID; курс — в снимке, ключа нет                   |
+| `enrollments`             | `learning.enrollments`               | 0002, 0003, 0023, 0051, 0102, 0105, 0107 | ключ на `learning.groups` NOT VALID; `result_code` passed/failed/absent           |
+| `enrollmentStatusHistory` | `learning.enrollment_status_history` | 0002, 0003, 0107                         | —                                                                                 |
+| `examResults`             | `assessment.exam_results`            | 0002, 0003, 0105, 0108                   | `final_score` nullable; тест и попытка — в снимке                                 |
+| `generatedDocuments`      | `documents.generated_documents`      | 0002…0062, 0088, 0102, 0105, 0108        | один CHECK статусов; `is_final ⇒ status='final'` остаётся                         |
+
+Снятые в 0105 ограничения перечислены в шапке миграции с источником (РМ31). Поиск: `pg_trgm` и trgm-индексы 0109 — только если расширение доступно (РМ33). Живой сторож формы — `src/infrastructure/database/phase-1-normalized-tables.integration.test.ts`.
+
 ## Key integrity decisions
 
 ### Tenant-aware referential integrity
