@@ -5553,6 +5553,79 @@ PR #493 построил `LearnersListScreen`, но его не импортир
 сверена после правок: вид не изменился (surface-muted и neutral-100 в светлой палитре
 совпадают побитово).
 
+### 5.558 ТЗ перехода с CDOPROF, позиция 7 (Фаза 1, срез 0): миграции согласования 0104–0109 — нормализованные таблицы принимают строку
+
+**Зачем.** Фаза 1 переводит горячие коллекции из JSON-снимка в таблицы. Разведка перед планом
+(Explore-агент, 60 обращений к коду) показала: слоя нормализованных таблиц в рантайме нет вовсе
+(`LMS_READ_MODEL=normalized` читает тот же JSON из stage1-зеркала, бэкфилл переносит JSON в JSON,
+каталога `mvp/infrastructure/repositories/` не существует), а в целевые таблицы **нельзя вставить
+ни одной строки**: внешние ключи 0002/0003/0014 ведут на таблицы, которые рантайм никогда не
+заполняет (`learning.study_groups`, `core.users` для слушателя, `documents.templates`,
+`learning.courses`, `assessment.tests`), `NOT VALID` пропускает старые строки, но проверяет
+каждую новую; на `generated_documents.status` висели ДВА CHECK (0002 и 0014) и пропускали только
+`draft`/`generated` — статусы кода `archived`/`revoked` не проходили; `exam_results.final_score`
+был `NOT NULL` при необязательном `finalScore` у сущности. Поэтому Фаза 1 начинается с миграций.
+
+**План:** `docs/superpowers/plans/2026-09-23-cdoprof-migration-phase-1-slice-0-migrations.md`
+(там же — дорожная карта срезов 0b–7 всей Фазы 1 с точками отката и главными рисками).
+
+**Что сделано.**
+
+- **0104** `learning.groups`: 19 колонок §17 (экзамен, доступы, форма обучения, ответственный,
+  комментарии, `closed_at`/`archived_at`), `UNIQUE (tenant_id, id)` под составные ключи,
+  объединённый CHECK статусов (0014 + код `closed` + §17 `recruiting/in_progress/exam/documents/
+cancelled`), индексы `(tenant, status, starts_at)`, `(tenant, exam_date)`, `(tenant, ends_at)`,
+  `(tenant, responsible_user_id)`.
+- **0105** (РМ31): сняты 20 мёртвых ограничений — каждое названо в шапке с миграцией-источником;
+  три составных ключа `group_id → learning.groups (tenant_id, id) NOT VALID` (зачисления, курсы
+  группы, документы); `group_courses.teacher_user_id`. `VALIDATE` — в срезе 7 после бэкфилла.
+- **0106** `learners`: `snils_enc/snils_hash/email_enc/phone_enc/birth_date_enc/passport_enc/
+passport_hash` (открытые `snils`, `date_of_birth` объявлены deprecated комментарием — ПДн в
+  открытом виде не пишутся), 15 полей §17, индекс `(tenant, snils_hash)` — замена индекса 0061 по
+  JSON; `counterparties`: 20 реквизитов §17, индексы по ИНН и менеджеру (уникальность ИНН не
+  ставится — филиалы с одним ИНН).
+- **0107** `enrollments`: `result_code` (CHECK passed/failed/absent — «не явился» это итог, а не
+  статус), реквизиты удостоверения и протокола, 4 индекса; снят `enrollments_completed_payload_chk`
+  (0003, `completion_state` у сущности нет); индекс истории статусов.
+- **0108** `exam_results`: `final_score` nullable, `attempts_count/best_score/max_score/
+passing_score`; `generated_documents`: 10 колонок §17, один объединённый CHECK статусов вместо
+  двух, 4 индекса. `generated_documents_final_state_chk` (`is_final ⇒ status='final'`) оставлен —
+  проекция обязана писать `is_final = (status = 'final')`.
+- **0109** (РМ33): `pg_trgm` под перехватом ошибки (нет прав — NOTICE, не падение), пять
+  триграммных индексов (название контрагента, ФИО слушателя, название и код группы, номер
+  документа) только при наличии расширения.
+- **Тесты.** `phase-1-normalized-migrations.test.ts` — текстовый сторож (14 проверок, включая
+  «ни одного `ADD COLUMN`/`CREATE INDEX` без `IF NOT EXISTS`, ни одного `DROP COLUMN`/`DELETE`»).
+  `phase-1-normalized-tables.integration.test.ts` — на настоящей базе (testcontainers) после
+  ВСЕЙ цепочки 0001–0109: по строке в каждую из восьми таблиц (без открытого СНИЛС, без
+  пользователя `core.users`, без шаблона и теста в таблицах, статусы `closed`/`suspended`/
+  `archived`/`revoked`/`issued`/`void`, завершённое зачисление без `completion_state`); чужая
+  группа отклоняется `23503` (NOT VALID проверяет новые строки); чужой статус группы и
+  `is_final` без `final` — `23514`; на 4 000 групп `EXPLAIN` идёт по
+  `groups_tenant_status_starts_idx` без seq scan (МГ-A4.1); trgm-индексы реально созданы.
+
+**Что нашёл интеграционный тест, чего не было в разведке:** составной ключ
+`generated_documents_template_version_tenant_fk` (0003) — добавлен в список 0105. Урок прежний:
+список мёртвых ключей проверяется вставкой, а не чтением миграций.
+
+**Решения:** РМ31 (трактовка «аддитивности»: сохранность данных; снятие ограничения на пустую по
+построению таблицу обратимо и записано поимённо), РМ32 (`LMS_READ_MODEL=normalized` смысл не
+меняет — перевод по коллекциям пойдёт отдельным флагом `LMS_NORMALIZED_COLLECTIONS`, срез 1),
+РМ33 (`pg_trgm` не роняет деплой).
+
+**Слепая зона** (журнал расхождений 606): `mvp-domain-migrations.test.ts` проверяет наличие
+ключей регексом по тексту ВСЕЙ цепочки — `ADD CONSTRAINT` из 0003 он видит, `DROP` из 0105 не
+замечает; вставку в живую базу теперь стережёт интеграционный тест этого среза.
+
+**Файлы (11):** 6 миграций, 2 теста, план, трекер/handoff/README/CLAUDE.md/`docs/mvp-domain-database.md`/
+журнал расхождений.
+
+**Тесты:** текстовый 14/14, интеграционный 4/4 на Docker, `mvp-domain-migrations` и
+`constraints-on-live-tables` зелёные; полный `pnpm ci:check` — см. PR.
+
+**Следующая задача:** срез 0b — бэкфилл «снимок → таблицы» (домен `lms_normalized` в
+`migration/backfill`, маппинг с перешифровкой ПДн, отчёт сверки) по отдельному плану.
+
 ### 5.557 ТЗ перехода с CDOPROF, позиция 6: экран `/tasks` (`TPL-001`) и роль куратора во фронте
 
 **Зачем.** Позиция 5 дала ручки; без экрана они бесполезны куратору. Плюс роль `curator`,
