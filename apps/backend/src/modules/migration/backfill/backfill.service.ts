@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import {
   BACKFILL_DOMAIN_TABLES,
@@ -9,8 +9,13 @@ import {
   type ReconciliationCount,
   type ReconciliationMismatch,
   type ReconciliationReport,
-  type ReconciliationStatusDistribution
+  type ReconciliationStatusDistribution,
+  type SnapshotBackfillDomain
 } from './backfill.types.js';
+import {
+  NORMALIZED_DOMAIN,
+  NormalizedBackfillService
+} from './normalized/normalized-backfill.service.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 
 type RuntimeRow = {
@@ -22,7 +27,12 @@ type RuntimeRow = {
 
 @Injectable()
 export class BackfillService {
-  constructor(@Inject(DatabaseService) private readonly db: DatabaseService) {}
+  constructor(
+    @Inject(DatabaseService) private readonly db: DatabaseService,
+    @Optional()
+    @Inject(NormalizedBackfillService)
+    private readonly normalized?: NormalizedBackfillService
+  ) {}
 
   async createRun(domain: BackfillDomain, batchSize = 500): Promise<BackfillRunRecord> {
     const id = randomUUID();
@@ -92,15 +102,20 @@ export class BackfillService {
     }
 
     try {
+      if (run.domain === NORMALIZED_DOMAIN) {
+        // Фаза 1, срез 0b: снимок → нормализованные таблицы, частичный успех по строкам.
+        const result = await this.normalizedOrThrow().processBatch(run);
+        if (result.completed) {
+          await this.markCompleted(runId);
+          await this.saveReport(runId, run.domain, await this.normalizedOrThrow().buildReport(run));
+        }
+        return { processed: result.processed, completed: result.completed };
+      }
+
       const tables = BACKFILL_DOMAIN_TABLES[run.domain];
       const rows = await this.loadBatch(tables.sourceTable, run, run.batch_size);
       if (rows.length === 0) {
-        await this.db.query(
-          `update migration.backfill_runs
-           set status = 'completed', completed_at = now(), updated_at = now()
-           where id = $1`,
-          [runId]
-        );
+        await this.markCompleted(runId);
         await this.generateReport(runId);
         return { processed: 0, completed: true };
       }
@@ -303,9 +318,28 @@ export class BackfillService {
     );
   }
 
+  private normalizedOrThrow(): NormalizedBackfillService {
+    if (!this.normalized) {
+      throw new Error('Домен lms_normalized недоступен: NormalizedBackfillService не подключён');
+    }
+    return this.normalized;
+  }
+
+  private async markCompleted(runId: string): Promise<void> {
+    await this.db.query(
+      `update migration.backfill_runs
+       set status = 'completed', completed_at = now(), updated_at = now()
+       where id = $1`,
+      [runId]
+    );
+  }
+
   private async generateReport(runId: string): Promise<void> {
     const run = await this.getRunOrThrow(runId);
-    const tables = BACKFILL_DOMAIN_TABLES[run.domain];
+    if (run.domain === NORMALIZED_DOMAIN) {
+      throw new Error('Отчёт домена lms_normalized строит NormalizedBackfillService');
+    }
+    const tables = BACKFILL_DOMAIN_TABLES[run.domain as SnapshotBackfillDomain];
 
     const counts = await this.db.query<ReconciliationCount>(
       `with source_counts as (
@@ -398,6 +432,14 @@ export class BackfillService {
       missingOrMismatchedRecords
     };
 
+    await this.saveReport(runId, run.domain, report);
+  }
+
+  private async saveReport(
+    runId: string,
+    domain: BackfillDomain,
+    report: ReconciliationReport
+  ): Promise<void> {
     await this.db.query(
       `insert into migration.reconciliation_reports
        (id, run_id, domain, report_json, created_at, updated_at)
@@ -406,7 +448,7 @@ export class BackfillService {
        do update set report_json = excluded.report_json,
                      domain = excluded.domain,
                      updated_at = now()`,
-      [randomUUID(), runId, run.domain, JSON.stringify(report)]
+      [randomUUID(), runId, domain, JSON.stringify(report)]
     );
   }
 

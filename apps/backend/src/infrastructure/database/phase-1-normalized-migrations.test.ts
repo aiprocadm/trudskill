@@ -14,6 +14,7 @@ const m0106 = read('0106_learners_and_counterparties_extend.sql');
 const m0107 = read('0107_learning_enrollments_extend.sql');
 const m0108 = read('0108_exam_results_and_generated_documents_extend.sql');
 const m0109 = read('0109_normalized_search_trgm_indexes.sql');
+const m0110 = read('0110_phase1_backfill_prerequisites.sql');
 
 const column = (sql: string, name: string): void => {
   expect(sql, `нет колонки ${name}`).toMatch(
@@ -312,9 +313,34 @@ describe('0109 pg_trgm и индексы поиска (РМ33)', () => {
   });
 });
 
-describe('все шесть миграций повторяемы', () => {
+describe('0110 предпосылки бэкфилла (срез 0b)', () => {
+  it('слушатели: «пусто» — не значение; уникальность учётной записи и номера — частичными индексами', () => {
+    dropped(m0110, 'learners_tenant_user_uniq');
+    dropped(m0110, 'learners_tenant_learner_no_uniq');
+    expect(m0110).toMatch(
+      /CREATE UNIQUE INDEX IF NOT EXISTS learners_tenant_user_uniq_idx\s+ON learning\.learners \(tenant_id, user_id\) WHERE user_id IS NOT NULL/
+    );
+    expect(m0110).toMatch(
+      /CREATE UNIQUE INDEX IF NOT EXISTS learners_tenant_learner_no_uniq_idx\s+ON learning\.learners \(tenant_id, learner_no\) WHERE learner_no IS NOT NULL/
+    );
+  });
+
+  it('результаты экзамена: CHECK знает статусы кода; курсы группы и результаты получают status/payload', () => {
+    dropped(m0110, 'exam_results_status_chk');
+    expect(m0110).toMatch(
+      /exam_results_status_chk CHECK \(status IN \('draft', 'final', 'void', 'active', 'needs_review'\)\) NOT VALID/
+    );
+    expect(m0110).toMatch(/ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active'/);
+    expect(
+      (m0110.match(/ADD COLUMN IF NOT EXISTS payload jsonb NOT NULL DEFAULT '\{\}'::jsonb/g) ?? [])
+        .length
+    ).toBe(2);
+  });
+});
+
+describe('все миграции среза 0 и 0b повторяемы', () => {
   it('ни одного ADD COLUMN / CREATE INDEX без IF NOT EXISTS и ни одного DROP CONSTRAINT без IF EXISTS', () => {
-    for (const sql of [m0104, m0105, m0106, m0107, m0108, m0109]) {
+    for (const sql of [m0104, m0105, m0106, m0107, m0108, m0109, m0110]) {
       const body = sql.replace(/--[^\n]*/g, '');
       expect(body.match(/ADD COLUMN(?! IF NOT EXISTS)/g) ?? []).toHaveLength(0);
       expect(body.match(/CREATE (?:UNIQUE )?INDEX(?! IF NOT EXISTS)/g) ?? []).toHaveLength(0);

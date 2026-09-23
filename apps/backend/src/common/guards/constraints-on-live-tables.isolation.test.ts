@@ -55,7 +55,8 @@ const DEAD_ON_PURPOSE: ReadonlyArray<DeadOnPurpose> = [
   { table: 'comm.notification_receipts', why: ABANDONED_TWIN },
   { table: 'documents.templates', why: SNAPSHOT_STORAGE },
   { table: 'documents.template_versions', why: SNAPSHOT_STORAGE },
-  { table: 'documents.generated_documents', why: SNAPSHOT_STORAGE },
+  // `documents.generated_documents` ожила 23.09.2026: в неё пишет бэкфилл Фазы 1
+  // (modules/migration/backfill/normalized), строка снята — переход прошёл не незаметно.
   { table: 'learning.course_versions', why: SNAPSHOT_STORAGE },
   { table: 'learning.materials', why: SNAPSHOT_STORAGE },
   { table: 'learning.progress', why: SNAPSHOT_STORAGE },

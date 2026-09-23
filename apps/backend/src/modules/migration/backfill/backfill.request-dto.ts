@@ -9,7 +9,7 @@ import { IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
  * занять базу на часы.
  */
 
-const DOMAINS = ['lms', 'documents'] as const;
+const DOMAINS = ['lms', 'documents', 'lms_normalized'] as const;
 
 /** Пачка: меньше 1 бессмысленно, больше 10 000 — способ надолго занять базу одной командой. */
 const MIN_BATCH = 1;

@@ -62,6 +62,8 @@ Production requirement:
 | `examResults`             | `assessment.exam_results`            | 0002, 0003, 0105, 0108                   | `final_score` nullable; тест и попытка — в снимке                                 |
 | `generatedDocuments`      | `documents.generated_documents`      | 0002…0062, 0088, 0102, 0105, 0108        | один CHECK статусов; `is_final ⇒ status='final'` остаётся                         |
 
+Срез 0b (§5.559): миграция 0110 — уникальность учётной записи и номера слушателя частичными индексами (`UNIQUE NULLS NOT DISTINCT` из 0002 пускала лишь одного слушателя без учётной записи на центр), CHECK результатов экзамена со статусами кода, `group_courses.status/payload`, `exam_results.payload`. Бэкфилл — домен `lms_normalized` модуля `migration/backfill` (`POST /migration/backfill/runs/start`, `{ "domain": "lms_normalized" }`): коллекции в порядке внешних ключей, точка сохранения на строку (отказ — в `backfill_items` с причиной), отчёт сверки в `reconciliation_reports`; проекция и правила — `backfill/normalized/normalized-projection.ts`.
+
 Снятые в 0105 ограничения перечислены в шапке миграции с источником (РМ31). Поиск: `pg_trgm` и trgm-индексы 0109 — только если расширение доступно (РМ33). Живой сторож формы — `src/infrastructure/database/phase-1-normalized-tables.integration.test.ts`.
 
 ## Key integrity decisions

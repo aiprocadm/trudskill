@@ -14,6 +14,12 @@ describe('запуск дозаполнения', () => {
     expect(assertValidDto(CreateBackfillRunDto, { domain: 'lms' }).domain).toBe('lms');
   });
 
+  it('домен Фазы 1 «снимок → таблицы» принимается', () => {
+    expect(assertValidDto(CreateBackfillRunDto, { domain: 'lms_normalized' }).domain).toBe(
+      'lms_normalized'
+    );
+  });
+
   it('выдуманный домен отклоняется', () => {
     expect(() => assertValidDto(CreateBackfillRunDto, { domain: 'всё подряд' })).toThrow();
   });
