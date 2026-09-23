@@ -110,7 +110,13 @@ const makeService = () =>
   new MvpNormalizedReadsService(
     new InMemoryRegistryRepository(counterparties, 'id'),
     new InMemoryRegistryRepository(groups, 'counterpartyId'),
-    new InMemoryLearnersRepository(learners),
+    new InMemoryLearnersRepository(
+      learners,
+      new Map([
+        ['l1', ['cp1']],
+        ['l2', ['cp2']]
+      ])
+    ),
     new InMemoryEnrollmentsRepository(
       enrollments,
       history,
@@ -180,12 +186,12 @@ describe('MvpNormalizedReadsService', () => {
     expect((await service.findLearnersBySnils(T, '11223344595')).map((l) => l.id)).toEqual(['l1']);
   });
 
-  it('слушатели: представитель заказчика под флагом получает пустую страницу — закрыто по умолчанию (РМ37)', async () => {
+  it('слушатели: представитель заказчика видит только зачисленных в группы своего контрагента (срез 3c, снимает РМ37)', async () => {
     const service = makeService();
-    const page = await service.listLearners(T, { page: '2', page_size: '5' } as never, {
-      counterpartyId: 'cp1'
-    });
-    expect(page).toEqual({ items: [], page: 2, pageSize: 5, total: 0 });
+    const page = await service.listLearners(T, {}, { counterpartyId: 'cp1' });
+    expect(page.items.map((l) => l.id)).toEqual(['l1']);
+    expect(page.total).toBe(1);
+    expect((await service.listLearners(T, {}, { counterpartyId: 'cp_none' })).total).toBe(0);
   });
 
   it('зачисления (срез 3b): персонал с правом обхода видит всё, слушатель — только свои, без привязки — пусто', async () => {

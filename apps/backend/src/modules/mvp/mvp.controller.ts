@@ -267,15 +267,19 @@ export class MvpController {
   @Get('portal/learners')
   @UseGuards(PermissionGuard)
   @RequirePermissions('portal.read')
-  listPortalLearners(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
+  @ReadsNormalized('learners', 'enrollments', 'groups')
+  async listPortalLearners(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
     /*
      * Ревизия 2026-08-26: портал отдавал карточку слушателя целиком — со СНИЛСом, датой
      * рождения и телефоном, — хотя экран показывает четыре колонки. Это единственное место,
      * где данные уходят ЗА ПРЕДЕЛЫ центра, к внешней компании (см. portal-learner-view.ts).
      */
-    const page = this.mvpService.listLearners(c.tenantId!, q, {
-      counterpartyId: c.counterpartyId
-    });
+    /* Срез 3c: скоуп представителя в SQL идёт через зачисления и группы — нужны все три коллекции. */
+    const actor = { counterpartyId: c.counterpartyId };
+    const page =
+      isNormalizedRead('learners') && isNormalizedRead('enrollments') && isNormalizedRead('groups')
+        ? await this.normalizedReads.listLearners(c.tenantId!, q, actor)
+        : this.mvpService.listLearners(c.tenantId!, q, actor);
     return { ...page, items: page.items.map(toPortalLearnerView) };
   }
   @Get('portal/groups')

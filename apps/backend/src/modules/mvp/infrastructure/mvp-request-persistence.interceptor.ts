@@ -124,10 +124,11 @@ export class MvpRequestPersistenceInterceptor implements NestInterceptor {
       (t): t is NonNullable<typeof t> => Boolean(t)
     );
     if (!this.reflector || targets.length === 0) return false;
-    const collection = this.reflector.getAllAndOverride<NormalizableCollection | undefined>(
-      READS_NORMALIZED,
-      targets
-    );
-    return collection !== undefined && isNormalizedRead(collection);
+    const marked = this.reflector.getAllAndOverride<
+      NormalizableCollection | NormalizableCollection[] | undefined
+    >(READS_NORMALIZED, targets);
+    const collections = marked === undefined ? [] : Array.isArray(marked) ? marked : [marked];
+    // Все названные коллекции включены — иначе снимок нужен хотя бы одной из них.
+    return collections.length > 0 && collections.every((c) => isNormalizedRead(c));
   }
 }

@@ -127,17 +127,11 @@ export class MvpNormalizedReadsService {
     query: BaseFilterQuery,
     actor?: { counterpartyId?: string }
   ): Promise<RegistryListPage<Learner>> {
+    // Скоуп представителя заказчика (ФТ-E5) — в SQL через зачисления и группы (срез 3c, снимает РМ37).
     const scope = resolveCounterpartyScope(actor ?? {});
-    if (scope.restricted) {
-      // Скоуп представителя заказчика идёт через зачисления и группы, которых в таблицах до
-      // среза 3 нет (РМ37). Закрыто по умолчанию: пустая страница, а не список всего центра.
-      // Ветка снимка здесь невозможна — интерцептор снимок для помеченной ручки не грузит.
-      const parsed = parseRegistryListQuery(query, LEARNER_SORT_COLUMNS);
-      return { items: [], page: parsed.page, pageSize: parsed.pageSize, total: 0 };
-    }
     const page = await this.learners.list(
       tenantId,
-      parseRegistryListQuery(query, LEARNER_SORT_COLUMNS)
+      parseRegistryListQuery(query, LEARNER_SORT_COLUMNS, scope.restricted ? scope : undefined)
     );
     return { ...page, items: page.items.map((item) => this.decrypt(item)) };
   }
