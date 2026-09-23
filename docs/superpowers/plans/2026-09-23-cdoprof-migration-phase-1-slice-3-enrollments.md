@@ -35,13 +35,13 @@
 
 **Files:** Modify `in-memory-mvp.state.ts` (`PROJECTED_COLLECTIONS = ['counterparties','learners','groups','enrollments','enrollmentStatusHistory']`), `postgres-mvp-persistence.backend.ts` (upsert зачислений после групп с `emptyContext()`, затем история; удаления в порядке `history → enrollments → groups → learners → counterparties`, история удаляемых зачислений каскадом `deleteHistoryOfEnrollments` до `deleteRows(enrollments)`; удаления поштучно в точке сохранения), `normalized-upsert.ts` (`deleteHistoryOfEnrollments(client, tenantId, enrollmentIds)`, `deleteRowsOneByOne`), `normalized-projection.ts` (`rowToEntity`: для `enrollments` не возвращать `completedAt`, если `payload.completedAtSynthesized`? — проще: проекция кладёт в `payload` признак `completedAtFromUpdatedAt: true`/`enrolledAtFromCreatedAt: true`, `rowToEntity` по нему убирает поле; для истории — `createdAt` не отдавать), `normalized-projection.test.ts` (круговой проход зачисления без `completedAt` и истории), `postgres-mvp-persistence.backend.test.ts` (`isProjectionWrite` += две таблицы; тест порядка: слушатели/группы раньше зачислений, история после; удаление зачисления → сначала история), `lazy-state.perf.test.ts`.
 
-- [ ] Commit `feat(backend): проекция зачислений и истории статусов при сохранении снимка (Фаза 1, срез 3a)`.
+- [x] Commit `feat(backend): проекция зачислений и истории статусов при сохранении снимка (Фаза 1, срез 3a)`.
 
 ### Task 2: интеграционный тест
 
 **Files:** Create `postgres-mvp-persistence.enrollments-projection.integration.test.ts`: создание зачисления → строка + история; смена статуса на `completed` → `completed_at`, вторая запись истории; зачисление в несуществующую группу (в снимке) → отказ поимённо, соседи записаны; дубль пары → отказ поимённо; `'all'` (присваивание) с историей.
 
-- [ ] Commit `test(backend): проекция зачислений на живой базе`.
+- [x] Commit `test(backend): проекция зачислений на живой базе`.
 
 ### Task 3: документация 3a
 
