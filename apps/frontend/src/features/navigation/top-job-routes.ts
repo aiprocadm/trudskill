@@ -59,6 +59,9 @@ export const TOP_JOB_ROUTES: Record<string, TopJobRoute> = {
   'Увидеть, как идёт обучение по компаниям': { href: '/manager', stepsInside: 0 },
   'Найти тех, кто не успевает': { href: '/manager', stepsInside: 0 },
   'Выгрузить отчёт': { href: '/reports', stepsInside: 1 },
+  // Куратор (ТЗ перехода с CDOPROF, МГ-G2.3): реестр задач открывается сразу на «Поставленные мне».
+  'Проверить свои задачи на сегодня': { href: '/tasks', stepsInside: 0 },
+  'Поставить задачу сотруднику': { href: '/tasks', stepsInside: 1 },
 
   // Методист
   'Собрать программу курса': { href: '/courses', stepsInside: 1 },

@@ -298,6 +298,8 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['courses.read', 'materials.write'] }
   },
   { pattern: '/courses', meta: { public: false, requiredPermissions: ['courses.read'] } },
+  /* ТЗ перехода с CDOPROF, МГ-G2.3: задачи сотрудников. */
+  { pattern: '/tasks', meta: { public: false, requiredPermissions: ['tasks.read'] } },
   { pattern: '/groups', meta: { public: false, requiredPermissions: ['groups.read'] } },
   {
     pattern: '/assessment',
@@ -564,6 +566,12 @@ export const navigationModel: NavigationItem[] = [
     href: '/learners',
     label: 'Слушатели',
     requiredPermissions: ['learners.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/tasks',
+    label: 'Задачи',
+    requiredPermissions: ['tasks.read'],
     navSlot: 'more'
   },
   {

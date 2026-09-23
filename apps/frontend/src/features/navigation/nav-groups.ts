@@ -44,7 +44,8 @@ export const NAV_GROUPS: NavGroup[] = [
     // ТЗ 3.4: «/» — диспетчер (уводит на домашний экран роли), а не раздел; пунктом меню он
     // был вторым входом в тот же «/workspace» / «/learner». Здесь его нет.
     // `/manager` — панель руководителя (ТЗ 8.3): такой же обзорный экран, его блок тот же.
-    hrefs: ['/workspace', '/manager', '/methodist', '/learning/calendar']
+    // `/tasks` — задачи сотрудников (ТЗ перехода с CDOPROF §II.3): обзорный блок, как и панели.
+    hrefs: ['/workspace', '/manager', '/methodist', '/learning/calendar', '/tasks']
   },
   {
     id: 'my-learning',

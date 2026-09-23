@@ -52,6 +52,8 @@ const EXCEPTIONS = new Set([
   'features/courses/course-picker.tsx',
   'features/groups/group-picker.tsx',
   'features/learners/learner-picker.tsx',
+  // Выбор сотрудника для задач (позиция 6 ТЗ перехода): тот же `DirectorySelect`, что и у групп.
+  'features/tasks/staff-select.tsx',
   // Провайдер контекста бренда: данные тянет, но интерфейса не рисует вовсе.
   'features/branding/context.tsx',
   /*

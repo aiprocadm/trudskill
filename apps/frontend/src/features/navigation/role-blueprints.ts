@@ -117,6 +117,24 @@ export const roleBlueprints: RoleBlueprint[] = [
     exactNav: true
   },
   {
+    role: 'curator',
+    displayName: ROLE_NAMES_RU.curator,
+    /*
+     * ТЗ перехода с CDOPROF, §II.3 и МГ-J1.1: куратор ведёт ежедневную работу центра — группы,
+     * слушатели, заказчики, задачи. Панель куратора (`/curator`) и календарь (`/calendar`)
+     * появятся в позиции 11; до них короткое меню собрано из существующих разделов, а домашний
+     * экран — оперативная панель.
+     */
+    topJobs: [
+      'Проверить свои задачи на сегодня',
+      'Поставить задачу сотруднику',
+      'Собрать группу под заказчика',
+      'Зачислить слушателя в группу',
+      'Выгрузить отчёт'
+    ],
+    primaryNav: ['/workspace', '/tasks', '/groups', '/learners', '/admin/clients', '/reports']
+  },
+  {
     role: 'methodist',
     displayName: ROLE_NAMES_RU.methodist,
     topJobs: [

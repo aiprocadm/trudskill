@@ -45,7 +45,9 @@ export const ROLE_HOME_ROUTES: ReadonlyArray<{ role: string; href: string }> = [
   { role: 'methodist', href: '/methodist' },
   // ТЗ 8.3: у руководителя появилась своя панель. Раньше вход приводил его сразу в «Группы» —
   // в середину работы, без ответа на вопрос «что у меня вообще происходит».
-  { role: 'manager', href: '/manager' }
+  { role: 'manager', href: '/manager' },
+  // ТЗ перехода с CDOPROF: панель куратора (`/curator`) — позиция 11; до неё — оперативная панель.
+  { role: 'curator', href: '/workspace' }
 ];
 
 /**
