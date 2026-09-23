@@ -24,6 +24,7 @@ import type {
 } from './tasks.dto.js';
 import type { TasksRepository } from './tasks.repository.js';
 import type {
+  StaffMember,
   Task,
   TaskActor,
   TaskAssignee,
@@ -49,6 +50,8 @@ export const DEFAULT_TASKS_SETTINGS: TasksSettings = { commentDeleteWindowMinute
 export type Clock = () => Date;
 
 const MANAGE_ALL = 'tasks.manage_all';
+/** Выбор исполнителя — поиск по ФИО, а не полный список: 20 строк хватает, чтобы уточнить запрос. */
+const STAFF_SEARCH_LIMIT = 20;
 
 /**
  * Задачи сотрудников — правила §4 и §5.4 ТЗ перехода с CDOPROF.
@@ -396,6 +399,11 @@ export class TasksService {
     }
     await this.repo.deleteComment(tenantId, id, commentId);
     await this.audit(context, tenantId, 'tasks.comment_deleted', id, { commentId }, undefined);
+  }
+
+  /** Сотрудники центра для выбора исполнителя; пустой запрос — первые по алфавиту. */
+  searchStaff(tenantId: string, q: string): Promise<StaffMember[]> {
+    return this.repo.searchStaff(tenantId, q.trim(), STAFF_SEARCH_LIMIT);
   }
 
   /** §16 `POST /tasks/bulk` — частичный успех: каждая строка отвечает за себя. */

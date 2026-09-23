@@ -4,6 +4,7 @@ import { DatabaseService } from '../../infrastructure/database/database.service.
 
 import type { TasksRepository } from './tasks.repository.js';
 import type {
+  StaffMember,
   Task,
   TaskActor,
   TaskAssignee,
@@ -59,6 +60,7 @@ interface CommentDbRow {
   tenant_id: string;
   task_id: string;
   author_user_id: string;
+  author_name: string | null;
   text: string;
   created_at: Date | string;
 }
@@ -203,10 +205,11 @@ export class PostgresTasksRepository implements TasksRepository {
 
   async listComments(tenantId: string, taskId: string): Promise<TaskComment[]> {
     const rows = await this.db.query<CommentDbRow & { file_id: string | null }>(
-      `select c.id, c.tenant_id, c.task_id, c.author_user_id, c.text, c.created_at,
+      `select c.id, c.tenant_id, c.task_id, c.author_user_id, u.display_name as author_name, c.text, c.created_at,
               (select f.file_id from tasks.task_files f
                 where f.tenant_id = c.tenant_id and f.task_id = c.task_id and f.id = c.id) as file_id
        from tasks.task_comments c
+       left join iam.users u on u.id = c.author_user_id and u.tenant_id = c.tenant_id
        where c.tenant_id = $1 and c.task_id = $2
        order by c.created_at asc, c.id`,
       [tenantId, taskId]
@@ -220,10 +223,11 @@ export class PostgresTasksRepository implements TasksRepository {
     commentId: string
   ): Promise<TaskComment | null> {
     const rows = await this.db.query<CommentDbRow & { file_id: string | null }>(
-      `select c.id, c.tenant_id, c.task_id, c.author_user_id, c.text, c.created_at,
+      `select c.id, c.tenant_id, c.task_id, c.author_user_id, u.display_name as author_name, c.text, c.created_at,
               (select f.file_id from tasks.task_files f
                 where f.tenant_id = c.tenant_id and f.task_id = c.task_id and f.id = c.id) as file_id
        from tasks.task_comments c
+       left join iam.users u on u.id = c.author_user_id and u.tenant_id = c.tenant_id
        where c.tenant_id = $1 and c.task_id = $2 and c.id = $3`,
       [tenantId, taskId, commentId]
     );
@@ -305,6 +309,33 @@ export class PostgresTasksRepository implements TasksRepository {
     return rows.map((r) => r.id);
   }
 
+  /** Сотрудники центра по части ФИО (§4: «исполнитель — сотрудник тенанта»), по алфавиту. */
+  async searchStaff(tenantId: string, q: string, limit: number): Promise<StaffMember[]> {
+    const rows = await this.db.query<{ id: string; display_name: string }>(
+      `select u.id, u.display_name from iam.users u
+       where u.tenant_id = $1 and u.deleted_at is null and u.status = 'active'
+         and ($2::text = '' or u.display_name ilike '%' || $2 || '%')
+         and exists (
+           select 1 from iam.user_roles ur
+           join iam.roles r on r.id = ur.role_id and r.tenant_id = ur.tenant_id
+           where ur.tenant_id = u.tenant_id and ur.user_id = u.id
+             and r.code not in ('learner', 'counterparty_rep'))
+       order by u.display_name, u.id
+       limit $3`,
+      [tenantId, q, limit]
+    );
+    return rows.map((r) => ({ id: r.id, name: r.display_name }));
+  }
+
+  private async findUserNames(tenantId: string, userIds: string[]): Promise<Map<string, string>> {
+    if (userIds.length === 0) return new Map();
+    const rows = await this.db.query<{ id: string; display_name: string }>(
+      `select id, display_name from iam.users where tenant_id = $1 and id = any($2)`,
+      [tenantId, userIds]
+    );
+    return new Map(rows.map((r) => [r.id, r.display_name]));
+  }
+
   private async writeChildren(client: PoolClient, task: Task): Promise<void> {
     if (task.assignees.length > 0) {
       const values: unknown[] = [];
@@ -354,11 +385,18 @@ export class PostgresTasksRepository implements TasksRepository {
        where tenant_id = $1 and task_id = any($2) and id like 'tfl_%' order by id`,
       [tenantId, ids]
     );
+    /* Люди — по имени: `iam.users.display_name` для постановщиков и исполнителей одним запросом. */
+    const userIds = [
+      ...new Set([...rows.map((r) => r.creator_user_id), ...assignees.map((a) => a.user_id)])
+    ];
+    const names = await this.findUserNames(tenantId, userIds);
     const byTask = new Map<string, TaskAssignee[]>();
     for (const a of assignees) {
       const list = byTask.get(a.task_id) ?? [];
+      const name = names.get(a.user_id);
       list.push({
         userId: a.user_id,
+        ...(name ? { name } : {}),
         state: a.state as TaskAssignee['state'],
         updatedAt: iso(a.updated_at)
       });
@@ -371,7 +409,12 @@ export class PostgresTasksRepository implements TasksRepository {
       filesByTask.set(f.task_id, list);
     }
     return rows.map((row) =>
-      this.map(row, byTask.get(row.id) ?? [], filesByTask.get(row.id) ?? [])
+      this.map(
+        row,
+        byTask.get(row.id) ?? [],
+        filesByTask.get(row.id) ?? [],
+        names.get(row.creator_user_id)
+      )
     );
   }
 
@@ -403,7 +446,12 @@ export class PostgresTasksRepository implements TasksRepository {
     ];
   }
 
-  private map(row: TaskDbRow, assignees: TaskAssignee[], fileIds: string[]): Task {
+  private map(
+    row: TaskDbRow,
+    assignees: TaskAssignee[],
+    fileIds: string[],
+    creatorName?: string
+  ): Task {
     return {
       id: row.id,
       tenantId: row.tenant_id,
@@ -417,6 +465,7 @@ export class PostgresTasksRepository implements TasksRepository {
       ...(row.due_at ? { dueAt: iso(row.due_at) } : {}),
       allDay: row.all_day,
       creatorUserId: row.creator_user_id,
+      ...(creatorName ? { creatorName } : {}),
       links: {
         ...(row.counterparty_id ? { counterpartyId: row.counterparty_id } : {}),
         ...(row.contact_id ? { contactId: row.contact_id } : {}),
@@ -441,6 +490,7 @@ export class PostgresTasksRepository implements TasksRepository {
       tenantId: row.tenant_id,
       taskId: row.task_id,
       authorUserId: row.author_user_id,
+      ...(row.author_name ? { authorName: row.author_name } : {}),
       text: row.text,
       ...(row.file_id ? { fileId: row.file_id } : {}),
       createdAt: iso(row.created_at)

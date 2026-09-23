@@ -1,5 +1,12 @@
 import type { TasksRepository } from './tasks.repository.js';
-import type { Task, TaskActor, TaskComment, TaskListPage, TaskListQuery } from './tasks.types.js';
+import type {
+  StaffMember,
+  Task,
+  TaskActor,
+  TaskComment,
+  TaskListPage,
+  TaskListQuery
+} from './tasks.types.js';
 
 /**
  * Хранилище задач в памяти — для тестов сервиса и HTTP-границы.
@@ -13,10 +20,20 @@ export class InMemoryTasksRepository implements TasksRepository {
   private readonly tasks = new Map<string, Task>();
   private readonly comments = new Map<string, TaskComment>();
 
+  private readonly staff: Record<string, StaffMember[]>;
+
+  /** Сотрудники — id или `{id, name}`; без имени оно выводится из id (для тестов этого хватает). */
   constructor(
-    private readonly staff: Record<string, string[]> = {},
+    staff: Record<string, Array<string | StaffMember>> = {},
     private readonly files: Record<string, string[]> = {}
-  ) {}
+  ) {
+    this.staff = Object.fromEntries(
+      Object.entries(staff).map(([tenantId, members]) => [
+        tenantId,
+        members.map((m) => (typeof m === 'string' ? { id: m, name: `Сотрудник ${m}` } : m))
+      ])
+    );
+  }
 
   async list(tenantId: string, actor: TaskActor, query: TaskListQuery): Promise<TaskListPage> {
     const now = Date.now();
@@ -65,7 +82,7 @@ export class InMemoryTasksRepository implements TasksRepository {
     );
     const start = (query.page - 1) * query.pageSize;
     return {
-      items: items.slice(start, start + query.pageSize).map(clone),
+      items: items.slice(start, start + query.pageSize).map((t) => this.withNames(clone(t))),
       page: query.page,
       pageSize: query.pageSize,
       total: items.length
@@ -74,7 +91,7 @@ export class InMemoryTasksRepository implements TasksRepository {
 
   async getById(tenantId: string, id: string): Promise<Task | null> {
     const task = this.tasks.get(id);
-    return task && task.tenantId === tenantId ? clone(task) : null;
+    return task && task.tenantId === tenantId ? this.withNames(clone(task)) : null;
   }
 
   async insert(task: Task): Promise<Task> {
@@ -118,8 +135,33 @@ export class InMemoryTasksRepository implements TasksRepository {
   }
 
   async findStaffUserIds(tenantId: string, userIds: string[]): Promise<string[]> {
-    const staff = new Set(this.staff[tenantId] ?? []);
+    const staff = new Set((this.staff[tenantId] ?? []).map((m) => m.id));
     return userIds.filter((id) => staff.has(id));
+  }
+
+  async searchStaff(tenantId: string, q: string, limit: number): Promise<StaffMember[]> {
+    const needle = q.toLowerCase();
+    return (this.staff[tenantId] ?? [])
+      .filter((m) => !needle || m.name.toLowerCase().includes(needle))
+      .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
+      .slice(0, limit)
+      .map((m) => ({ ...m }));
+  }
+
+  private withNames(task: Task): Task {
+    const creatorName = this.nameOf(task.tenantId, task.creatorUserId);
+    return {
+      ...task,
+      ...(creatorName ? { creatorName } : {}),
+      assignees: task.assignees.map((a) => {
+        const name = this.nameOf(task.tenantId, a.userId);
+        return name ? { ...a, name } : a;
+      })
+    };
+  }
+
+  private nameOf(tenantId: string, userId: string): string | undefined {
+    return (this.staff[tenantId] ?? []).find((m) => m.id === userId)?.name;
   }
 
   async findExistingFileIds(tenantId: string, fileIds: string[]): Promise<string[]> {

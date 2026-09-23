@@ -249,6 +249,19 @@ describe('Tasks HTTP integration', () => {
     expect(workspaceServiceStub.getTasksInbox).toHaveBeenCalled();
   });
 
+  it('GET /tasks/staff — сотрудники по части ФИО под tasks.write; статический путь не перехвачен :id', async () => {
+    const found = await call('/tasks/staff?q=u_w');
+    expect(found.status).toBe(200);
+    const payload = (await found.json()) as {
+      data: { items: Array<{ id: string; name: string }> };
+    };
+    expect(payload.data.items.map((m) => m.id)).toEqual(['u_worker']);
+
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['tasks.read']);
+    const forbidden = await call('/tasks/staff');
+    expect(forbidden.status).toBe(403);
+  });
+
   it('неизвестный отбор — 400 validation_error; чужой id — 404 task_not_found', async () => {
     const bad = await call('/tasks?filter=everything');
     expect(bad.status).toBe(400);
