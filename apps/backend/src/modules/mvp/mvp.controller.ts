@@ -29,7 +29,10 @@ import { backendEnv } from '../../env.js';
 import { SimpleSignatureService } from './esignature/simple-signature.service.js';
 import { IdentityPolicyService } from './identity/identity-policy.service.js';
 import { LearnerDossierService } from './identity/learner-dossier.service.js';
+import { MvpNormalizedReadsService } from './infrastructure/mvp-normalized-reads.service.js';
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
+import { isNormalizedRead } from './infrastructure/normalized-collections.js';
+import { ReadsNormalized } from './infrastructure/reads-normalized.decorator.js';
 import { LearnerPdfCardService } from './learner-pdf-card.service.js';
 import { BulkImportLearnersRequest } from './learners-bulk-import.dto.js';
 import { LearnersBulkImportService } from './learners-bulk-import.service.js';
@@ -166,26 +169,41 @@ export class MvpController {
     private readonly managerDashboardService: ManagerDashboardService,
     /* ТЗ 10.4 (Р9): итог проверки знаний и список повторных проверок. */
     @Inject(ExamOutcomeService)
-    private readonly examOutcomes: ExamOutcomeService
+    private readonly examOutcomes: ExamOutcomeService,
+    /* Фаза 1 перехода с CDOPROF (срез 1b): чтение контрагентов и групп из нормализованных
+       таблиц под флагом LMS_NORMALIZED_COLLECTIONS. Параметр ПОСЛЕДНИЙ (журнал 526). */
+    @Inject(MvpNormalizedReadsService)
+    private readonly normalizedReads: MvpNormalizedReadsService
   ) {}
 
   @Get('counterparties')
   @UseGuards(PermissionGuard)
   @RequirePermissions('counterparties.read')
+  @ReadsNormalized('counterparties')
   listCounterparties(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    return this.mvpService.listCounterparties(c.tenantId!, q, { counterpartyId: c.counterpartyId });
+    const actor = { counterpartyId: c.counterpartyId };
+    return isNormalizedRead('counterparties')
+      ? this.normalizedReads.listCounterparties(c.tenantId!, q, actor)
+      : this.mvpService.listCounterparties(c.tenantId!, q, actor);
   }
   @Get('counterparties/lookup')
   @UseGuards(PermissionGuard)
   @RequirePermissions('counterparties.read')
+  @ReadsNormalized('counterparties')
   counterpartiesLookup(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    return this.mvpService.lookupCounterparties(c.tenantId!, q);
+    return isNormalizedRead('counterparties')
+      ? this.normalizedReads.lookupCounterparties(c.tenantId!, q)
+      : this.mvpService.lookupCounterparties(c.tenantId!, q);
   }
   @Get('counterparties/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('counterparties.read')
+  @ReadsNormalized('counterparties')
   getCounterparty(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.mvpService.getCounterparty(c.tenantId!, id, { counterpartyId: c.counterpartyId });
+    const actor = { counterpartyId: c.counterpartyId };
+    return isNormalizedRead('counterparties')
+      ? this.normalizedReads.getCounterparty(c.tenantId!, id, actor)
+      : this.mvpService.getCounterparty(c.tenantId!, id, actor);
   }
   @Post('counterparties')
   @UseGuards(PermissionGuard)
@@ -263,8 +281,12 @@ export class MvpController {
   @Get('portal/groups')
   @UseGuards(PermissionGuard)
   @RequirePermissions('portal.read')
+  @ReadsNormalized('groups')
   listPortalGroups(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    return this.mvpService.listGroups(c.tenantId!, q, { counterpartyId: c.counterpartyId });
+    const actor = { counterpartyId: c.counterpartyId };
+    return isNormalizedRead('groups')
+      ? this.normalizedReads.listGroups(c.tenantId!, q, actor)
+      : this.mvpService.listGroups(c.tenantId!, q, actor);
   }
   @Get('portal/documents')
   @UseGuards(PermissionGuard)
@@ -786,20 +808,30 @@ export class MvpController {
   @Get('groups')
   @UseGuards(PermissionGuard)
   @RequirePermissions('groups.read')
+  @ReadsNormalized('groups')
   listGroups(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    return this.mvpService.listGroups(c.tenantId!, q, { counterpartyId: c.counterpartyId });
+    const actor = { counterpartyId: c.counterpartyId };
+    return isNormalizedRead('groups')
+      ? this.normalizedReads.listGroups(c.tenantId!, q, actor)
+      : this.mvpService.listGroups(c.tenantId!, q, actor);
   }
   @Get('groups/lookup')
   @UseGuards(PermissionGuard)
   @RequirePermissions('groups.read')
+  @ReadsNormalized('groups')
   groupsLookup(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    return this.mvpService.lookupGroups(c.tenantId!, q);
+    return isNormalizedRead('groups')
+      ? this.normalizedReads.lookupGroups(c.tenantId!, q)
+      : this.mvpService.lookupGroups(c.tenantId!, q);
   }
   @Get('groups/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('groups.read')
+  @ReadsNormalized('groups')
   getGroup(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.mvpService.getGroup(c.tenantId!, id);
+    return isNormalizedRead('groups')
+      ? this.normalizedReads.getGroup(c.tenantId!, id)
+      : this.mvpService.getGroup(c.tenantId!, id);
   }
   /**
    * ТЗ 13.2, решение Р13: при превышении тарифа прекращается добавление новых слушателей

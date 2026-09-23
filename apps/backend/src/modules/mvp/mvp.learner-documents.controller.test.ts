@@ -17,6 +17,7 @@ import type { SimpleSignatureService } from './esignature/simple-signature.servi
 import type { ExamOutcomeService } from './exam/exam-outcome.service.js';
 import type { IdentityPolicyService } from './identity/identity-policy.service.js';
 import type { LearnerDossierService } from './identity/learner-dossier.service.js';
+import type { MvpNormalizedReadsService } from './infrastructure/mvp-normalized-reads.service.js';
 import type { LearnerPdfCardService } from './learner-pdf-card.service.js';
 import type { LearnersBulkImportService } from './learners-bulk-import.service.js';
 import type { MvpBulkEnqueueService } from './mvp-bulk-enqueue.service.js';
@@ -163,7 +164,9 @@ function makeController(documents: GeneratedDocumentEntity[]) {
     // ТЗ 8.3: панель руководителя. Маршрутам документов слушателя не нужна — заглушка громкая.
     unusedDependency<ManagerDashboardService>('ManagerDashboardService'),
     // ТЗ 10.4 (Р9): итог проверки знаний. Маршрутам документов слушателя не нужен.
-    unusedDependency<ExamOutcomeService>('ExamOutcomeService')
+    unusedDependency<ExamOutcomeService>('ExamOutcomeService'),
+    // Фаза 1 (срез 1b): чтение из нормализованных таблиц. Маршрутам документов не нужно.
+    unusedDependency<MvpNormalizedReadsService>('MvpNormalizedReadsService')
   );
 
   return { controller, service, state };

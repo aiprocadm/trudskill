@@ -4,13 +4,17 @@ import {
   Inject,
   Injectable,
   type NestInterceptor,
+  Optional,
   Scope
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { type Observable, defaultIfEmpty, defer, from, lastValueFrom, mergeMap, of } from 'rxjs';
 
 import { InMemoryMvpState } from './in-memory-mvp.state.js';
 import { MVP_PERSISTENCE_BACKEND } from './mvp-persistence.token.js';
 import { MVP_STATE } from './mvp-state.token.js';
+import { type NormalizableCollection, isNormalizedRead } from './normalized-collections.js';
+import { READS_NORMALIZED } from './reads-normalized.decorator.js';
 import { MetricsService } from '../../../common/metrics/metrics.service.js';
 import { resolveRequestContext } from '../../../common/utils/request.js';
 import { TenantStateConflictError } from '../../../infrastructure/database/tenant-state-version.js';
@@ -26,7 +30,10 @@ export class MvpRequestPersistenceInterceptor implements NestInterceptor {
     @Inject(MetricsService) private readonly metrics: MetricsService,
     @Inject(MVP_PERSISTENCE_BACKEND) private readonly persistence: MvpPersistenceBackend,
     @Inject(TenantSerialGateway) private readonly tenantGateway: TenantSerialGateway,
-    @Inject(TenantTimezoneService) private readonly timezones: TenantTimezoneService
+    @Inject(TenantTimezoneService) private readonly timezones: TenantTimezoneService,
+    /* Фаза 1 (срез 1b): читает пометку `@ReadsNormalized`. ПОСЛЕДНИЙ и необязательный —
+       тесты собирают интерцептор позиционно пятью аргументами. */
+    @Optional() @Inject(Reflector) private readonly reflector?: Reflector
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
@@ -37,6 +44,11 @@ export class MvpRequestPersistenceInterceptor implements NestInterceptor {
     const ctx = resolveRequestContext(req);
     const tenantId = ctx.tenantId;
     if (!tenantId) {
+      return next.handle();
+    }
+    if (this.readsFromNormalizedTable(context)) {
+      // Ручка читает коллекцию из нормализованной таблицы: замок арендатора и снимок ей не
+      // нужны — в этом и смысл Фазы 1. Сохранять после неё нечего (ручка ничего не пишет).
       return next.handle();
     }
     const enqueuedAt = Date.now();
@@ -105,5 +117,17 @@ export class MvpRequestPersistenceInterceptor implements NestInterceptor {
         })
       ).pipe(mergeMap((v) => of(v)))
     );
+  }
+
+  private readsFromNormalizedTable(context: ExecutionContext): boolean {
+    const targets = [context.getHandler?.(), context.getClass?.()].filter(
+      (t): t is NonNullable<typeof t> => Boolean(t)
+    );
+    if (!this.reflector || targets.length === 0) return false;
+    const collection = this.reflector.getAllAndOverride<NormalizableCollection | undefined>(
+      READS_NORMALIZED,
+      targets
+    );
+    return collection !== undefined && isNormalizedRead(collection);
   }
 }
