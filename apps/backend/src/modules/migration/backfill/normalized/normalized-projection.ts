@@ -749,3 +749,66 @@ export function canonicalHash(spec: TableSpec, columns: Record<string, unknown>)
   }
   return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
 }
+
+/**
+ * Обратная проекция: строка таблицы → сущность в форме снимка. Нужна SQL-чтению (срез 1b):
+ * ответ ручки обязан совпадать с тем, что отдавал снимок, включая поля импорта из `payload`
+ * и исходный статус (`payload.sourceStatus`), который в колонке заменён безопасным.
+ * Порядок: сначала колонки, затем поверх них `payload` — так значение, обнулённое ради FK
+ * (`counterpartyId`, `fileId`) или формата (`inn`), возвращается исходным.
+ *
+ * ПДн слушателя возвращаются шифртекстом (`enc:…`) — расшифровка остаётся на границе
+ * чтения, как у снимка (`decryptLearnerPiiAtRest`).
+ */
+const COLUMN_TO_FIELD: Partial<Record<HotCollection, Record<string, string>>> = {
+  learners: {
+    user_id: 'linkedIamUserId',
+    snils_enc: 'snils',
+    snils_hash: 'snilsHash',
+    email_enc: 'email',
+    phone_enc: 'phone',
+    birth_date_enc: 'dateOfBirth'
+  },
+  examResults: { is_passed: 'passed' },
+  generatedDocuments: { storage_file_id: 'fileId' }
+};
+
+const toCamel = (name: string): string =>
+  name.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+
+const fromColumn = (type: ColumnType, value: unknown): unknown => {
+  switch (type) {
+    case 'num':
+    case 'int':
+      return Number(value);
+    case 'bool':
+      return value === true || value === 'true' || value === 't';
+    case 'ts':
+      return new Date(value as string | Date).toISOString();
+    case 'date':
+      return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
+    default:
+      return value;
+  }
+};
+
+export function rowToEntity(
+  collection: HotCollection,
+  row: Record<string, unknown>
+): Record<string, unknown> {
+  const spec = TABLE_SPECS[collection];
+  const entity: Record<string, unknown> = {};
+  for (const [name, type] of Object.entries(spec.columns)) {
+    const value = row[name];
+    if (value === null || value === undefined) continue;
+    entity[COLUMN_TO_FIELD[collection]?.[name] ?? toCamel(name)] = fromColumn(type, value);
+  }
+  const payload = row.payload;
+  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+    for (const [key, value] of Object.entries(payload as Record<string, unknown>)) {
+      if (key === 'sourceStatus') entity.status = value;
+      else entity[key] = value;
+    }
+  }
+  return entity;
+}

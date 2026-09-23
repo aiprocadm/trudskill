@@ -115,3 +115,65 @@ describe('пишется только изменившееся', () => {
     expect(state.hasChanged('learners')).toBe(true);
   });
 });
+
+describe('поштучные отпечатки проецируемых коллекций (Фаза 1, срез 1a)', () => {
+  const rawGroups = () =>
+    new Map<string, unknown[]>([
+      [
+        'groups',
+        [
+          { id: 'g1', code: 'G-1', name: 'Первая' },
+          { id: 'g2', code: 'G-2', name: 'Вторая' }
+        ]
+      ],
+      ['learners', [{ id: 'l1' }]]
+    ]);
+
+  it('отпечаток коллекции не изменился по форме: JSON.stringify всей коллекции', () => {
+    const state = new InMemoryMvpState();
+    state.setRawSnapshot(rawGroups(), (_c, raw) => [...raw]);
+    expect(state.groups).toHaveLength(2);
+    expect(state.hasChanged('groups')).toBe(false);
+  });
+
+  it('правка одной группы — в списке только она, удалённых нет', () => {
+    const state = new InMemoryMvpState();
+    state.setRawSnapshot(rawGroups(), (_c, raw) => [...raw]);
+    (requireAt(state.groups, 1, 'группа') as unknown as { name: string }).name = 'Другая';
+
+    expect(state.changedEntities('groups')).toEqual({
+      upserted: [state.groups[1]],
+      deletedIds: []
+    });
+    expect(state.hasChanged('groups')).toBe(true);
+  });
+
+  it('добавление и удаление видны поимённо', () => {
+    const state = new InMemoryMvpState();
+    state.setRawSnapshot(rawGroups(), (_c, raw) => [...raw]);
+    state.groups.splice(0, 1);
+    state.groups.push({ id: 'g3', code: 'G-3', name: 'Третья' } as never);
+
+    expect(state.changedEntities('groups')).toEqual({
+      upserted: [state.groups[1]],
+      deletedIds: ['g1']
+    });
+  });
+
+  it('присваивание целиком и markDirty — «всё», нетронутая — пусто', () => {
+    const assigned = new InMemoryMvpState();
+    assigned.setRawSnapshot(rawGroups(), (_c, raw) => [...raw]);
+    assigned.groups = [];
+    expect(assigned.changedEntities('groups')).toBe('all');
+
+    const dirty = new InMemoryMvpState();
+    dirty.setRawSnapshot(rawGroups(), (_c, raw) => [...raw]);
+    dirty.markDirty('groups');
+    expect(dirty.groups).toHaveLength(2);
+    expect(dirty.changedEntities('groups')).toBe('all');
+
+    const untouched = new InMemoryMvpState();
+    untouched.setRawSnapshot(rawGroups(), (_c, raw) => [...raw]);
+    expect(untouched.changedEntities('counterparties')).toEqual({ upserted: [], deletedIds: [] });
+  });
+});

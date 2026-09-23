@@ -294,6 +294,12 @@ export const backendEnvSchema = z
     LMS_READ_MODEL: z.enum(['legacy', 'normalized', 'shadow']).default('legacy'),
     DOCUMENTS_READ_MODEL: z.enum(['legacy', 'normalized', 'shadow']).default('legacy'),
     LMS_DUAL_WRITE_ENABLED: booleanFromEnv.default(false),
+    /**
+     * Фаза 1 ТЗ перехода с CDOPROF (РМ32): какие коллекции домена читать из нормализованных
+     * таблиц, через запятую (`groups,counterparties`). Пусто — всё из снимка (точка отката).
+     * Разбор и проверка имён — modules/mvp/infrastructure/normalized-collections.ts.
+     */
+    LMS_NORMALIZED_COLLECTIONS: z.string().default(''),
     DOCUMENTS_DUAL_WRITE_ENABLED: booleanFromEnv.default(false),
     INTEGRATION_WEBHOOK_SECRET: z.string().min(10).optional(),
     OUTBOX_PUBLISHER_ENABLED: booleanFromEnv.default(true),

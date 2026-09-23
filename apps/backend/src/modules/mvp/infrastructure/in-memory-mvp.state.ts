@@ -54,6 +54,11 @@ import type {
   TestQuestion
 } from '../mvp.types.js';
 
+/** Коллекции, которые проецируются в нормализованные таблицы при сохранении (Фаза 1, срез 1). */
+export const PROJECTED_COLLECTIONS = ['counterparties', 'groups'] as const;
+export type ProjectedCollection = (typeof PROJECTED_COLLECTIONS)[number];
+export type ChangedEntities = { upserted: unknown[]; deletedIds: string[] } | 'all';
+
 @Injectable()
 export class InMemoryMvpState {
   /**
@@ -83,6 +88,14 @@ export class InMemoryMvpState {
   private readonly fingerprintAtLoad = new Map<string, string>();
 
   /**
+   * Поштучные отпечатки проецируемых коллекций (Фаза 1 перехода с CDOPROF, срез 1a):
+   * `id → JSON` на момент раскладки. По ним сохранение узнаёт, КАКИЕ сущности изменились,
+   * чтобы записать в нормализованную таблицу только их, а не 25 000 групп целиком.
+   * Отпечаток коллекции собирается из тех же частей — байт-в-байт равен `JSON.stringify`.
+   */
+  private readonly entityFingerprintAtLoad = new Map<string, Map<string, string>>();
+
+  /**
    * Коллекции, которые надо переписать, даже если их содержимое в памяти не менялось.
    *
    * Единственный такой случай — старые строки с незашифрованными ПДн: они приходят из базы
@@ -103,6 +116,7 @@ export class InMemoryMvpState {
         set: (value: unknown[]) => {
           this.materialized.set(collection, value);
           this.fingerprintAtLoad.delete(collection);
+          this.entityFingerprintAtLoad.delete(collection);
         }
       });
     }
@@ -117,7 +131,19 @@ export class InMemoryMvpState {
     const items = this.materializer ? this.materializer(collection, raw) : [...raw];
     this.materialized.set(collection, items);
     // Отпечаток снимаем СРАЗУ после раскладки — до того, как сервис успеет что-то поменять.
-    this.fingerprintAtLoad.set(collection, JSON.stringify(items));
+    if ((PROJECTED_COLLECTIONS as ReadonlyArray<string>).includes(collection)) {
+      const byId = new Map<string, string>();
+      const parts = items.map((item) => {
+        const part = JSON.stringify(item);
+        const id = (item as { id?: unknown } | null)?.id;
+        if (typeof id === 'string') byId.set(id, part);
+        return part;
+      });
+      this.entityFingerprintAtLoad.set(collection, byId);
+      this.fingerprintAtLoad.set(collection, `[${parts.join(',')}]`);
+    } else {
+      this.fingerprintAtLoad.set(collection, JSON.stringify(items));
+    }
     return items;
   }
 
@@ -143,6 +169,7 @@ export class InMemoryMvpState {
     this.rawByCollection.clear();
     this.materialized.clear();
     this.fingerprintAtLoad.clear();
+    this.entityFingerprintAtLoad.clear();
     this.forcedDirty.clear();
     for (const [collection, items] of raw) {
       this.rawByCollection.set(collection, items);
@@ -178,6 +205,29 @@ export class InMemoryMvpState {
       return true;
     }
     return JSON.stringify(items) !== before;
+  }
+
+  /**
+   * Что именно изменилось в проецируемой коллекции с момента раскладки.
+   * `'all'` — поштучно сказать нельзя: коллекцию присвоили целиком или пометили `markDirty`;
+   * тогда проекция делает полный upsert и удаляет из таблицы то, чего нет в снимке.
+   * Нетронутая коллекция — пусто.
+   */
+  changedEntities(collection: ProjectedCollection): ChangedEntities {
+    const items = this.materialized.get(collection);
+    if (!items) return { upserted: [], deletedIds: [] };
+    const before = this.entityFingerprintAtLoad.get(collection);
+    if (this.forcedDirty.has(collection) || !before) return 'all';
+    const upserted: unknown[] = [];
+    const seen = new Set<string>();
+    for (const item of items) {
+      const id = (item as { id?: unknown } | null)?.id;
+      if (typeof id !== 'string') continue;
+      seen.add(id);
+      if (before.get(id) !== JSON.stringify(item)) upserted.push(item);
+    }
+    const deletedIds = [...before.keys()].filter((id) => !seen.has(id));
+    return { upserted, deletedIds };
   }
 
   counterparties: Counterparty[] = [];

@@ -5553,6 +5553,64 @@ PR #493 построил `LearnersListScreen`, но его не импортир
 сверена после правок: вид не изменился (surface-muted и neutral-100 в светлой палитре
 совпадают побитово).
 
+### 5.560 ТЗ перехода с CDOPROF, позиция 7 (Фаза 1, срез 1a): проекция контрагентов и групп в нормализованные таблицы при сохранении снимка
+
+**Зачем.** МГ-A1.2 предписывает порядок «двойная запись → переключение чтения → отключение
+записи в снимок». Бэкфилл (срез 0b) наполняет таблицы один раз; чтобы они не отставали от
+снимка после него, каждое сохранение должно доводить их до снимка. Разведка (Explore-агент,
+67 обращений) показала, где это встраивать: в `writeSnapshotToTable`, той же транзакцией, только
+для авторитетной таблицы (при двойной записи — один раз); оркестратор для этого не годится —
+у него нет общей транзакции. `MvpService` не трогается: его методы синхронны, их зовут
+госреестры и сторож `cross-tenant-sweep` (ищет `get*` регэкспом и вызывает синхронно).
+
+**План:** `docs/superpowers/plans/2026-09-23-cdoprof-migration-phase-1-slice-1-groups-counterparties.md`
+(срез идёт двумя PR: 1a — этот, поведение снаружи не меняется; 1b — чтение под флагом).
+
+**Что сделано.**
+
+- **Общий писатель** `migration/backfill/normalized/normalized-upsert.ts`: `upsertRows` (multi-VALUES
+  по 500, `on conflict (id) do update … where tenant_id = excluded.tenant_id`, недостача строк —
+  ошибка, а не тихий пропуск), `deleteRows`, `deleteAbsent`, `loadCounterpartyIds`,
+  `detachGroupsFromCounterparties`. Бэкфилл переведён на него. **Обратная проекция**
+  `rowToEntity` (колонки → camelCase, `payload` поверх, `sourceStatus` → `status`) — для чтения
+  в 1b; тест кругового прохода `projectEntity → rowToEntity` на граничных случаях.
+- **Флаг `LMS_NORMALIZED_COLLECTIONS`** (РМ32): строка через запятую, по умолчанию пусто,
+  закрытый список `counterparties, groups`, опечатка — ошибка старта; `normalized-collections.ts`
+  (`isNormalizedRead`), `.env.example`, `docs/environment-and-config.md`. В 1a флаг только
+  объявлен: чтение под ним — 1b.
+- **Поштучные отпечатки** в `InMemoryMvpState` для `PROJECTED_COLLECTIONS`: `Map<id, JSON>` на
+  момент раскладки; отпечаток коллекции собирается из тех же частей и байт-в-байт равен
+  `JSON.stringify` — старые сторожа ленивости не изменились. `changedEntities(col)` →
+  `{ upserted, deletedIds }` или `'all'` (присваивание целиком / `markDirty`).
+- **Проекция** в `PostgresMvpPersistenceBackend.projectChanged` (РМ35 — включена всегда при
+  Postgres-драйвере, флаг чтения на неё не влияет): порядок «контрагенты → группы → удаление групп →
+  удаление контрагентов» (FK); группа с исчезнувшим контрагентом получает `counterparty_id = null`
+  и исходник в `payload`; удаляемый контрагент сначала отвязывается от групп таблицы
+  (`detachGroupsFromCounterparties`) — иначе `delete` падал бы на ключе, хотя группы в памяти
+  никто не трогал (нашёл интеграционный тест); присваивание целиком → полный upsert +
+  `deleteAbsent`. Отказ: пачка в точке сохранения, при ошибке — по одной, плохая строка →
+  `learning.mvp_reconciliation_log` (`projection_failed`, текст) и предупреждение в лог; снимок
+  сохраняется. Это важно: код группы при создании нигде не проверяется на уникальность, а в
+  таблице стоит `UNIQUE (tenant_id, code)`.
+- **Тесты:** проекция 18 (в т. ч. круговой проход), флаг 3, состояние 4 + 1 (ленивость), бэкенд
+  на моке 4 (порядок и состав записей, нетронутые коллекции не проецируются, отказ → по одной →
+  журнал, присваивание целиком), интеграционный `postgres-mvp-persistence.projection.integration.test.ts`
+  на Docker (вся цепочка: таблицы догоняют снимок; дубль кода — снимок сохранён, строка в
+  журнале; удаление контрагента с группами; лишняя строка выметается).
+
+**Сторожа:** `silent-catch` дважды потребовал комментарий с причиной у `catch` (запись в журнал
+сверки он «следом» не считает); остальные (`multi-write`, `tenant-scoped-reads`,
+`json-filters-indexed`, `constraints-on-live-tables`, `cross-tenant-sweep`, `lazy-state`) зелёные.
+
+**Файлы (16):** `normalized-upsert.ts`, `normalized-projection.ts` + тест, `normalized-backfill.service.ts`,
+`env.schema.ts`, `.env.example`, `docs/environment-and-config.md`, `normalized-collections.ts` + тест,
+`in-memory-mvp.state.ts`, `lazy-state.test.ts`, `lazy-state.perf.test.ts`,
+`postgres-mvp-persistence.backend.ts` + тест + интеграционный тест, план; документация сессии.
+
+**Следующая задача:** PR 1b — репозитории `Counterparties/GroupsRepository` (интерфейс, pg,
+память), декоратор `@ReadsNormalized`, ветка в контроллере, замер k6 «после» на `trudskill_perf`
+(перед замером — бэкфилл `lms_normalized`, синтетика пишет мимо проекции).
+
 ### 5.559 ТЗ перехода с CDOPROF, позиция 7 (Фаза 1, срез 0b): бэкфилл «снимок → нормализованные таблицы» с частичным успехом и отчётом сверки
 
 **Зачем.** МГ-A1.2: «бэкфилл из снимка делает `migration/backfill` с отчётом сверки». До этого
