@@ -50,6 +50,10 @@ const ENFORCED_ELSEWHERE: ReadonlyArray<EnforcedElsewhere> = [
   {
     code: 'learners.act_as',
     why: 'проверяется в mvp.service при действии за слушателя; помечает запись журнала metadata.delegated'
+  },
+  {
+    code: 'tasks.manage_all',
+    why: 'проверяется в tasks.service (actorOf → manageAll): та же ручка GET /tasks отдаёт свои задачи без права и все — с ним; чужие задачи без него отвечают 404'
   }
 ];
 

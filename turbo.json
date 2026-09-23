@@ -23,6 +23,16 @@
       "dependsOn": ["^test", "^build"],
       "outputs": [],
       "inputs": ["$TURBO_DEFAULT$", "../frontend/src/**", "../frontend/app/**"]
+    },
+    "@trudskill/frontend#test": {
+      "dependsOn": ["^test", "^build"],
+      "outputs": [],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "../backend/src/**",
+        "../backend/migrations/**",
+        "../worker/src/**"
+      ]
     }
   }
 }

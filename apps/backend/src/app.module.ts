@@ -21,6 +21,7 @@ import { OrgModule } from './modules/org/org.module.js';
 import { PaymentsModule } from './modules/payments/payments.module.js';
 import { PlatformModule } from './modules/platform/platform.module.js';
 import { SupportModule } from './modules/support/support.module.js';
+import { TasksModule } from './modules/tasks/tasks.module.js';
 import { TenantModule } from './modules/tenant/tenant.module.js';
 import { WorkspaceModule } from './modules/workspace/workspace.module.js';
 
@@ -53,7 +54,13 @@ const domainModules = [
   PaymentsModule,
   PlatformModule,
   /* ТЗ 15.5: приём обращений «Сообщить о проблеме» — один контроллер без своего хранилища. */
-  SupportModule
+  SupportModule,
+  /*
+   * ТЗ перехода с CDOPROF, МГ-G2: задачи сотрудников в нормализованных таблицах. ПОСЛЕ базовых
+   * модулей намеренно: `GET /tasks/inbox` живёт в WorkspaceModule и должен быть зарегистрирован
+   * раньше `GET /tasks/:id`.
+   */
+  TasksModule
 ];
 
 @Module({

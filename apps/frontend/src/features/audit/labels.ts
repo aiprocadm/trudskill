@@ -34,6 +34,7 @@ const DOMAIN_LABELS: Record<string, string> = {
   iam: 'Доступ',
   auth: 'Вход',
   org: 'Учебный центр',
+  tasks: 'Задачи',
   tenant: 'Настройки центра',
   platform: 'Платформа',
   payments: 'Оплаты',
@@ -113,6 +114,11 @@ const OBJECTS: Record<string, Noun> = {
 
 /** Один и тот же объект в разных разделах — разные вещи: «шаблон» отчётов — не шаблон документа. */
 const DOMAIN_OBJECTS: Record<string, Record<string, Noun>> = {
+  /* ТЗ перехода с CDOPROF, МГ-G2: задачи сотрудников — не задачи выпуска документов. */
+  tasks: {
+    task: { label: 'задача', gender: 'f' },
+    comment: { label: 'комментарий к задаче', gender: 'm' }
+  },
   reports: { template: { label: 'шаблон отчёта', gender: 'm' } }
 };
 
@@ -179,6 +185,11 @@ const VERBS: Record<string, Record<Gender, string>> = {
  * обстоятельством («по приказу», «за неуплату»). Фраза — целиком, ТЗ редизайна §9.
  */
 const PHRASES: Record<string, string> = {
+  /* ТЗ перехода с CDOPROF, МГ-G2: переходы задачи и её комментарии. */
+  'tasks.task_status_changed': 'Статус задачи изменён',
+  'tasks.task_rescheduled': 'Срок задачи перенесён',
+  'tasks.comment_added': 'К задаче добавлен комментарий',
+  'tasks.comment_deleted': 'Комментарий к задаче удалён',
   /*
    * ТЗ 8.4: перестановка пунктов программы. Целой фразой, а не по образцу
    * «<объект>_<глагол>»: объект тут во множественном числе («модули переставлены»), а

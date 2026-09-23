@@ -35,6 +35,20 @@ const ALLOWED: Record<string, string> = {
     'переименование потребовало бы переноса файлов при нулевой пользе (`BR-030`)'
 };
 
+/**
+ * Каталоги, где прежнее имя — это имя ЧУЖОЙ системы, а не наш ключ хранения. Ключ — путь
+ * каталога от корня репозитория; причина обязательна, как и у файлов выше.
+ */
+const ALLOWED_DIRS: Record<string, string> = {
+  'apps/backend/src/modules/import-cdoprof/':
+    'ТЗ перехода с CDOPROF (§15.2, МГ-K3.1): модуль импорта из ВНЕШНЕЙ системы-источника, ' +
+    'имя которой и есть предмет модуля — API-клиент, фикстуры и выгрузка носят его в путях ' +
+    'файлов; к ключам браузера и cookie (`BR-020`) это не относится'
+};
+
+const allowedByDir = (name: string): boolean =>
+  Object.keys(ALLOWED_DIRS).some((dir) => name.startsWith(dir));
+
 const sources = (dir: string, acc: string[] = []): string[] => {
   for (const entry of readdirSync(dir)) {
     if (entry === 'node_modules' || entry === '.next' || entry === 'dist') continue;
@@ -75,7 +89,7 @@ describe('BR-020 · прежние ключи хранения не возвра
       .map((file) => relative(join(APP_ROOT, '..', '..'), file));
 
     expect(
-      found.filter((name) => !(name in ALLOWED)),
+      found.filter((name) => !(name in ALLOWED) && !allowedByDir(name)),
       'прежнее имя вернулось в код: чтение под старым ключом переживает выкатку молча'
     ).toEqual([]);
   });

@@ -26,7 +26,7 @@ import {
   DEFAULT_SYNTHETIC_SHAPE,
   buildSyntheticCdoprofTenant,
   toRuntimeRows
-} from '../src/perf/synthetic-cdoprof-tenant.js';
+} from '../src/perf/synthetic-volume-tenant.js';
 
 const isProduction = (): boolean =>
   (process.env.NODE_ENV ?? '').toLowerCase() === 'production' ||
