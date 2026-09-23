@@ -14,7 +14,7 @@ const makeTransport = (
 ) => {
   const queue = [...responses];
   const urls: string[] = [];
-  const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+  const fetchImpl = vi.fn(async (input: string | URL | Request, _init?: RequestInit) => {
     urls.push(String(input));
     const next = queue.shift();
     if (!next) throw new Error('очередь ответов пуста');
@@ -46,6 +46,20 @@ describe('HttpCdoprofTransport', () => {
     expect(urls[0]).toBe(
       `https://cdoprof.example.invalid/api/v1/contragent.get?api_key=${SECRET}&page=2&limit=100`
     );
+  });
+
+  it('каждый запрос уходит с пределом ожидания (AbortSignal), а по его истечении повторяется', async () => {
+    const { transport, fetchImpl } = makeTransport([
+      Object.assign(new Error('The operation was aborted due to timeout'), {
+        name: 'TimeoutError'
+      }),
+      jsonResponse({ data: 'ok' })
+    ]);
+
+    await expect(transport.get('group.get')).resolves.toEqual({ data: 'ok' });
+
+    const init = fetchImpl.mock.calls[0]?.[1] as RequestInit | undefined;
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
   });
 
   it('выдерживает паузу между запросами, но не перед первым', async () => {

@@ -24,6 +24,12 @@ export interface HttpCdoprofTransportOptions {
   maxRetries?: number;
   /** Базовая задержка перед повтором, мс; удваивается с каждой попыткой. По умолчанию 1000. */
   retryBaseMs?: number;
+  /**
+   * Предел ожидания одного ответа, мс. По умолчанию 30 000. Без него `fetch` ждёт заголовки
+   * 5 минут, и молчащий CDOPROF подвесил бы выгрузку на каждой странице (сторож
+   * `outbound-deadline`).
+   */
+  requestTimeoutMs?: number;
   fetchImpl?: typeof fetch;
   sleep?: (ms: number) => Promise<void>;
 }
@@ -41,6 +47,7 @@ export class HttpCdoprofTransport implements CdoprofTransport {
   private readonly pauseMs: number;
   private readonly maxRetries: number;
   private readonly retryBaseMs: number;
+  private readonly requestTimeoutMs: number;
   private readonly fetchImpl: typeof fetch;
   private readonly sleep: (ms: number) => Promise<void>;
   private requestsMade = 0;
@@ -51,6 +58,7 @@ export class HttpCdoprofTransport implements CdoprofTransport {
     this.pauseMs = options.pauseMs ?? 300;
     this.maxRetries = options.maxRetries ?? 3;
     this.retryBaseMs = options.retryBaseMs ?? 1000;
+    this.requestTimeoutMs = options.requestTimeoutMs ?? 30_000;
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch;
     this.sleep = options.sleep ?? defaultSleep;
   }
@@ -88,7 +96,10 @@ export class HttpCdoprofTransport implements CdoprofTransport {
   > {
     let response: Response;
     try {
-      response = await this.fetchImpl(url, { headers: { accept: 'application/json' } });
+      response = await this.fetchImpl(url, {
+        headers: { accept: 'application/json' },
+        signal: AbortSignal.timeout(this.requestTimeoutMs)
+      });
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       return {

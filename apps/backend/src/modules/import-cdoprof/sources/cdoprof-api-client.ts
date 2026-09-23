@@ -138,11 +138,11 @@ export class CdoprofApiClient {
   }
 
   private async *iterate<T>(
-    fetch: (page: number) => Promise<CdoprofListPage<T>>
+    loadPage: (page: number) => Promise<CdoprofListPage<T>>
   ): AsyncGenerator<T> {
     let page = 1;
     for (;;) {
-      const { items, pagination } = await fetch(page);
+      const { items, pagination } = await loadPage(page);
       for (const item of items) yield item;
       if (items.length === 0) return;
       if (pagination.has_next === false) return;
