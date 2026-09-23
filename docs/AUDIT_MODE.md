@@ -8,8 +8,9 @@
 
 ## 1. Когда включается
 
-Ревизия включается, **только если все три условия верны**:
+Ревизия включается, **только если все четыре условия верны**:
 
+0. В [TZ_CDOPROF_MIGRATION_STATUS.md](./TZ_CDOPROF_MIGRATION_STATUS.md) (активный фронт с 23.09.2026) нет позиций очереди в статусе ⬜, 🔄, 🔎, 🟡, ♻️. Позиции 🚫 «ждёт вход владельца» работой не считаются.
 1. В [TZ_STABILIZATION_UX_STATUS.md](./TZ_STABILIZATION_UX_STATUS.md) нет задач в статусе ⬜, 🔎, 🟡, ♻️ или текущая фаза ждёт апрува плана владельцем и другой работы нет.
 2. В [TZ_ARENDNAYA_SDO_STATUS.md](./TZ_ARENDNAYA_SDO_STATUS.md) и [TZ_UI_REDESIGN_STATUS.md](./TZ_UI_REDESIGN_STATUS.md) нет незакрытых требований.
 3. В журнале расхождений [TZ_UI_REDESIGN_STATUS.md](./TZ_UI_REDESIGN_STATUS.md) нет открытых записей.

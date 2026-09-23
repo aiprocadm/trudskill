@@ -1,0 +1,702 @@
+openapi: 3.0.3
+info:
+  title: CDOProf API
+  version: 1.0.0
+  description: |
+    Документация API CDOProf.
+
+    Все защищённые методы требуют параметр `api_key`.
+
+servers:
+  - url: https://test.cdoprof.com
+    description: Тестовый сервер
+
+tags:
+  - name: Контрагент
+  - name: Студент
+  - name: Курсы
+  - name: Группа
+  - name: Отчёты
+
+components:
+  securitySchemes:
+    apiKeyQuery:
+      type: apiKey
+      in: query
+      name: api_key
+
+  parameters:
+    ApiKey:
+      name: api_key
+      in: query
+      required: true
+      schema:
+        type: string
+      description: API-ключ клиента
+
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+      description: Номер страницы для пагинации. Начинается с 1.
+
+    Search:
+      name: search
+      in: query
+      required: false
+      schema:
+        type: string
+        default: 1
+        minimum: 1
+      description: Значение которое необходимо найти
+
+    SearchColumn:
+      name: search_column
+      in: query
+      required: false
+      schema:
+        type: string
+        default: 1
+        minimum: 1
+      description: Поле по котором будет производится поиск.
+
+    CourseSearchColumn:
+      name: search_column
+      in: query
+      required: false
+      schema:
+        type: string
+        default: 1
+        minimum: 1
+      description: Поле по котором будет производится поиск. Допускается id,id_parent_course,cod,name_course
+
+    ParentCourseSearchColumn:
+      name: search_column
+      in: query
+      required: false
+      schema:
+        type: string
+        default: 1
+        minimum: 1
+      description: Поле по котором будет производится поиск. Допускается id,name_course
+
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        default: 20
+        minimum: 1
+        maximum: 100
+      description: Количество записей на одной странице.
+
+    ContragentSearch:
+      name: search
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Поиск контрагента по параметрам. Название - name_organiztion, ИНН - inn, электронная почта - email
+
+    ContragentId:
+      name: contragent_id
+      in: query
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      description: ID контрагента
+
+    ContragentIdOptional:
+      name: contragent_id
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+      description: ID контрагента
+
+    StudentId:
+      name: student_id
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+      description: ID студента
+
+    ContragentInn:
+      name: inn
+      in: query
+      required: true
+      schema:
+        type: string
+      description: ИНН контрагента, 10 или 12 цифр.
+
+    DateFrom:
+      name: date_from
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date
+      description: Дата начала периода.
+
+    DateTill:
+      name: date_till
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date
+      description: Дата окончания периода.
+
+  schemas:
+    SearchColumn:
+      name: search_column
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Поле, по которому выполняется поиск. Если не передано, поиск идёт по всем разрешённым полям.
+
+    Pagination:
+      type: object
+      description: Данные пагинации ответа.
+      properties:
+        page:
+          type: integer
+          description: Текущая страница.
+        limit:
+          type: integer
+          description: Количество записей на странице.
+        total:
+          type: integer
+          description: Общее количество записей.
+        pages:
+          type: integer
+          description: Общее количество страниц.
+        has_prev:
+          type: boolean
+          description: Есть ли предыдущая страница.
+        has_next:
+          type: boolean
+          description: Есть ли следующая страница.
+
+    Contragent:
+      type: object
+      description: Данные контрагента.
+      properties:
+        id:
+          type: integer
+          description: Уникальный идентификатор контрагента.
+        inn:
+          type: string
+          description: ИНН контрагента.
+        name_organiztion:
+          type: string
+          description: Полное наименование организации.
+        short_name:
+          type: string
+          description: Краткое наименование организации.
+        post:
+          type: string
+          description: Должность контактного лица или руководителя.
+        city:
+          type: string
+          description: Город организации.
+        addres:
+          type: string
+          description: Адрес организации.
+        yur_addres:
+          type: string
+          description: Юридический адрес организации.
+        fact_addres:
+          type: string
+          description: Фактический адрес организации.
+        okpo:
+          type: string
+          description: Код ОКПО.
+        okato:
+          type: string
+          description: Код ОКАТО.
+        oktmo:
+          type: string
+          description: Код ОКТМО.
+        okogu:
+          type: string
+          description: Код ОКОГУ.
+        okopf:
+          type: string
+          description: Код ОКОПФ.
+        okvd:
+          type: string
+          description: Код ОКВЭД.
+        ogrn:
+          type: string
+          description: ОГРН организации.
+        kpp:
+          type: string
+          description: КПП организации.
+        email:
+          type: string
+          nullable: true
+          description: Электронная почта организации.
+        fio_directora:
+          type: string
+          description: ФИО руководителя организации.
+        director_position:
+          type: string
+          nullable: true
+          description: Должность руководителя организации.
+
+    Student:
+      type: object
+      description: Данные студента.
+      properties:
+        id:
+          type: integer
+          description: Уникальный идентификатор студента.
+        id_organiz:
+          type: integer
+          description: Идентификатор организации, к которой относится студент.
+        login:
+          type: string
+          nullable: true
+          description: Логин студента.
+        email:
+          type: string
+          nullable: true
+          description: Электронная почта студента.
+        phone:
+          type: string
+          nullable: true
+          description: Номер телефона студента.
+        full_name:
+          type: string
+          nullable: true
+          description: Полное ФИО студента.
+        surname:
+          type: string
+          nullable: true
+          description: Фамилия студента.
+        name:
+          type: string
+          nullable: true
+          description: Имя студента.
+        otchestvo:
+          type: string
+          nullable: true
+          description: Отчество студента.
+        data_rozdeniya:
+          type: string
+          nullable: true
+          description: Дата рождения студента.
+        sex:
+          type: string
+          nullable: true
+          description: Пол студента.
+        dolznost:
+          type: string
+          nullable: true
+          description: Должность студента.
+        created_at:
+          type: string
+          nullable: true
+          description: Дата создания записи студента.
+
+    ParenCourse:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Уникальный идентификатор курса.
+        name_course:
+          type: string
+          nullable: true
+          description: Название курса.
+
+    Course:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Уникальный идентификатор курса.
+        id_parent_course:
+          type: integer
+          description: Уникальный идентификатор родителя курса.
+        cod:
+          type: string
+          nullable: true
+          description: Код курса.
+        name_course:
+          type: string
+          nullable: true
+          description: Название курса.
+        count_hour:
+          type: integer
+          nullable: true
+          description: Количество часов
+        hours_theory:
+          type: integer
+          nullable: true
+          description: Количество теоретических часов
+        hours_practice:
+          type: integer
+          nullable: true
+          description: Количество практических часов
+        period_obuch:
+          type: integer
+          nullable: true
+          description: Период обучения в месяцах
+        date_add:
+          type: string
+          nullable: true
+          description: Дата добавления курса
+        price:
+          type: integer
+          nullable: true
+          description: Цена
+        note:
+          type: string
+          nullable: true
+          description: Заметка курса
+
+    Result:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: Код результата
+        result:
+          type: string
+          nullable: true
+          description: Результат на английском
+        result_rus:
+          type: string
+          nullable: true
+          description: Результат на русском
+
+    Group:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Уникальный идентификатор группы.
+        name_group:
+          type: string
+          nullable: true
+          description: Название группы.
+        date_create:
+          type: string
+          nullable: true
+          description: Дата создания группы.
+        date_on:
+          type: string
+          nullable: true
+          description: Дата начала обучения группы.
+        date_off:
+          type: string
+          nullable: true
+          description: Дата окончания обучения группы.
+        access_material:
+          type: string
+          nullable: true
+          description: Доступ к материалам до
+        date_exam_start:
+          type: string
+          nullable: true
+          description: Доступ к экзамену с
+        date_exam_end:
+          type: string
+          nullable: true
+          description: Доступ к экзамену по
+        date_practice_on:
+          type: string
+          nullable: true
+          description: Дата начала практики
+        date_practice_off:
+          type: string
+          nullable: true
+          description: Дата окончания практики
+
+    ContragentListResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Contragent'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+
+    StudentListResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Student'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+
+    CourseListResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Course'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+
+    ParentCourseListResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ParenCourse'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+
+    GroupListResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Group'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+
+    ContragentStudentsResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Group'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+
+    ContragentStudentsTrainingResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          properties:
+            contragent:
+              $ref: '#/components/schemas/Contragent'
+            items:
+              type: object
+              properties:
+                student:
+                  $ref: '#/components/schemas/Student'
+                trainings:
+                  type: object
+                  properties:
+                    course:
+                      $ref: '#/components/schemas/Course'
+                    group:
+                      $ref: '#/components/schemas/Group'
+                    result:
+                      $ref: '#/components/schemas/Result'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+
+security:
+  - apiKeyQuery: []
+
+paths:
+  /api/v1/contragent.get:
+    get:
+      tags: [Контрагент]
+      summary: Получить список контрагентов
+      parameters:
+        - $ref: '#/components/parameters/ApiKey'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/ContragentSearch'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContragentListResponse'
+
+  /api/v1/contragent.byInn:
+    get:
+      tags: [Контрагент]
+      summary: Получить контрагента по ИНН
+      parameters:
+        - $ref: '#/components/parameters/ApiKey'
+        - $ref: '#/components/parameters/ContragentInn'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContragentListResponse'
+
+  /api/v1/contragent.students:
+    get:
+      tags: [Контрагент]
+      summary: Получить студентов контрагента
+      parameters:
+        - $ref: '#/components/parameters/ApiKey'
+        - $ref: '#/components/parameters/ContragentId'
+        - $ref: '#/components/parameters/StudentId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentListResponse'
+
+  /api/v1/contragent.report:
+    get:
+      tags: [Контрагент]
+      summary: Сформировать отчёт по контрагенту
+      parameters:
+        - $ref: '#/components/parameters/ApiKey'
+        - $ref: '#/components/parameters/ContragentInn'
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTill'
+      responses:
+        '302':
+          description: Редирект на файл отчёта
+
+  /api/v1/student.get:
+    get:
+      tags: [Студент]
+      summary: Получить список студентов
+      parameters:
+        - $ref: '#/components/parameters/ApiKey'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/SearchColumn'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentListResponse'
+
+  /api/v1/course.get:
+    get:
+      tags: [Курсы]
+      summary: Получить список курсов
+      parameters:
+        - $ref: '#/components/parameters/ApiKey'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/CourseSearchColumn'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseListResponse'
+
+  /api/v1/course.parent.get:
+    get:
+      tags: [Курсы]
+      summary: Получить список родителей курсов
+      parameters:
+        - $ref: '#/components/parameters/ApiKey'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/ParentCourseSearchColumn'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParentCourseListResponse'
+
+  /api/v1/group.get:
+    get:
+      tags: [Группа]
+      summary: Получить список групп
+      parameters:
+        - $ref: '#/components/parameters/ApiKey'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/SearchColumn'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupListResponse'
+
+  /api/v1/contragent.students.trainings:
+    get:
+      tags: [Контрагент]
+      summary: Получить обучения всех студентов контрагента
+      parameters:
+        - $ref: '#/components/parameters/ApiKey'
+        - $ref: '#/components/parameters/ContragentId'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContragentStudentsTrainingResponse'
+
+  /api/v1/report.endcert:
+    get:
+      tags: [Отчёты]
+      summary: Окончания удостоверений
+      parameters:
+        - $ref: '#/components/parameters/ApiKey'
+        - $ref: '#/components/parameters/ContragentIdOptional'
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTill'
+      responses:
+        '302':
+          description: Редирект на файл отчёта
