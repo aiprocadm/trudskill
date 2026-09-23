@@ -320,11 +320,12 @@ export class MvpController {
   @RequirePermissions('learners.read')
   @ReadsNormalized('learners')
   async listLearners(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    /* Срез 2b: из таблицы читает персонал; актор со скоупом заказчика идёт снимком (РМ37). */
-    const page =
-      isNormalizedRead('learners') && !c.counterpartyId
-        ? await this.normalizedReads.listLearners(c.tenantId!, q)
-        : this.mvpService.listLearners(c.tenantId!, q, { counterpartyId: c.counterpartyId });
+    /* Срез 2b: под флагом интерцептор снимок не грузит, поэтому ветка снимка недопустима
+       ни для кого; скоуп заказчика в SQL-пути закрыт по умолчанию до среза 3 (РМ37). */
+    const actor = { counterpartyId: c.counterpartyId };
+    const page = isNormalizedRead('learners')
+      ? await this.normalizedReads.listLearners(c.tenantId!, q, actor)
+      : this.mvpService.listLearners(c.tenantId!, q, actor);
     /*
      * ТЗ 17.2: в СПИСКЕ персональные номера показаны частично — всегда, независимо от прав.
      *
@@ -370,10 +371,9 @@ export class MvpController {
   @ReadsNormalized('learners')
   async getLearner(@CurrentContext() c: RequestContext, @Param('id') id: string) {
     /* ТЗ 17.2: карточка тоже отдаёт номера частично — полностью только по явному действию. */
-    const learner = isNormalizedRead('learners')
-      ? await this.normalizedReads.getLearner(c.tenantId!, id)
-      : this.mvpService.getLearner(c.tenantId!, id);
-    return maskLearnerRow(learner);
+    return isNormalizedRead('learners')
+      ? maskLearnerRow(await this.normalizedReads.getLearner(c.tenantId!, id))
+      : maskLearnerRow(this.mvpService.getLearner(c.tenantId!, id));
   }
 
   /**

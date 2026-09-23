@@ -122,4 +122,12 @@ describe('MvpNormalizedReadsService', () => {
     ]);
     expect((await service.findLearnersBySnils(T, '11223344595')).map((l) => l.id)).toEqual(['l1']);
   });
+
+  it('слушатели: представитель заказчика под флагом получает пустую страницу — закрыто по умолчанию (РМ37)', async () => {
+    const service = makeService();
+    const page = await service.listLearners(T, { page: '2', page_size: '5' } as never, {
+      counterpartyId: 'cp1'
+    });
+    expect(page).toEqual({ items: [], page: 2, pageSize: 5, total: 0 });
+  });
 });

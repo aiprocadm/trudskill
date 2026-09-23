@@ -100,7 +100,19 @@ export class MvpNormalizedReadsService {
    * значением (иначе маска взяла бы цифры из шифртекста). Скоуп представителя не применяется:
    * у него нет `learners.read`, а портал остаётся на снимке до среза 3 (РМ37).
    */
-  async listLearners(tenantId: string, query: BaseFilterQuery): Promise<RegistryListPage<Learner>> {
+  async listLearners(
+    tenantId: string,
+    query: BaseFilterQuery,
+    actor?: { counterpartyId?: string }
+  ): Promise<RegistryListPage<Learner>> {
+    const scope = resolveCounterpartyScope(actor ?? {});
+    if (scope.restricted) {
+      // Скоуп представителя заказчика идёт через зачисления и группы, которых в таблицах до
+      // среза 3 нет (РМ37). Закрыто по умолчанию: пустая страница, а не список всего центра.
+      // Ветка снимка здесь невозможна — интерцептор снимок для помеченной ручки не грузит.
+      const parsed = parseRegistryListQuery(query, LEARNER_SORT_COLUMNS);
+      return { items: [], page: parsed.page, pageSize: parsed.pageSize, total: 0 };
+    }
     const page = await this.learners.list(
       tenantId,
       parseRegistryListQuery(query, LEARNER_SORT_COLUMNS)
