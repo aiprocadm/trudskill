@@ -75,6 +75,12 @@ export class InMemoryLearnersRepository implements LearnersRepository {
       .map((row) => ({ ...row }));
   }
 
+  async learnerIdsByUser(tenantId: string, userId: string): Promise<string[]> {
+    return this.rows
+      .filter((row) => row.tenantId === tenantId && row.linkedIamUserId === userId)
+      .map((row) => row.id);
+  }
+
   private sameSnils(row: Learner, digits: string): boolean {
     const hash = (row as unknown as { snilsHash?: unknown }).snilsHash;
     if (typeof hash === 'string') return hash === snilsBlindIndex(digits);

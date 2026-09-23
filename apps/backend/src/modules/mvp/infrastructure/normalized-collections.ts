@@ -15,7 +15,12 @@ import { backendEnv } from '../../../env.js';
  * репозиторием, который умеет её читать. Опечатка в переменной — ошибка старта, а не тихое
  * чтение из снимка.
  */
-export const NORMALIZABLE_COLLECTIONS = ['counterparties', 'groups', 'learners'] as const;
+export const NORMALIZABLE_COLLECTIONS = [
+  'counterparties',
+  'groups',
+  'learners',
+  'enrollments'
+] as const;
 export type NormalizableCollection = (typeof NORMALIZABLE_COLLECTIONS)[number];
 
 export function parseNormalizedCollections(raw: string): Set<NormalizableCollection> {

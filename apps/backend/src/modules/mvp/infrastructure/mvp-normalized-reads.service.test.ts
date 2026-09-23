@@ -1,7 +1,8 @@
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 
 import { MvpNormalizedReadsService } from './mvp-normalized-reads.service.js';
+import { InMemoryEnrollmentsRepository } from './repositories/in-memory-enrollments.repository.js';
 import { InMemoryLearnersRepository } from './repositories/in-memory-learners.repository.js';
 import { InMemoryRegistryRepository } from './repositories/in-memory-registry.repository.js';
 import { encryptLearnerPiiAtRest } from '../../../infrastructure/crypto/pii-crypto.js';
@@ -52,17 +53,73 @@ const learners = [
     learnerNo: 'Т-001',
     snils: '112-233-445 95',
     email: 'ivan@example.com',
-    status: 'active'
+    status: 'active',
+    linkedIamUserId: 'u_ivan'
   },
   { id: 'l2', tenantId: T, ...AT, firstName: 'Пётр', lastName: 'Петров', status: 'inactive' },
   { id: 'l9', tenantId: 't2', ...AT, firstName: 'Чужой', lastName: 'Чужой', status: 'active' }
 ].map((l) => encryptLearnerPiiAtRest(l) as never);
 
+const enrollments = [
+  {
+    id: 'e1',
+    tenantId: T,
+    ...AT,
+    groupId: 'g1',
+    learnerId: 'l1',
+    status: 'active',
+    enrolledAt: AT.createdAt
+  },
+  {
+    id: 'e2',
+    tenantId: T,
+    ...AT,
+    groupId: 'g2',
+    learnerId: 'l2',
+    status: 'completed',
+    enrolledAt: AT.createdAt
+  },
+  {
+    id: 'e3',
+    tenantId: T,
+    ...AT,
+    groupId: 'g3',
+    learnerId: 'l1',
+    status: 'cancelled',
+    enrolledAt: AT.createdAt
+  }
+] as never[];
+const history = [
+  {
+    id: 'h1',
+    tenantId: T,
+    enrollmentId: 'e1',
+    status: 'pending',
+    changedAt: '2026-08-01T00:00:00.000Z'
+  },
+  {
+    id: 'h2',
+    tenantId: T,
+    enrollmentId: 'e1',
+    status: 'active',
+    changedAt: '2026-08-02T00:00:00.000Z'
+  }
+] as never[];
+
 const makeService = () =>
   new MvpNormalizedReadsService(
     new InMemoryRegistryRepository(counterparties, 'id'),
     new InMemoryRegistryRepository(groups, 'counterpartyId'),
-    new InMemoryLearnersRepository(learners)
+    new InMemoryLearnersRepository(learners),
+    new InMemoryEnrollmentsRepository(
+      enrollments,
+      history,
+      new Map([
+        ['g1', 'cp1'],
+        ['g2', 'cp2'],
+        ['g3', undefined]
+      ])
+    )
   );
 
 describe('MvpNormalizedReadsService', () => {
@@ -129,5 +186,87 @@ describe('MvpNormalizedReadsService', () => {
       counterpartyId: 'cp1'
     });
     expect(page).toEqual({ items: [], page: 2, pageSize: 5, total: 0 });
+  });
+
+  it('зачисления (срез 3b): персонал с правом обхода видит всё, слушатель — только свои, без привязки — пусто', async () => {
+    const service = makeService();
+    const staff = {
+      actorId: 'u_staff',
+      permissions: ['enrollments.read', 'assessment.read.cross_learner']
+    };
+    expect((await service.listEnrollments(T, {}, staff)).items.map((e) => e.id)).toEqual([
+      'e1',
+      'e2',
+      'e3'
+    ]);
+    expect(
+      (await service.listEnrollments(T, { status: 'completed' }, staff)).items.map((e) => e.id)
+    ).toEqual(['e2']);
+    expect(
+      (await service.listEnrollments(T, { learner_id: 'l1' } as never, staff)).items.map(
+        (e) => e.id
+      )
+    ).toEqual(['e1', 'e3']);
+    // Внутренний вызов без актора — без ограничения.
+    expect((await service.listEnrollments(T, {})).total).toBe(3);
+    // Слушатель Иван (u_ivan) — только свои; чужой пользователь без привязки — пусто (закрыто по умолчанию).
+    expect(
+      (
+        await service.listEnrollments(
+          T,
+          {},
+          { actorId: 'u_ivan', permissions: ['enrollments.read'] }
+        )
+      ).items.map((e) => e.id)
+    ).toEqual(['e1', 'e3']);
+    expect(
+      (
+        await service.listEnrollments(
+          T,
+          {},
+          { actorId: 'u_nobody', permissions: ['enrollments.read'] }
+        )
+      ).total
+    ).toBe(0);
+  });
+
+  it('зачисления: представитель заказчика видит только группы своего контрагента; группа без контрагента не видна', async () => {
+    const service = makeService();
+    const rep = {
+      actorId: 'u_rep',
+      permissions: ['enrollments.read', 'assessment.read.cross_learner'],
+      actor: { counterpartyId: 'cp1' }
+    };
+    expect((await service.listEnrollments(T, {}, rep)).items.map((e) => e.id)).toEqual(['e1']);
+  });
+
+  it('карточка и история зачисления: 404 для чужого центра, 403 — чужой привязанный слушатель, история по порядку', async () => {
+    const service = makeService();
+    await expect(service.getEnrollment(T, 'e_missing')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.getEnrollment(T, 'e1', { actorId: 'u_other', permissions: ['enrollments.read'] })
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(
+      (
+        await service.getEnrollment(T, 'e1', {
+          actorId: 'u_ivan',
+          permissions: ['enrollments.read']
+        })
+      ).id
+    ).toBe('e1');
+    // Слушатель l2 без привязки — открыт для чтения, как в снимке.
+    expect(
+      (
+        await service.getEnrollment(T, 'e2', {
+          actorId: 'u_other',
+          permissions: ['enrollments.read']
+        })
+      ).id
+    ).toBe('e2');
+    expect((await service.listEnrollmentStatusHistory(T, 'e1')).map((h) => h.status)).toEqual([
+      'pending',
+      'active'
+    ]);
+    expect(await service.listEnrollmentStatusHistory(T, 'e_missing')).toEqual([]);
   });
 });

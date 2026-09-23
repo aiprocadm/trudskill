@@ -921,12 +921,16 @@ export class MvpController {
   @Get('enrollments')
   @UseGuards(PermissionGuard)
   @RequirePermissions('enrollments.read')
+  @ReadsNormalized('enrollments')
   listEnrollments(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    return this.mvpService.listEnrollments(c.tenantId!, q, {
+    const access = {
       actorId: c.userId,
       permissions: c.permissions,
       actor: { counterpartyId: c.counterpartyId }
-    });
+    };
+    return isNormalizedRead('enrollments')
+      ? this.normalizedReads.listEnrollments(c.tenantId!, q, access)
+      : this.mvpService.listEnrollments(c.tenantId!, q, access);
   }
   /*
    * Фаза 6 Task 1 — закрытая утечка персональных данных.
@@ -1101,11 +1105,12 @@ export class MvpController {
   @Get('enrollments/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('enrollments.read')
+  @ReadsNormalized('enrollments')
   getEnrollment(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.mvpService.getEnrollment(c.tenantId!, id, {
-      actorId: c.userId,
-      permissions: c.permissions
-    });
+    const access = { actorId: c.userId, permissions: c.permissions };
+    return isNormalizedRead('enrollments')
+      ? this.normalizedReads.getEnrollment(c.tenantId!, id, access)
+      : this.mvpService.getEnrollment(c.tenantId!, id, access);
   }
   @Post('enrollments/bulk')
   @UseGuards(PermissionGuard)
@@ -1149,11 +1154,12 @@ export class MvpController {
   @Get('enrollments/:id/status-history')
   @UseGuards(PermissionGuard)
   @RequirePermissions('enrollments.read')
+  @ReadsNormalized('enrollments')
   enrollmentStatusHistory(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.mvpService.listEnrollmentStatusHistory(c.tenantId!, id, {
-      actorId: c.userId,
-      permissions: c.permissions
-    });
+    const access = { actorId: c.userId, permissions: c.permissions };
+    return isNormalizedRead('enrollments')
+      ? this.normalizedReads.listEnrollmentStatusHistory(c.tenantId!, id, access)
+      : this.mvpService.listEnrollmentStatusHistory(c.tenantId!, id, access);
   }
 
   @Get('progress')

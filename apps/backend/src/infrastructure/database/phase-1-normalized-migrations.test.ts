@@ -15,6 +15,7 @@ const m0107 = read('0107_learning_enrollments_extend.sql');
 const m0108 = read('0108_exam_results_and_generated_documents_extend.sql');
 const m0109 = read('0109_normalized_search_trgm_indexes.sql');
 const m0110 = read('0110_phase1_backfill_prerequisites.sql');
+const m0111 = read('0111_learning_learners_linked_iam_user.sql');
 
 const column = (sql: string, name: string): void => {
   expect(sql, `нет колонки ${name}`).toMatch(
@@ -338,9 +339,19 @@ describe('0110 предпосылки бэкфилла (срез 0b)', () => {
   });
 });
 
+describe('0111 привязка слушателя к учётной записи (срез 3b)', () => {
+  it('колонка linked_iam_user_id без внешнего ключа и частичный индекс по центру', () => {
+    column(m0111, 'linked_iam_user_id');
+    expect(m0111).not.toMatch(/REFERENCES/i);
+    expect(m0111).toMatch(
+      /learners_tenant_linked_iam_user_idx\s+ON learning\.learners \(tenant_id, linked_iam_user_id\)\s+WHERE linked_iam_user_id IS NOT NULL/
+    );
+  });
+});
+
 describe('все миграции среза 0 и 0b повторяемы', () => {
   it('ни одного ADD COLUMN / CREATE INDEX без IF NOT EXISTS и ни одного DROP CONSTRAINT без IF EXISTS', () => {
-    for (const sql of [m0104, m0105, m0106, m0107, m0108, m0109, m0110]) {
+    for (const sql of [m0104, m0105, m0106, m0107, m0108, m0109, m0110, m0111]) {
       const body = sql.replace(/--[^\n]*/g, '');
       expect(body.match(/ADD COLUMN(?! IF NOT EXISTS)/g) ?? []).toHaveLength(0);
       expect(body.match(/CREATE (?:UNIQUE )?INDEX(?! IF NOT EXISTS)/g) ?? []).toHaveLength(0);
