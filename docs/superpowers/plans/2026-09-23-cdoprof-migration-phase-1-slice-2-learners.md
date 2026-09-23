@@ -54,17 +54,17 @@
 
 **Files:** Create `repositories/learners.repository.ts` (интерфейс + токен: `list(tenantId, query)`, `get(tenantId, id)`, `lookup(tenantId, query)`, `findBySnils(tenantId, snils): Promise<Learner[]>`), `postgres-learners.repository.ts` (`LEARNER_SORT_COLUMNS`; `q`: если `/^[\d\s-]+$/` и `normalizeSnils(q).length === 11` → `snils_hash = $n` (`snilsBlindIndex`), иначе `(<ФИО как в 0109> ilike $n or coalesce(learner_no, '') ilike $n)`; `status`; ответ — `rowToEntity('learners')` **без** расшифровки — расшифровывает сервис), `in-memory-learners.repository.ts` (поиск по ФИО/номеру/точному СНИЛС, сортировка по белому списку), `repositories.integration.test.ts` (+ слушатели: trgm по ФИО без учёта регистра, номер, точный СНИЛС в двух написаниях, частичный СНИЛС — пусто, изоляция, `get` чужого → null, lookup).
 
-- [ ] Commit `feat(backend): репозиторий слушателей — поиск по ФИО, номеру и слепому индексу СНИЛС`.
+- [x] Commit `feat(backend): репозиторий слушателей — поиск по ФИО, номеру и слепому индексу СНИЛС`.
 
 ### Task 5: сервис чтения, флаг, декоратор, контроллер
 
 **Files:** Modify `mvp-normalized-reads.service.ts` (`listLearners/getLearner/lookupLearners` + `findLearnersBySnils`; `decryptLearnerPiiAtRest` на каждой сущности списка и карточки; 404 `not_found` как у снимка), `mvp-normalized-reads.service.test.ts` (третий репозиторий; расшифровка: в ответе открытый СНИЛС и нет `snilsHash`), `normalized-collections.ts` + тест (`learners`), `mvp.controller.ts` (`learners`, `learners/lookup`, `learners/:id` — ветка + `@ReadsNormalized('learners')`; `maskLearnerRow` остаётся; `portal/learners` НЕ трогать — РМ37), `mvp.module.ts` (фабрика `LEARNERS_REPOSITORY`), `.env.example`, `docs/environment-and-config.md`.
 
-- [ ] Commit `feat(backend): /learners читается из learning.learners под флагом — расшифровка до маскирования`.
+- [x] Commit `feat(backend): /learners читается из learning.learners под флагом — расшифровка до маскирования`.
 
 ### Task 6: замер «после» (МГ-A3.1)
 
-- [ ] Перф-стенд `:3091` (`LMS_NORMALIZED_COLLECTIONS=groups,counterparties,learners`), бэкфилл уже сделан (§5.561; повторить `pnpm backfill:normalized` — повторяем), `run-k6.sh`; цель: `/groups` и `/learners` p95 ≤ 500 мс при VUS=10 (`/search` — ещё снимок). Результат — `docs/LOAD_TEST_RESULTS.md`.
+- [x] Перф-стенд `:3091` (`LMS_NORMALIZED_COLLECTIONS=groups,counterparties,learners`), бэкфилл уже сделан (§5.561; повторить `pnpm backfill:normalized` — повторяем), `run-k6.sh`; цель: `/groups` и `/learners` p95 ≤ 500 мс при VUS=10 (`/search` — ещё снимок). Результат — `docs/LOAD_TEST_RESULTS.md`.
 
 ### Task 7: документация 2b
 

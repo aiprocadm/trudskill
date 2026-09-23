@@ -8,7 +8,12 @@ import {
   PostgresCounterpartiesRepository
 } from './postgres-counterparties.repository.js';
 import { GROUP_SORT_COLUMNS, PostgresGroupsRepository } from './postgres-groups.repository.js';
+import {
+  LEARNER_SORT_COLUMNS,
+  PostgresLearnersRepository
+} from './postgres-learners.repository.js';
 import { parseRegistryListQuery } from './registry-list-query.js';
+import { decryptLearnerPiiAtRest } from '../../../../infrastructure/crypto/pii-crypto.js';
 import { isDockerAvailable, stopTestDb, withTestDb } from '../../../../testing/with-test-db.js';
 import {
   TABLE_SPECS,
@@ -228,6 +233,112 @@ describe.skipIf(!dockerAvailable)('SQL-репозитории контраген
       // Lookup: id, подпись, статус.
       expect((await groupsRepo.lookup(T, q({ q: 'охрана' }))).items).toEqual([
         { id: 'g1', label: 'Охрана труда', status: 'active' }
+      ]);
+    });
+  }, 180_000);
+
+  it('слушатели (срез 2b): ФИО через триграммы, номер, точный СНИЛС по слепому индексу, шифртекст в ответе', async () => {
+    await withTestDb(TEST_DB, async (db) => {
+      for (const tenant of [T, T2]) {
+        await db.query(
+          `insert into core.tenants (id, code, name, status) values ($1, $1, $1, 'active') on conflict (id) do nothing`,
+          [tenant]
+        );
+      }
+      const learners = [
+        {
+          id: 'l1',
+          tenantId: T,
+          ...at(1),
+          firstName: 'Иван',
+          lastName: 'Иванов',
+          middleName: 'Иванович',
+          learnerNo: 'Т-001',
+          snils: '112-233-445 95',
+          email: 'ivan@example.com',
+          status: 'active'
+        },
+        {
+          id: 'l2',
+          tenantId: T,
+          ...at(2),
+          firstName: 'Пётр',
+          lastName: 'Петров',
+          learnerNo: 'Т-002',
+          status: 'inactive'
+        },
+        {
+          id: 'l3',
+          tenantId: T,
+          ...at(3),
+          firstName: 'Анна',
+          lastName: 'Иванова',
+          snils: '112-233-445 96',
+          status: 'active'
+        },
+        {
+          id: 'l9',
+          tenantId: T2,
+          ...at(1),
+          firstName: 'Иван',
+          lastName: 'Иванов',
+          snils: '112-233-445 95',
+          status: 'active'
+        }
+      ];
+      await db.withTransaction(async (client) => {
+        for (const tenant of [T, T2]) {
+          await upsertRows(
+            client,
+            TABLE_SPECS.learners,
+            learners
+              .filter((l) => l.tenantId === tenant)
+              .map((l) => projectEntity('learners', tenant, l, emptyContext()))
+          );
+        }
+      });
+      const repo = new PostgresLearnersRepository(db as DatabaseService);
+      const lq = (query: Record<string, unknown>) =>
+        parseRegistryListQuery(query as never, LEARNER_SORT_COLUMNS);
+
+      // Изоляция и порядок по умолчанию; ПДн — шифртекстом, расшифровка даёт исходник.
+      const all = await repo.list(T, lq({}));
+      expect(all.items.map((l) => l.id)).toEqual(['l1', 'l2', 'l3']);
+      expect(String(all.items[0]!.snils)).toMatch(/^enc:/);
+      expect(decryptLearnerPiiAtRest(all.items[0]) as Record<string, unknown>).toMatchObject({
+        snils: '112-233-445 95',
+        email: 'ivan@example.com'
+      });
+      expect(await repo.get(T2, 'l1')).toBeNull();
+
+      // ФИО без учёта регистра (триграммы), по отчеству, по номеру.
+      expect((await repo.list(T, lq({ q: 'иванов' }))).items.map((l) => l.id)).toEqual([
+        'l1',
+        'l3'
+      ]);
+      expect((await repo.list(T, lq({ q: 'Иванович' }))).items.map((l) => l.id)).toEqual(['l1']);
+      expect((await repo.list(T, lq({ q: 'Т-002' }))).items.map((l) => l.id)).toEqual(['l2']);
+
+      // Точный СНИЛС в двух написаниях — по слепому индексу, только свой центр; частичный — пусто.
+      expect((await repo.list(T, lq({ q: '112-233-445 95' }))).items.map((l) => l.id)).toEqual([
+        'l1'
+      ]);
+      expect((await repo.list(T, lq({ q: '11223344595' }))).items.map((l) => l.id)).toEqual(['l1']);
+      expect((await repo.list(T, lq({ q: '112-233' }))).total).toBe(0);
+      expect((await repo.findBySnils(T, '112 233 445 96')).map((l) => l.id)).toEqual(['l3']);
+      expect(await repo.findBySnils(T, '')).toEqual([]);
+
+      // Статус, сортировка по белому списку, lookup.
+      expect((await repo.list(T, lq({ status: 'inactive' }))).items.map((l) => l.id)).toEqual([
+        'l2'
+      ]);
+      expect((await repo.list(T, lq({ sort: 'lastName:desc' }))).items.map((l) => l.id)).toEqual([
+        'l2',
+        'l3',
+        'l1'
+      ]);
+      expect((await repo.lookup(T, lq({ q: 'анна' }))).items).toEqual([
+        { id: 'l3', label: 'Анна Иванова', status: 'active' }
       ]);
     });
   }, 180_000);

@@ -150,8 +150,9 @@ describe('маска действительно применена, а не то
     );
   });
 
-  it('карточка слушателя тоже маскирует', () => {
+  it('карточка слушателя тоже маскирует — и из снимка, и из таблицы (Фаза 1, срез 2b)', () => {
     expect(controller).toMatch(/maskLearnerRow\(this\.mvpService\.getLearner\(/);
+    expect(controller).toMatch(/maskLearnerRow\(await this\.normalizedReads\.getLearner\(/);
   });
 
   it('раскрытие защищено правом на персональные данные', () => {

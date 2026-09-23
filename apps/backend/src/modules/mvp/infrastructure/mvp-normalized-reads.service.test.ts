@@ -2,7 +2,9 @@ import { NotFoundException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 
 import { MvpNormalizedReadsService } from './mvp-normalized-reads.service.js';
+import { InMemoryLearnersRepository } from './repositories/in-memory-learners.repository.js';
 import { InMemoryRegistryRepository } from './repositories/in-memory-registry.repository.js';
+import { encryptLearnerPiiAtRest } from '../../../infrastructure/crypto/pii-crypto.js';
 
 /**
  * Сервис чтения из нормализованных таблиц (Фаза 1, срез 1b) повторяет правила снимка:
@@ -39,10 +41,28 @@ const groups = [
   { id: 'g3', tenantId: T, ...AT, code: 'G-3', name: 'Внутренняя', status: 'active' }
 ];
 
+/** Как строки лежат в таблице: ПДн шифртекстом и со слепым индексом (как после проекции). */
+const learners = [
+  {
+    id: 'l1',
+    tenantId: T,
+    ...AT,
+    firstName: 'Иван',
+    lastName: 'Иванов',
+    learnerNo: 'Т-001',
+    snils: '112-233-445 95',
+    email: 'ivan@example.com',
+    status: 'active'
+  },
+  { id: 'l2', tenantId: T, ...AT, firstName: 'Пётр', lastName: 'Петров', status: 'inactive' },
+  { id: 'l9', tenantId: 't2', ...AT, firstName: 'Чужой', lastName: 'Чужой', status: 'active' }
+].map((l) => encryptLearnerPiiAtRest(l) as never);
+
 const makeService = () =>
   new MvpNormalizedReadsService(
     new InMemoryRegistryRepository(counterparties, 'id'),
-    new InMemoryRegistryRepository(groups, 'counterpartyId')
+    new InMemoryRegistryRepository(groups, 'counterpartyId'),
+    new InMemoryLearnersRepository(learners)
   );
 
 describe('MvpNormalizedReadsService', () => {
@@ -87,5 +107,27 @@ describe('MvpNormalizedReadsService', () => {
     const page = await service.listGroups(T, { sort: 'name:desc', page: 1, page_size: 2 });
     expect(page.items.map((g) => g.name)).toEqual(['Первая', 'Вторая']);
     expect(page.total).toBe(3);
+  });
+
+  it('слушатели (срез 2b): ПДн расшифрованы, слепого индекса в ответе нет, чужой центр — 404', async () => {
+    const service = makeService();
+    const page = await service.listLearners(T, {});
+    expect(page.items.map((l) => l.id)).toEqual(['l1', 'l2']);
+    expect(page.items[0]).toMatchObject({ snils: '112-233-445 95', email: 'ivan@example.com' });
+    expect('snilsHash' in page.items[0]!).toBe(false);
+    expect((await service.getLearner(T, 'l1')).snils).toBe('112-233-445 95');
+    await expect(service.getLearner(T, 'l9')).rejects.toBeInstanceOf(NotFoundException);
+    expect((await service.lookupLearners(T, { q: 'петр' })).items).toEqual([
+      { id: 'l2', label: 'Пётр Петров', status: 'inactive' }
+    ]);
+    expect((await service.findLearnersBySnils(T, '11223344595')).map((l) => l.id)).toEqual(['l1']);
+  });
+
+  it('слушатели: представитель заказчика под флагом получает пустую страницу — закрыто по умолчанию (РМ37)', async () => {
+    const service = makeService();
+    const page = await service.listLearners(T, { page: '2', page_size: '5' } as never, {
+      counterpartyId: 'cp1'
+    });
+    expect(page).toEqual({ items: [], page: 2, pageSize: 5, total: 0 });
   });
 });

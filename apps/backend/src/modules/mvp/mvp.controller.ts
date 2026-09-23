@@ -318,10 +318,14 @@ export class MvpController {
   @Get('learners')
   @UseGuards(PermissionGuard)
   @RequirePermissions('learners.read')
-  listLearners(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    const page = this.mvpService.listLearners(c.tenantId!, q, {
-      counterpartyId: c.counterpartyId
-    });
+  @ReadsNormalized('learners')
+  async listLearners(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
+    /* Срез 2b: под флагом интерцептор снимок не грузит, поэтому ветка снимка недопустима
+       ни для кого; скоуп заказчика в SQL-пути закрыт по умолчанию до среза 3 (РМ37). */
+    const actor = { counterpartyId: c.counterpartyId };
+    const page = isNormalizedRead('learners')
+      ? await this.normalizedReads.listLearners(c.tenantId!, q, actor)
+      : this.mvpService.listLearners(c.tenantId!, q, actor);
     /*
      * ТЗ 17.2: в СПИСКЕ персональные номера показаны частично — всегда, независимо от прав.
      *
@@ -355,15 +359,21 @@ export class MvpController {
   @Get('learners/lookup')
   @UseGuards(PermissionGuard)
   @RequirePermissions('learners.read')
+  @ReadsNormalized('learners')
   learnersLookup(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    return this.mvpService.lookupLearners(c.tenantId!, q);
+    return isNormalizedRead('learners')
+      ? this.normalizedReads.lookupLearners(c.tenantId!, q)
+      : this.mvpService.lookupLearners(c.tenantId!, q);
   }
   @Get('learners/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('learners.read')
-  getLearner(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+  @ReadsNormalized('learners')
+  async getLearner(@CurrentContext() c: RequestContext, @Param('id') id: string) {
     /* ТЗ 17.2: карточка тоже отдаёт номера частично — полностью только по явному действию. */
-    return maskLearnerRow(this.mvpService.getLearner(c.tenantId!, id));
+    return isNormalizedRead('learners')
+      ? maskLearnerRow(await this.normalizedReads.getLearner(c.tenantId!, id))
+      : maskLearnerRow(this.mvpService.getLearner(c.tenantId!, id));
   }
 
   /**
