@@ -1,11 +1,13 @@
-export type BackfillDomain = 'lms' | 'documents';
+/** Домены «JSON → JSON» (stage1-зеркала) и `lms_normalized` — «снимок → нормализованные таблицы» (Фаза 1, срез 0b). */
+export type SnapshotBackfillDomain = 'lms' | 'documents';
+export type BackfillDomain = SnapshotBackfillDomain | 'lms_normalized';
 
 export type DomainTables = {
   sourceTable: string;
   targetTable: string;
 };
 
-export const BACKFILL_DOMAIN_TABLES: Record<BackfillDomain, DomainTables> = {
+export const BACKFILL_DOMAIN_TABLES: Record<SnapshotBackfillDomain, DomainTables> = {
   lms: {
     sourceTable: 'learning.mvp_runtime_documents',
     targetTable: 'learning.mvp_stage1_runtime_documents'
@@ -56,6 +58,8 @@ export type ReconciliationMismatch = {
   source_hash: string | null;
   target_hash: string | null;
   reason: 'missing_in_source' | 'missing_in_target' | 'hash_mismatch';
+  /** Текст отказа строки (домен `lms_normalized`): почему она не легла в таблицу. */
+  error?: string;
 };
 
 export type ReconciliationReport = {
