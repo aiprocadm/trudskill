@@ -8,6 +8,7 @@
     "seed:staging": "tsx scripts/seed-staging.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
     "export:cdoprof": "tsx scripts/cdoprof-export.ts",
+    "perf:synth": "tsx scripts/perf-synth.ts",
     "build": "tsc -p tsconfig.json",
     "lint": "eslint src --max-warnings=0",
     "typecheck": "pnpm --filter @trudskill/shared-types build && pnpm --filter @trudskill/api-contracts build && pnpm --filter @trudskill/docx-render build && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
