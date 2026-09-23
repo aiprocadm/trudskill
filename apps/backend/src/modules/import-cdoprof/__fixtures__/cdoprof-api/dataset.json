@@ -1,0 +1,477 @@
+{
+  "$comment": "Обезличенный набор ответов API CDOPROF v1 для тестов Фазы 0 (МГ-K1.1). Все данные вымышлены и заведомо ничьи: ИНН с неверной контрольной суммой, почта только @example.invalid, телефоны только +7 000. Сторож: fixtures-are-anonymized.test.ts. В набор нарочно вложена известная грязь источника (ТЗ I.1.3, I.2 P8): дата рождения 2109-12-01, дубль ФИО+ДР через ё/е, должность «undefined», пустой и 12-значный ИНН, дубль номера группы, группа без дат, слушатель только с full_name.",
+  "contragents": [
+    {
+      "id": 101,
+      "inn": "7700000001",
+      "name_organiztion": "ООО «Пример Один»",
+      "short_name": "Пример Один",
+      "post": "Генеральный директор",
+      "city": "Примерск",
+      "addres": "г. Примерск, ул. Тестовая, д. 1",
+      "yur_addres": "г. Примерск, ул. Тестовая, д. 1",
+      "fact_addres": "г. Примерск, ул. Тестовая, д. 1, оф. 2",
+      "okpo": "00000001",
+      "okato": "00000000000",
+      "oktmo": "00000000",
+      "okogu": "0000000",
+      "okopf": "12300",
+      "okvd": "85.42",
+      "ogrn": "1000000000001",
+      "kpp": "770001001",
+      "email": "office@example.invalid",
+      "fio_directora": "Директоров Директор Директорович",
+      "director_position": "Генеральный директор"
+    },
+    {
+      "id": 102,
+      "inn": "770000000001",
+      "name_organiztion": "ИП Примеров Пример Примерович",
+      "short_name": "ИП Примеров",
+      "post": null,
+      "city": "Примерск",
+      "addres": null,
+      "yur_addres": null,
+      "fact_addres": null,
+      "okpo": null,
+      "okato": null,
+      "oktmo": null,
+      "okogu": null,
+      "okopf": null,
+      "okvd": null,
+      "ogrn": "300000000000002",
+      "kpp": "",
+      "email": null,
+      "fio_directora": "Примеров Пример Примерович",
+      "director_position": null
+    },
+    {
+      "id": 103,
+      "inn": "",
+      "name_organiztion": "ООО «Без реквизитов»",
+      "short_name": null,
+      "post": null,
+      "city": null,
+      "addres": null,
+      "yur_addres": null,
+      "fact_addres": null,
+      "okpo": null,
+      "okato": null,
+      "oktmo": null,
+      "okogu": null,
+      "okopf": null,
+      "okvd": null,
+      "ogrn": null,
+      "kpp": null,
+      "email": "nobody@example.invalid",
+      "fio_directora": null,
+      "director_position": null
+    },
+    {
+      "id": 104,
+      "inn": "7700000002",
+      "name_organiztion": "  ООО «Пример Один»  ",
+      "short_name": "Пример Один (филиал)",
+      "post": "Директор филиала",
+      "city": "Примерск",
+      "addres": "г. Примерск, пр-т Учебный, д. 10",
+      "yur_addres": "г. Примерск, ул. Тестовая, д. 1",
+      "fact_addres": "г. Примерск, пр-т Учебный, д. 10",
+      "okpo": "00000004",
+      "okato": null,
+      "oktmo": null,
+      "okogu": null,
+      "okopf": null,
+      "okvd": "85.42",
+      "ogrn": "1000000000001",
+      "kpp": "770002002",
+      "email": "dup@example.invalid",
+      "fio_directora": "Филиалов Филиал Филиалович",
+      "director_position": "Директор филиала"
+    }
+  ],
+  "students": [
+    {
+      "id": 1001,
+      "id_organiz": 101,
+      "login": "100000001",
+      "email": "s1@example.invalid",
+      "phone": "+7 000 000-00-01",
+      "full_name": "Иванов Иван Иванович",
+      "surname": "Иванов",
+      "name": "Иван",
+      "otchestvo": "Иванович",
+      "data_rozdeniya": "1985-03-12",
+      "sex": "м",
+      "dolznost": "Инженер",
+      "created_at": "2021-05-10 12:00:00"
+    },
+    {
+      "id": 1002,
+      "id_organiz": 101,
+      "login": "100000002",
+      "email": "s2@example.invalid",
+      "phone": "+7 000 000-00-02",
+      "full_name": "Семёнова Мария Петровна",
+      "surname": "Семёнова",
+      "name": "Мария",
+      "otchestvo": "Петровна",
+      "data_rozdeniya": "1990-07-01",
+      "sex": "ж",
+      "dolznost": "Мастер",
+      "created_at": "2022-02-14 09:30:00"
+    },
+    {
+      "id": 1003,
+      "id_organiz": 101,
+      "login": "100000003",
+      "email": null,
+      "phone": "+7 000 000-00-02",
+      "full_name": "Семенова Мария Петровна",
+      "surname": "Семенова",
+      "name": "Мария",
+      "otchestvo": "Петровна",
+      "data_rozdeniya": "1990-07-01",
+      "sex": "ж",
+      "dolznost": "Мастер участка",
+      "created_at": "2024-11-03 15:12:00"
+    },
+    {
+      "id": 1004,
+      "id_organiz": 102,
+      "login": "100000004",
+      "email": "s4@example.invalid",
+      "phone": null,
+      "full_name": "Петров-Водкин Кузьма Сергеевич",
+      "surname": null,
+      "name": null,
+      "otchestvo": null,
+      "data_rozdeniya": "2109-12-01",
+      "sex": "м",
+      "dolznost": "undefined",
+      "created_at": "2021-09-01 10:00:00"
+    },
+    {
+      "id": 1005,
+      "id_organiz": 103,
+      "login": "100000005",
+      "email": "нет",
+      "phone": "+7 000 000-00-05",
+      "full_name": "Сидорова Анна",
+      "surname": "Сидорова",
+      "name": "Анна",
+      "otchestvo": null,
+      "data_rozdeniya": null,
+      "sex": "ж",
+      "dolznost": "Специалист",
+      "created_at": "2023-06-20 11:45:00"
+    },
+    {
+      "id": 1006,
+      "id_organiz": null,
+      "login": null,
+      "email": "s6@example.invalid",
+      "phone": "+7 000 000-00-06",
+      "full_name": "Кузнецов Пётр Алексеевич",
+      "surname": "Кузнецов",
+      "name": "Пётр",
+      "otchestvo": "Алексеевич",
+      "data_rozdeniya": "1978-11-30",
+      "sex": "м",
+      "dolznost": null,
+      "created_at": "2025-01-15 08:00:00"
+    },
+    {
+      "id": 1007,
+      "id_organiz": 104,
+      "login": "100000007",
+      "email": "s7@example.invalid",
+      "phone": "+7 000 000-00-07",
+      "full_name": "Николаев Николай Николаевич",
+      "surname": "Николаев",
+      "name": "Николай",
+      "otchestvo": "Николаевич",
+      "data_rozdeniya": "1995-05-05",
+      "sex": "м",
+      "dolznost": "Электромонтёр",
+      "created_at": "2024-03-03 13:00:00"
+    },
+    {
+      "id": 1008,
+      "id_organiz": 101,
+      "login": "100000008",
+      "email": "s8@example.invalid",
+      "phone": null,
+      "full_name": "Орлова Ольга Олеговна",
+      "surname": "Орлова",
+      "name": "Ольга",
+      "otchestvo": "Олеговна",
+      "data_rozdeniya": "2001-01-21",
+      "sex": null,
+      "dolznost": "Инженер",
+      "created_at": null
+    }
+  ],
+  "parentCourses": [
+    { "id": 1, "name_course": "R13 1. Охрана труда Модуль (А, Б, ПП, СИЗ)" },
+    { "id": 2, "name_course": "R27 2. Охрана труда Модуль (В)" },
+    { "id": 3, "name_course": "6. Дипломы" }
+  ],
+  "courses": [
+    {
+      "id": 309,
+      "id_parent_course": 1,
+      "cod": "R13.Б",
+      "name_course": "Охрана труда. Программа Б (безопасные методы работ)",
+      "count_hour": 16,
+      "hours_theory": 12,
+      "hours_practice": 4,
+      "period_obuch": 1,
+      "date_add": "2021-04-01",
+      "price": 2500,
+      "note": null
+    },
+    {
+      "id": 310,
+      "id_parent_course": 1,
+      "cod": "R13.А",
+      "name_course": "Охрана труда. Программа А (общие вопросы)",
+      "count_hour": 16,
+      "hours_theory": 16,
+      "hours_practice": 0,
+      "period_obuch": 1,
+      "date_add": "2021-04-01",
+      "price": 2500,
+      "note": "Для руководителей"
+    },
+    {
+      "id": 311,
+      "id_parent_course": 2,
+      "cod": "R27.В",
+      "name_course": "Охрана труда. Программа В (повышенная опасность)",
+      "count_hour": 24,
+      "hours_theory": 16,
+      "hours_practice": 8,
+      "period_obuch": null,
+      "date_add": "2022-10-12",
+      "price": 3200,
+      "note": null
+    },
+    {
+      "id": 312,
+      "id_parent_course": 99,
+      "cod": null,
+      "name_course": "Курс без направления",
+      "count_hour": null,
+      "hours_theory": null,
+      "hours_practice": null,
+      "period_obuch": null,
+      "date_add": null,
+      "price": null,
+      "note": "направление удалено"
+    },
+    {
+      "id": 313,
+      "id_parent_course": 3,
+      "cod": "DIP-1",
+      "name_course": "Профессиональная переподготовка «Специалист по охране труда»",
+      "count_hour": 256,
+      "hours_theory": 200,
+      "hours_practice": 56,
+      "period_obuch": 6,
+      "date_add": "2021-06-15",
+      "price": null,
+      "note": null
+    }
+  ],
+  "groups": [
+    {
+      "id": 5001,
+      "name_group": "2024-001",
+      "date_create": "2024-01-10",
+      "date_on": "2024-01-15",
+      "date_off": "2024-01-31",
+      "access_material": "2024-02-28",
+      "date_exam_start": "2024-01-29",
+      "date_exam_end": "2024-01-31",
+      "date_practice_on": null,
+      "date_practice_off": null
+    },
+    {
+      "id": 5002,
+      "name_group": "2024-002",
+      "date_create": "2024-02-01",
+      "date_on": "2024-02-05",
+      "date_off": "2024-02-20",
+      "access_material": "2024-03-20",
+      "date_exam_start": "2024-02-19",
+      "date_exam_end": "2024-02-20",
+      "date_practice_on": "2024-02-12",
+      "date_practice_off": "2024-02-16"
+    },
+    {
+      "id": 5003,
+      "name_group": "2024-002",
+      "date_create": "2024-02-02",
+      "date_on": "2024-02-05",
+      "date_off": "2024-02-20",
+      "access_material": null,
+      "date_exam_start": null,
+      "date_exam_end": null,
+      "date_practice_on": null,
+      "date_practice_off": null
+    },
+    {
+      "id": 5004,
+      "name_group": "2021-777",
+      "date_create": null,
+      "date_on": null,
+      "date_off": null,
+      "access_material": null,
+      "date_exam_start": null,
+      "date_exam_end": null,
+      "date_practice_on": null,
+      "date_practice_off": null
+    },
+    {
+      "id": 5005,
+      "name_group": "2025-010",
+      "date_create": "2025-09-01",
+      "date_on": "2025-09-05",
+      "date_off": "2026-12-31",
+      "access_material": "2027-01-31",
+      "date_exam_start": "2026-12-25",
+      "date_exam_end": "2026-12-31",
+      "date_practice_on": null,
+      "date_practice_off": null
+    },
+    {
+      "id": 5006,
+      "name_group": null,
+      "date_create": "2023-04-04",
+      "date_on": "2023-04-05",
+      "date_off": "2023-04-19",
+      "access_material": "2023-05-19",
+      "date_exam_start": "2023-04-18",
+      "date_exam_end": "2023-04-19",
+      "date_practice_on": null,
+      "date_practice_off": null
+    }
+  ],
+  "trainings": {
+    "101": [
+      {
+        "student": { "id": 1001, "full_name": "Иванов Иван Иванович" },
+        "trainings": [
+          {
+            "course": {
+              "id": 309,
+              "cod": "R13.Б",
+              "name_course": "Охрана труда. Программа Б (безопасные методы работ)"
+            },
+            "group": {
+              "id": 5001,
+              "name_group": "2024-001",
+              "date_on": "2024-01-15",
+              "date_off": "2024-01-31"
+            },
+            "result": { "code": 1, "result": "passed", "result_rus": "Сдал" }
+          },
+          {
+            "course": {
+              "id": 310,
+              "cod": "R13.А",
+              "name_course": "Охрана труда. Программа А (общие вопросы)"
+            },
+            "group": {
+              "id": 5002,
+              "name_group": "2024-002",
+              "date_on": "2024-02-05",
+              "date_off": "2024-02-20"
+            },
+            "result": { "code": 0, "result": "failed", "result_rus": "Не сдал" }
+          }
+        ]
+      },
+      {
+        "student": { "id": 1002, "full_name": "Семёнова Мария Петровна" },
+        "trainings": [
+          {
+            "course": {
+              "id": 309,
+              "cod": "R13.Б",
+              "name_course": "Охрана труда. Программа Б (безопасные методы работ)"
+            },
+            "group": {
+              "id": 5001,
+              "name_group": "2024-001",
+              "date_on": "2024-01-15",
+              "date_off": "2024-01-31"
+            },
+            "result": { "code": 1, "result": "passed", "result_rus": "Сдал" }
+          }
+        ]
+      },
+      {
+        "student": { "id": 1003, "full_name": "Семенова Мария Петровна" },
+        "trainings": []
+      },
+      {
+        "student": { "id": 1008, "full_name": "Орлова Ольга Олеговна" },
+        "trainings": [
+          {
+            "course": {
+              "id": 311,
+              "cod": "R27.В",
+              "name_course": "Охрана труда. Программа В (повышенная опасность)"
+            },
+            "group": {
+              "id": 5005,
+              "name_group": "2025-010",
+              "date_on": "2025-09-05",
+              "date_off": "2026-12-31"
+            },
+            "result": null
+          }
+        ]
+      }
+    ],
+    "102": [
+      {
+        "student": { "id": 1004, "full_name": "Петров-Водкин Кузьма Сергеевич" },
+        "trainings": [
+          {
+            "course": {
+              "id": 313,
+              "cod": "DIP-1",
+              "name_course": "Профессиональная переподготовка «Специалист по охране труда»"
+            },
+            "group": { "id": 5004, "name_group": "2021-777" },
+            "result": { "code": 2, "result": "absent", "result_rus": "Неявка" }
+          }
+        ]
+      }
+    ],
+    "104": [
+      {
+        "student": { "id": 1007, "full_name": "Николаев Николай Николаевич" },
+        "trainings": [
+          {
+            "course": {
+              "id": 309,
+              "cod": "R13.Б",
+              "name_course": "Охрана труда. Программа Б (безопасные методы работ)"
+            },
+            "group": {
+              "id": 5003,
+              "name_group": "2024-002",
+              "date_on": "2024-02-05",
+              "date_off": "2024-02-20"
+            },
+            "result": { "code": 1, "result": "passed", "result_rus": "Сдал" }
+          }
+        ]
+      }
+    ]
+  }
+}
