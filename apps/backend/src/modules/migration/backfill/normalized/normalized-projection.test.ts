@@ -7,7 +7,8 @@ import {
   canonicalHash,
   emptyContext,
   normalizeForHash,
-  projectEntity
+  projectEntity,
+  rowToEntity
 } from './normalized-projection.js';
 import {
   isEncryptedPiiValue,
@@ -267,5 +268,71 @@ describe('хэш сверки одинаков для снимка и переч
     });
     expect(a).toBe(b);
     expect(a).not.toBe(c);
+  });
+});
+
+describe('круговой проход: projectEntity → rowToEntity возвращает сущность снимка', () => {
+  /** Как строка выглядит после перечитывания из базы: колонки + payload-объект. */
+  const asDbRow = (row: {
+    columns: Record<string, unknown>;
+    payload: Record<string, unknown>;
+  }) => ({
+    ...row.columns,
+    payload: row.payload
+  });
+
+  it('контрагент с плохим ИНН, статусом вне списка и полем импорта', () => {
+    const source = {
+      ...base,
+      code: 'CP-1',
+      name: 'Ромашка',
+      inn: '12-34',
+      status: 'blocked',
+      legalName: 'ООО Ромашка',
+      contractNumber: 'Д-7'
+    };
+    const back = rowToEntity(
+      'counterparties',
+      asDbRow(projectEntity('counterparties', T, source, emptyContext()))
+    );
+    expect(back).toEqual(source);
+  });
+
+  it('группа с чужим статусом и несуществующим контрагентом', () => {
+    const source = {
+      ...base,
+      code: 'G-2',
+      name: 'Группа',
+      status: 'whatever',
+      counterpartyId: 'cp_missing',
+      legacyNumber: '77',
+      examDate: '2026-10-01'
+    };
+    const back = rowToEntity('groups', asDbRow(projectEntity('groups', T, source, emptyContext())));
+    expect(back).toEqual(source);
+  });
+
+  it('значения из базы приходят как Date и строки numeric — наружу уходят ISO и числа', () => {
+    const back = rowToEntity('examResults', {
+      id: 'x1',
+      tenant_id: T,
+      created_at: new Date('2026-09-01T10:00:00Z'),
+      updated_at: new Date('2026-09-02T10:00:00Z'),
+      enrollment_id: 'e1',
+      learner_id: 'l1',
+      test_id: 't1',
+      final_score: '18.00',
+      is_passed: true,
+      status: 'final',
+      finalized_at: new Date('2026-09-02T10:00:00Z'),
+      attempts_count: 2,
+      payload: {}
+    });
+    expect(back).toMatchObject({
+      createdAt: '2026-09-01T10:00:00.000Z',
+      finalScore: 18,
+      passed: true,
+      attemptsCount: 2
+    });
   });
 });

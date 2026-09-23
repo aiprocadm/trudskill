@@ -1,7 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 
 import {
-  type ColumnType,
   HOT_COLLECTIONS,
   type HotCollection,
   type ProjectionContext,
@@ -11,6 +10,7 @@ import {
   emptyContext,
   projectEntity
 } from './normalized-projection.js';
+import { loadCounterpartyIds, upsertRow } from './normalized-upsert.js';
 import { DatabaseService } from '../../../../infrastructure/database/database.service.js';
 
 import type {
@@ -49,16 +49,6 @@ const START_KEY = '';
 const ERROR_TEXT_LIMIT = 500;
 
 type SnapshotRow = { tenant_id: string; id: string; data: unknown };
-
-const CAST: Record<ColumnType, string> = {
-  text: '::text',
-  num: '::numeric',
-  int: '::int',
-  bool: '::boolean',
-  ts: '::timestamptz',
-  date: '::date',
-  json: '::jsonb'
-};
 
 @Injectable()
 export class NormalizedBackfillService {
@@ -269,14 +259,7 @@ export class NormalizedBackfillService {
       }
     }
     if (collection === 'groups') {
-      const ids = field('counterpartyId');
-      if (ids.length > 0) {
-        const found = await client.query<{ id: string }>(
-          'select id from crm.counterparties where tenant_id = $1 and id = any($2::text[])',
-          [tenantId, ids]
-        );
-        for (const c of found.rows) ctx.counterparties.add(c.id);
-      }
+      ctx.counterparties = await loadCounterpartyIds(client, tenantId, field('counterpartyId'));
     }
     if (collection === 'generatedDocuments') {
       const enrollmentIds = rows
@@ -331,7 +314,7 @@ export class NormalizedBackfillService {
     try {
       const projected = projectEntity(collection, row.tenant_id, row.data, ctx);
       const sourceHash = canonicalHash(spec, projected.columns);
-      await this.upsert(client, spec, projected.columns, projected.payload);
+      await upsertRow(client, spec, projected);
       const targetHash = await this.readBackHash(client, spec, row.tenant_id, row.id);
       await this.recordItem(
         client,
@@ -359,50 +342,6 @@ export class NormalizedBackfillService {
       );
       await client.query('release savepoint backfill_row');
       return false;
-    }
-  }
-
-  private async upsert(
-    client: PoolClient,
-    spec: TableSpec,
-    columns: Record<string, unknown>,
-    payload: Record<string, unknown>
-  ): Promise<void> {
-    const names = Object.keys(spec.columns).filter((name) => name in columns);
-    if (spec.hasPayload) names.push('payload');
-    const params: unknown[] = [];
-    const values = names.map((name) => {
-      const value = columns[name];
-      if (name === 'payload') {
-        params.push(JSON.stringify(payload));
-        return `$${params.length}::jsonb`;
-      }
-      const type = spec.columns[name]!;
-      params.push(
-        type === 'json'
-          ? value === null || value === undefined
-            ? null
-            : JSON.stringify(value)
-          : (value ?? null)
-      );
-      const placeholder = `$${params.length}${CAST[type]}`;
-      // created_at/updated_at у сущности может не быть — тогда их проставляет база.
-      return name === 'created_at' || name === 'updated_at'
-        ? `coalesce(${placeholder}, now())`
-        : placeholder;
-    });
-    const updates = names
-      .filter((name) => name !== 'id' && name !== 'tenant_id' && name !== 'created_at')
-      .map((name) => `${name} = excluded.${name}`);
-    const result = await client.query(
-      `insert into ${spec.table} (${names.join(', ')})
-       values (${values.join(', ')})
-       on conflict (id) do update set ${updates.join(', ')}
-       where ${spec.table}.tenant_id = excluded.tenant_id`,
-      params
-    );
-    if (result.rowCount === 0) {
-      throw new Error('строка с таким идентификатором уже принадлежит другому центру');
     }
   }
 
