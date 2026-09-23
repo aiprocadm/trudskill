@@ -1,4 +1,11 @@
-import type { Task, TaskActor, TaskComment, TaskListPage, TaskListQuery } from './tasks.types.js';
+import type {
+  StaffMember,
+  Task,
+  TaskActor,
+  TaskComment,
+  TaskListPage,
+  TaskListQuery
+} from './tasks.types.js';
 
 export const TASKS_REPOSITORY = Symbol('TASKS_REPOSITORY');
 
@@ -28,4 +35,9 @@ export interface TasksRepository {
   findStaffUserIds(tenantId: string, userIds: string[]): Promise<string[]>;
   /** Из переданных — файлы, существующие в хранилище центра. */
   findExistingFileIds(tenantId: string, fileIds: string[]): Promise<string[]>;
+  /**
+   * Сотрудники центра по части ФИО — для выбора исполнителя. `GET /users` закрыт правом
+   * администратора, а куратор и преподаватель ставят задачи друг другу без него.
+   */
+  searchStaff(tenantId: string, q: string, limit: number): Promise<StaffMember[]>;
 }

@@ -31,8 +31,16 @@ export type StaffTaskListFilter = (typeof STAFF_TASK_LIST_FILTERS)[number];
 
 export interface StaffTaskAssigneeContract {
   userId: string;
+  /** ФИО сотрудника — экран показывает людей, а не идентификаторы. */
+  name?: string;
   state: 'assigned' | 'in_progress' | 'done';
   updatedAt: string;
+}
+
+/** Сотрудник центра для выбора исполнителя (`GET /tasks/staff?q=`). */
+export interface StaffMemberContract {
+  id: string;
+  name: string;
 }
 
 export interface StaffTaskLinksContract {
@@ -56,6 +64,7 @@ export interface StaffTaskContract {
   dueAt?: string;
   allDay: boolean;
   creatorUserId: string;
+  creatorName?: string;
   links: StaffTaskLinksContract;
   reminder?: { minutesBefore: number; channels: string[] };
   doneAt?: string;
@@ -70,6 +79,7 @@ export interface StaffTaskCommentContract {
   id: string;
   taskId: string;
   authorUserId: string;
+  authorName?: string;
   text: string;
   fileId?: string;
   createdAt: string;

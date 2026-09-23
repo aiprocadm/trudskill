@@ -48,8 +48,16 @@ export interface TaskReminder {
 
 export interface TaskAssignee {
   userId: string;
+  /** ФИО из `iam.users.display_name`: экран показывает людей, а не идентификаторы. */
+  name?: string;
   state: TaskAssigneeState;
   updatedAt: string;
+}
+
+/** Сотрудник центра для выбора исполнителя (`GET /tasks/staff`). */
+export interface StaffMember {
+  id: string;
+  name: string;
 }
 
 export interface Task {
@@ -65,6 +73,7 @@ export interface Task {
   dueAt?: string;
   allDay: boolean;
   creatorUserId: string;
+  creatorName?: string;
   links: TaskLinks;
   reminder?: TaskReminder;
   doneAt?: string;
@@ -81,6 +90,7 @@ export interface TaskComment {
   tenantId: string;
   taskId: string;
   authorUserId: string;
+  authorName?: string;
   text: string;
   fileId?: string;
   createdAt: string;

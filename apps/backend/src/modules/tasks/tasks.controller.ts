@@ -69,6 +69,13 @@ export class TasksController {
     return this.service.bulk(c.tenantId!, c, assertValidDto(BulkTasksRequest, raw));
   }
 
+  /** Выбор исполнителя: под `tasks.write` — тем, кто ставит задачи; статический путь выше `:id`. */
+  @Get('staff')
+  @RequirePermissions('tasks.write')
+  async searchStaff(@CurrentContext() c: RequestContext, @Query('q') q = '') {
+    return { items: await this.service.searchStaff(c.tenantId!, String(q ?? '')) };
+  }
+
   @Get(':id')
   @RequirePermissions('tasks.read')
   get(@CurrentContext() c: RequestContext, @Param('id') id: string) {
