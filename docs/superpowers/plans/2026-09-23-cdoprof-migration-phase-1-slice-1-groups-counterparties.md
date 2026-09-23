@@ -132,23 +132,23 @@ export interface GroupsRepository {
 
 SQL списка: `select … from learning.groups where tenant_id = $1 [and status = $2] [and (code ilike $3 or name ilike $3 or payload::text ilike $3)] [and counterparty_id = $4] order by <col> <dir>, id asc limit $n offset $m`; сортировка по умолчанию `created_at asc, id asc`.
 
-- [ ] Тесты → реализация. Commit `feat(backend): репозитории контрагентов и групп (интерфейс, Postgres, память)`.
+- [x] Тесты → реализация. Commit `feat(backend): репозитории контрагентов и групп (интерфейс, Postgres, память)`.
 
 ### Task 7: декоратор и интерцептор
 
 **Files:** Create `apps/backend/src/modules/mvp/infrastructure/reads-normalized.decorator.ts` (`READS_NORMALIZED` + `ReadsNormalized(collection)` через `SetMetadata`); Modify `mvp-request-persistence.interceptor.ts` (`@Optional() @Inject(Reflector)` последним, `context.getHandler?.()`; если у ручки метаданные и `isNormalizedRead(collection)` → `next.handle()` без замка и загрузки), `mvp-request-persistence.interceptor.test.ts` (пропуск при флаге; без флага — как раньше; мок без `getHandler` не падает).
 
-- [ ] Commit `feat(backend): декоратор ReadsNormalized — GET из SQL не грузит снимок`.
+- [x] Commit `feat(backend): декоратор ReadsNormalized — GET из SQL не грузит снимок`.
 
 ### Task 8: ветка в контроллере и модуль
 
 **Files:** Modify `mvp.controller.ts` (репозитории — последними в конструкторе; 7 ручек: `async` + `isNormalizedRead('groups') ? this.groups.list(...) : this.mvpService.listGroups(...)`; `get` → 404 `not_found` с тем же текстом), `mvp.module.ts` (фабрики: `ALLOW_IN_MEMORY_STATE` → память, иначе Postgres), `mvp.learner-documents.controller.test.ts` (аргументы), `mvp.http.integration.test.ts` или новый `mvp.normalized-reads.http.integration.test.ts` (границы прав не меняются; при флаге ответ идёт из репозитория-заглушки).
 
-- [ ] Commit `feat(backend): списки, карточки и lookup контрагентов и групп читаются из SQL под флагом`.
+- [x] Commit `feat(backend): списки, карточки и lookup контрагентов и групп читаются из SQL под флагом`.
 
 ### Task 9: замер «после» (МГ-A3.1)
 
-- [ ] На `trudskill_perf`: бэкфилл `lms_normalized` (`POST /migration/backfill/runs/start`), `LMS_NORMALIZED_COLLECTIONS=groups,counterparties` в `perf.env`, `run-k6.sh`; результат — `docs/LOAD_TEST_RESULTS.md` (раздел «после, срез 1»). Цель: `/groups` p95 ≤ 500 мс при VUS=10 (было 13 993 мс).
+- [x] На `trudskill_perf`: бэкфилл `lms_normalized` (`POST /migration/backfill/runs/start`), `LMS_NORMALIZED_COLLECTIONS=groups,counterparties` в `perf.env`, `run-k6.sh`; результат — `docs/LOAD_TEST_RESULTS.md` (раздел «после, срез 1»). Цель: `/groups` p95 ≤ 500 мс при VUS=10 (было 13 993 мс).
 
 ### Task 10: документация 1b
 
