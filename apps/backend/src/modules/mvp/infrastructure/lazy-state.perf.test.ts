@@ -119,3 +119,17 @@ describe('ленивая раскладка состояния центра (§1
     ).toBe(true);
   });
 });
+
+describe('поштучные отпечатки не возвращают жадность (Фаза 1, срез 1a)', () => {
+  it('вопрос «что изменилось в группах» не раскладывает слушателей', () => {
+    const { state, materialized } = makeState();
+    (state.groups[0] as unknown as { code: string }).code = 'ГР-2';
+
+    expect(state.changedEntities('groups')).toEqual({
+      upserted: [state.groups[0]],
+      deletedIds: []
+    });
+    expect(state.changedEntities('counterparties')).toEqual({ upserted: [], deletedIds: [] });
+    expect(materialized).toEqual(['groups']);
+  });
+});
