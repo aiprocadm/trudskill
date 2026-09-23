@@ -21,7 +21,7 @@
  */
 import { Pool } from 'pg';
 
-import { writeRuntimeRows } from '../src/perf/runtime-rows-writer.js';
+import { poolTransactions, writeRuntimeRows } from '../src/perf/runtime-rows-writer.js';
 import {
   DEFAULT_SYNTHETIC_SHAPE,
   buildSyntheticCdoprofTenant,
@@ -111,28 +111,21 @@ async function main(): Promise<void> {
       process.exitCode = 1;
       return;
     }
-    const client = await pool.connect();
-    try {
-      const writeStartedAt = Date.now();
-      const result = await writeRuntimeRows(client, tenantId, rows, { batchSize });
-      const size = await client.query<{ bytes: string; rows: string }>(
-        `select pg_size_pretty(sum(pg_column_size(data)))::text as bytes, count(*)::text as rows
-           from learning.mvp_runtime_documents where tenant_id = $1`,
-        [tenantId]
-      );
-      console.log(
-        `Готово: ${result.inserted} строк в ${result.batches} пачках за ${Math.round((Date.now() - writeStartedAt) / 1000)} с; ` +
-          `перезаписаны коллекции: ${result.deletedCollections.join(', ')}.`
-      );
-      console.log(
-        `Снимок тенанта в базе: ${size.rows[0]?.rows ?? '?'} строк, ${size.rows[0]?.bytes ?? '?'} данных.`
-      );
-      console.log(
-        'Повторный запуск безопасен: свои коллекции перезаписываются, чужие не трогаются.'
-      );
-    } finally {
-      client.release();
-    }
+    const writeStartedAt = Date.now();
+    const result = await writeRuntimeRows(poolTransactions(pool), tenantId, rows, { batchSize });
+    const size = await pool.query<{ bytes: string; rows: string }>(
+      `select pg_size_pretty(sum(pg_column_size(data)))::text as bytes, count(*)::text as rows
+         from learning.mvp_runtime_documents where tenant_id = $1`,
+      [tenantId]
+    );
+    console.log(
+      `Готово: ${result.inserted} строк в ${result.batches} пачках за ${Math.round((Date.now() - writeStartedAt) / 1000)} с; ` +
+        `перезаписаны коллекции: ${result.deletedCollections.join(', ')}.`
+    );
+    console.log(
+      `Снимок тенанта в базе: ${size.rows[0]?.rows ?? '?'} строк, ${size.rows[0]?.bytes ?? '?'} данных.`
+    );
+    console.log('Повторный запуск безопасен: свои коллекции перезаписываются, чужие не трогаются.');
   } catch (error) {
     console.error('Не получилось залить:', error instanceof Error ? error.message : error);
     process.exitCode = 1;

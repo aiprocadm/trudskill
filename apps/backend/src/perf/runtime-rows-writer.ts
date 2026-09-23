@@ -8,15 +8,21 @@
  * меряет ЧТЕНИЕ, поэтому форма строк повторяет то, что пишет `PostgresMvpPersistenceBackend`
  * (те же колонки, тот же JSON), а путь записи — прямой.
  *
- * Повторный запуск не задваивает: в одной транзакции удаляются строки ТОЛЬКО этого тенанта и
- * ТОЛЬКО заливаемых коллекций, потом вставка пачками. Чужие тенанты и остальные коллекции не
- * трогаются.
+ * Повторный запуск не задваивает: в одной транзакции (`withTransaction` — единственный способ
+ * репозитория, сторож `multi-write-is-atomic`) удаляются строки ТОЛЬКО этого тенанта и ТОЛЬКО
+ * заливаемых коллекций, потом вставка пачками. Чужие тенанты и остальные коллекции не трогаются.
  */
 import type { RuntimeRow } from './synthetic-cdoprof-tenant.js';
+import type { Pool } from 'pg';
 
 /** Минимум от `pg.PoolClient`, чтобы тест подставил заглушку. */
 export interface SqlClient {
   query(text: string, values?: unknown[]): Promise<unknown>;
+}
+
+/** Минимум от `DatabaseService`: транзакция как единственный способ сделать несколько записей. */
+export interface TransactionRunner {
+  withTransaction<T>(callback: (client: SqlClient) => Promise<T>): Promise<T>;
 }
 
 export interface WriteRuntimeRowsOptions {
@@ -32,8 +38,8 @@ export interface WriteRuntimeRowsResult {
 
 export const RUNTIME_DOCUMENTS_TABLE = 'learning.mvp_runtime_documents';
 
-export const writeRuntimeRows = async (
-  client: SqlClient,
+export const writeRuntimeRows = (
+  db: TransactionRunner,
   tenantId: string,
   rows: ReadonlyArray<RuntimeRow>,
   options: WriteRuntimeRowsOptions = {}
@@ -42,8 +48,7 @@ export const writeRuntimeRows = async (
   const table = options.table ?? RUNTIME_DOCUMENTS_TABLE;
   const collections = [...new Set(rows.map((row) => row.collection))].sort();
 
-  await client.query('begin');
-  try {
+  return db.withTransaction(async (client) => {
     await client.query(`delete from ${table} where tenant_id = $1 and collection = any($2)`, [
       tenantId,
       collections
@@ -65,10 +70,27 @@ export const writeRuntimeRows = async (
       batches += 1;
     }
 
-    await client.query('commit');
     return { deletedCollections: collections, inserted: rows.length, batches };
-  } catch (error) {
-    await client.query('rollback').catch(() => undefined);
-    throw error;
-  }
+  });
 };
+
+/**
+ * Транзакция поверх голого `pg.Pool` — для скрипта, у которого нет Nest и `DatabaseService`.
+ * Та же семантика: commit при успехе, rollback и проброс при ошибке, соединение возвращается.
+ */
+export const poolTransactions = (pool: Pool): TransactionRunner => ({
+  async withTransaction<T>(callback: (client: SqlClient) => Promise<T>): Promise<T> {
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      const result = await callback(client);
+      await client.query('commit');
+      return result;
+    } catch (error) {
+      await client.query('rollback').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+});
