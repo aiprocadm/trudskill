@@ -34,15 +34,17 @@
 
 **Files:** Modify `in-memory-mvp.state.ts` (`PROJECTED_COLLECTIONS = ['counterparties','learners','groups','groupCourses','enrollments','enrollmentStatusHistory','examResults']`), `postgres-mvp-persistence.backend.ts` (upsert `groupCourses` после групп, `examResults` после истории; удаления `['examResults','enrollmentStatusHistory','enrollments','groupCourses','groups','learners','counterparties']`; комментарий про результаты из бэкфилла обновить), `normalized-projection.ts` (`projectGroupCourse`: `__synthesized` для `requires*`/`sortOrder`/`status` при отсутствии в снимке; `HIDDEN_COLUMNS.examResults = ['finalized_at']`), `normalized-projection.test.ts` (круговой проход обоих), `postgres-mvp-persistence.backend.test.ts` (`isProjectionWrite` += две таблицы; «нетронутая коллекция» → `courses`; тест порядка семи таблиц), `lazy-state.perf.test.ts`.
 
-- [ ] Commit `feat(backend): проекция курсов группы и результатов экзаменов при сохранении снимка (Фаза 1, срез 4a)`.
+- [x] Commit `feat(backend): проекция курсов группы и результатов экзаменов при сохранении снимка (Фаза 1, срез 4a)` — a2c32c9.
 
 ### Task 2: интеграционный тест
 
 **Files:** Create `postgres-mvp-persistence.group-courses-exam-results.integration.test.ts`: курс группы → строка (флаги `false` в таблице), результат по зачислению → строка; пересдача (та же запись, `attempts_count` 2) → та же строка обновлена; результат по несуществующему зачислению → отказ поимённо; присваивание курсов целиком → лишние удалены.
 
-- [ ] Commit `test(backend): проекция курсов группы и результатов на живой базе`.
+- [x] Интеграционный тест вошёл в тот же коммит a2c32c9 (отклонение: один коммит вместо двух).
 
 ### Task 3: документация 4a
+
+- [x] Сделано (§5.567; попутно починка 616 — коммит 6e836be).
 
 handoff §5.567, трекер, README, план; журнал: `numeric(8,2)` округление, `sortOrder` = номер в центре, `GET attempts/:id/result` пишет на чтении (существующее), `ExamOutcomeService.viewFor` без anti-IDOR (`void access`) — попутная находка разведки, класс «дефект логики», в журнал и владельцу. `pnpm ci:check`, PR.
 
