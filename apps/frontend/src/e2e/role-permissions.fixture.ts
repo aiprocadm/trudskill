@@ -5,7 +5,8 @@
  * не из названия роли и не из текста ТЗ — на этом уже обожглись дважды за одну сессию». Тесту
  * нужен неподвижный снимок, поэтому он лежит здесь файлом.
  *
- * Снято 15.09.2026 со стенда. Пересобрать:
+ * Снято 15.09.2026 со стенда; 23.09.2026 дополнено вручную ровно по миграциям 0099 (роль `curator`)
+ * и 0103 (`tasks.*`) — ТЗ перехода с CDOPROF, позиции 4–6. Пересобрать:
  *
  * ```bash
  * docker exec test-postgres psql -U trudskill_stand_app -d trudskill_stand -t -A -F'|' \
@@ -21,6 +22,26 @@
  */
 export const ROLE_PERMISSIONS: Record<string, readonly string[]> = {
   counterparty_rep: ['portal.read'],
+  curator: [
+    'counterparties.read',
+    'counterparties.write',
+    'courses.read',
+    'directions.read',
+    'documents.generate',
+    'documents.read',
+    'enrollments.change_status',
+    'enrollments.read',
+    'enrollments.write',
+    'groups.read',
+    'groups.write',
+    'learners.read',
+    'learners.write',
+    'regulatory.export.read',
+    'tasks.read',
+    'tasks.write',
+    'tenant.read',
+    'workspace.read'
+  ],
   learner: [
     'assessment.assignments.read',
     'assessment.attempts.read',
@@ -73,6 +94,9 @@ export const ROLE_PERMISSIONS: Record<string, readonly string[]> = {
     'portal.read',
     'progress.read',
     'regulatory.export.read',
+    'tasks.manage_all',
+    'tasks.read',
+    'tasks.write',
     'tenant.read',
     'workspace.read'
   ],
@@ -122,6 +146,8 @@ export const ROLE_PERMISSIONS: Record<string, readonly string[]> = {
     'progress.recalculate',
     'recertification.read',
     'regulatory.export.read',
+    'tasks.read',
+    'tasks.write',
     'tenant.read',
     'video.read',
     'video.write',
@@ -216,6 +242,9 @@ export const ROLE_PERMISSIONS: Record<string, readonly string[]> = {
     'regulatory.export.write',
     'sms.configure',
     'tenant.branding.configure',
+    'tasks.manage_all',
+    'tasks.read',
+    'tasks.write',
     'tenant.read',
     'tenant.settings.write',
     'tenant.usage.read',
@@ -241,6 +270,8 @@ export const ROLE_PERMISSIONS: Record<string, readonly string[]> = {
     'learners.read',
     'materials.read',
     'progress.read',
+    'tasks.read',
+    'tasks.write',
     'tenant.read',
     'workspace.read'
   ],
@@ -326,6 +357,9 @@ export const ROLE_PERMISSIONS: Record<string, readonly string[]> = {
     'regulatory.export.write',
     'sms.configure',
     'tenant.branding.configure',
+    'tasks.manage_all',
+    'tasks.read',
+    'tasks.write',
     'tenant.read',
     'tenant.settings.write',
     'tenant.usage.read',

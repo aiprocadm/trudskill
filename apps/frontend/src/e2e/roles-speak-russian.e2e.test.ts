@@ -29,6 +29,7 @@ const DECISION_P1: Record<string, string> = {
   platform_admin: 'Администратор платформы',
   tenant_admin: 'Администратор центра',
   manager: 'Руководитель',
+  curator: 'Куратор обучения',
   methodist: 'Методист',
   teacher: 'Преподаватель',
   learner: 'Слушатель',
@@ -44,6 +45,8 @@ const ROOTS = [
 ];
 const BACKEND_MODULES = fromApp('..', 'backend', 'src', 'modules');
 const MIGRATION = fromApp('..', 'backend', 'migrations', '0096_iam_role_names_ru.sql');
+/** Роли, заведённые ПОСЛЕ словаря 0096 сразу с русским именем (`INSERT`, а не `UPDATE`). */
+const ROLE_INSERTS = [fromApp('..', 'backend', 'migrations', '0099_iam_curator_role_and_seed.sql')];
 const IAM_SERVICE = fromApp('..', 'backend', 'src', 'modules', 'iam', 'services', 'iam.service.ts');
 const ROLES_DOC = fromApp('..', '..', 'docs', 'ia', 'roles.md');
 
@@ -146,6 +149,10 @@ describe('роли говорят по-русски (ТЗ 4.1, решение Р
         (m) => [m[2]!, m[1]!]
       )
     );
+    for (const file of ROLE_INSERTS) {
+      const inserted = readFileSync(file, 'utf8');
+      for (const m of inserted.matchAll(/, t\.id, '([a-z_]+)', '([^']+)'/g)) seeded[m[1]!] = m[2]!;
+    }
     expect(seeded).toEqual(DECISION_P1);
   });
 

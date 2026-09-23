@@ -23,6 +23,7 @@ export type RoleCode =
   | 'platform_admin'
   | 'tenant_admin'
   | 'manager'
+  | 'curator'
   | 'methodist'
   | 'teacher'
   | 'learner'
@@ -36,6 +37,7 @@ export type RoleCode =
  */
 export const EXPLICIT_GRANT_ROLES: readonly RoleCode[] = [
   'manager',
+  'curator',
   'methodist',
   'teacher',
   'learner',
@@ -244,6 +246,26 @@ export const ROLE_RIGHTS_SNAPSHOT: Readonly<Record<RoleCode, ReadonlySet<string>
     'webinars.configure',
     'webinars.read',
     'webinars.write',
+    'workspace.read'
+  ]),
+  curator: new Set([
+    'counterparties.read',
+    'counterparties.write',
+    'courses.read',
+    'directions.read',
+    'documents.generate',
+    'documents.read',
+    'enrollments.change_status',
+    'enrollments.read',
+    'enrollments.write',
+    'groups.read',
+    'groups.write',
+    'learners.read',
+    'learners.write',
+    'regulatory.export.read',
+    'tasks.read',
+    'tasks.write',
+    'tenant.read',
     'workspace.read'
   ]),
   manager: new Set([

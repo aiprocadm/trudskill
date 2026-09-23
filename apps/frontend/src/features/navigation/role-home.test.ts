@@ -31,7 +31,8 @@ describe('resolveRoleHome (ФТ-H2, Фаза 5 Task 1)', () => {
       platform_admin: '/workspace',
       methodist: '/methodist',
       // ТЗ 8.3: у руководителя появилась своя панель; раньше вход вёл прямо в «Группы».
-      manager: '/manager'
+      manager: '/manager',
+      curator: '/workspace'
     };
 
     for (const [role, href] of Object.entries(expected)) {

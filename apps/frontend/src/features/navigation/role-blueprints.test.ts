@@ -138,6 +138,7 @@ describe('короткие меню ролей (IA-013)', () => {
       'platform_admin',
       'tenant_admin',
       'manager',
+      'curator',
       'methodist',
       'teacher',
       'learner'

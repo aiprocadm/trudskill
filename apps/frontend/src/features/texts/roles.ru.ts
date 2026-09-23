@@ -24,6 +24,7 @@ export const ROLE_NAMES_RU = {
   platform_admin: 'Администратор платформы',
   tenant_admin: 'Администратор центра',
   manager: 'Руководитель',
+  curator: 'Куратор обучения',
   methodist: 'Методист',
   teacher: 'Преподаватель',
   learner: 'Слушатель',
