@@ -132,3 +132,36 @@ export async function loadCounterpartyIds(
   );
   return new Set(found.rows.map((r) => r.id));
 }
+
+/**
+ * Отвязать группы таблицы от контрагентов, которые уходят (`deleted`) или которых больше нет в
+ * снимке (`keep` — остальные). Ссылка обнуляется, исходное значение — в `payload.counterpartyId`,
+ * ровно как это делает проекция группы с неизвестным контрагентом. Иначе `delete` контрагента
+ * упал бы на внешнем ключе, хотя в снимке группу никто не трогал.
+ */
+export async function detachGroupsFromCounterparties(
+  client: PoolClient,
+  tenantId: string,
+  scope: { deleted: string[] } | { keep: string[] }
+): Promise<void> {
+  if ('deleted' in scope) {
+    if (scope.deleted.length === 0) return;
+    await client.query(
+      `update learning.groups
+          set counterparty_id = null,
+              payload = payload || jsonb_build_object('counterpartyId', counterparty_id),
+              updated_at = now()
+        where tenant_id = $1 and counterparty_id = any($2::text[])`,
+      [tenantId, scope.deleted]
+    );
+    return;
+  }
+  await client.query(
+    `update learning.groups
+        set counterparty_id = null,
+            payload = payload || jsonb_build_object('counterpartyId', counterparty_id),
+            updated_at = now()
+      where tenant_id = $1 and counterparty_id is not null and not (counterparty_id = any($2::text[]))`,
+    [tenantId, scope.keep]
+  );
+}

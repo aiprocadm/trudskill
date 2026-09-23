@@ -182,3 +182,165 @@ describe('PII at-rest encryption (ФТ-C3.3, Фаза 0 Task 7)', () => {
     expect('snilsHash' in atRest).toBe(false);
   });
 });
+
+describe('проекция контрагентов и групп в нормализованные таблицы (Фаза 1, срез 1a, РМ35)', () => {
+  const isProjectionWrite = (sql: string): boolean =>
+    /^(insert into|delete from) (crm\.counterparties|learning\.groups)\b/i.test(sql.trimStart());
+
+  /** Мок базы, который помнит запросы проекции и умеет «уронить» одну из них. */
+  function makeProjectionDb(failWhen?: (sql: string, params: unknown[]) => boolean) {
+    const projection: Array<{ sql: string; params: unknown[] }> = [];
+    const client = {
+      query: vi.fn(async (sql: string, params: unknown[] = []) => {
+        if (isProjectionWrite(sql)) {
+          if (failWhen?.(sql, params))
+            throw new Error(
+              'duplicate key value violates unique constraint "learning_groups_tenant_id_code_key"'
+            );
+          projection.push({ sql: sql.trimStart(), params });
+          // Мок отвечает «все строки записаны»: столько, сколько кортежей в запросе.
+          return { rows: [], rowCount: (sql.match(/\)\s*,\s*\(/g) ?? []).length + 1 };
+        }
+        return [];
+      })
+    };
+    const issues: unknown[][] = [];
+    return {
+      projection,
+      issues,
+      db: {
+        withTransaction: async (fn: (c: typeof client) => Promise<void>) => fn(client),
+        query: vi.fn(async (sql: string, params: unknown[] = []) => {
+          if (/mvp_reconciliation_log/.test(sql)) issues.push(params);
+          return [];
+        })
+      }
+    };
+  }
+
+  const snapshot = () =>
+    new Map<string, unknown[]>([
+      [
+        'counterparties',
+        [{ id: 'cp1', tenantId: 'tenant_demo', code: 'CP-1', name: 'Ромашка', status: 'active' }]
+      ],
+      [
+        'groups',
+        [
+          {
+            id: 'g1',
+            tenantId: 'tenant_demo',
+            code: 'G-1',
+            name: 'Первая',
+            status: 'active',
+            counterpartyId: 'cp1'
+          },
+          { id: 'g2', tenantId: 'tenant_demo', code: 'G-2', name: 'Вторая', status: 'active' }
+        ]
+      ]
+    ]);
+
+  it('пишет только изменённые сущности, контрагентов раньше групп, удаления — после', async () => {
+    const { db, projection } = makeProjectionDb();
+    const backend = new PostgresMvpPersistenceBackend(db as never);
+    const state = new InMemoryMvpState();
+    state.setRawSnapshot(snapshot(), (_c, raw) => [...raw]);
+
+    state.counterparties.push({
+      id: 'cp2',
+      tenantId: 'tenant_demo',
+      code: 'CP-2',
+      name: 'Лютик',
+      status: 'active'
+    } as never);
+    (state.groups[1] as { name: string }).name = 'Переименованная';
+    state.groups.splice(0, 1); // g1 удалена
+
+    await backend.writeLegacy('tenant_demo', state);
+
+    const kinds = projection.map((p) => p.sql.split('\n')[0]!.replace(/\s+/g, ' ').slice(0, 40));
+    expect(kinds[0]).toMatch(/^insert into crm\.counterparties/);
+    expect(kinds[1]).toMatch(/^insert into learning\.groups/);
+    expect(kinds[2]).toMatch(/^delete from learning\.groups/);
+    expect(projection).toHaveLength(3);
+    // Контрагент — один новый, группа — одна изменённая, удаление — g1 по имени.
+    expect(projection[0]!.params).toContain('cp2');
+    expect(projection[0]!.params).not.toContain('cp1');
+    expect(projection[1]!.params).toContain('g2');
+    expect(projection[1]!.params).not.toContain('g1');
+    expect(projection[2]!.params).toEqual(['tenant_demo', ['g1']]);
+  });
+
+  it('нетронутые коллекции не проецируются вовсе', async () => {
+    const { db, projection } = makeProjectionDb();
+    const backend = new PostgresMvpPersistenceBackend(db as never);
+    const state = new InMemoryMvpState();
+    state.setRawSnapshot(snapshot(), (_c, raw) => [...raw]);
+    state.learners.push({
+      id: 'l1',
+      tenantId: 'tenant_demo',
+      firstName: 'А',
+      lastName: 'Б'
+    } as never);
+
+    await backend.writeLegacy('tenant_demo', state);
+    expect(projection).toHaveLength(0);
+  });
+
+  it('отказ одной группы не роняет сохранение снимка: пачка → по одной, плохая — в журнал сверки', async () => {
+    const { db, projection, issues } = makeProjectionDb(
+      (sql, params) => /learning\.groups/.test(sql) && params.includes('g_dup')
+    );
+    const backend = new PostgresMvpPersistenceBackend(db as never);
+    const state = new InMemoryMvpState();
+    state.setRawSnapshot(snapshot(), (_c, raw) => [...raw]);
+    (state.groups[1] as { name: string }).name = 'Переименованная';
+    state.groups.push({
+      id: 'g_dup',
+      tenantId: 'tenant_demo',
+      code: 'G-1',
+      name: 'Дубль кода',
+      status: 'active'
+    } as never);
+
+    await expect(backend.writeLegacy('tenant_demo', state)).resolves.toBeUndefined();
+
+    // Пачка из двух упала (в ней g_dup), затем g2 записана отдельно, g_dup — нет.
+    const groupInserts = projection.filter((p) => /^insert into learning\.groups/.test(p.sql));
+    expect(groupInserts).toHaveLength(1);
+    expect(groupInserts[0]!.params).toContain('g2');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toEqual([
+      'tenant_demo',
+      'projection_failed',
+      'groups',
+      'g_dup',
+      expect.stringContaining('unique')
+    ]);
+  });
+
+  it('присвоение коллекции целиком — полный upsert и удаление лишнего из таблицы', async () => {
+    const { db, projection } = makeProjectionDb();
+    const backend = new PostgresMvpPersistenceBackend(db as never);
+    const state = new InMemoryMvpState();
+    state.setRawSnapshot(snapshot(), (_c, raw) => [...raw]);
+    state.groups = [
+      {
+        id: 'g9',
+        tenantId: 'tenant_demo',
+        code: 'G-9',
+        name: 'Единственная',
+        status: 'active'
+      } as never
+    ];
+
+    await backend.writeLegacy('tenant_demo', state);
+
+    expect(projection.map((p) => p.sql.split(' ').slice(0, 3).join(' '))).toEqual([
+      'insert into learning.groups',
+      'delete from learning.groups'
+    ]);
+    expect(projection[1]!.sql).toMatch(/not \(id = any/);
+    expect(projection[1]!.params).toEqual(['tenant_demo', ['g9']]);
+  });
+});

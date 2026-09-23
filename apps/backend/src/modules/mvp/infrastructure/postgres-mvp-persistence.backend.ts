@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
+import { PROJECTED_COLLECTIONS, type ProjectedCollection } from './in-memory-mvp.state.js';
 import { MVP_COLLECTIONS, type MvpCollection } from './mvp-collections.js';
 import { MvpWriteOrchestrator } from './mvp-write.orchestrator.js';
 import { backendEnv } from '../../../env.js';
@@ -14,6 +15,19 @@ import {
   bumpTenantStateVersion,
   readTenantStateVersion
 } from '../../../infrastructure/database/tenant-state-version.js';
+import {
+  type ProjectedRow,
+  TABLE_SPECS,
+  emptyContext,
+  projectEntity
+} from '../../migration/backfill/normalized/normalized-projection.js';
+import {
+  deleteAbsent,
+  deleteRows,
+  detachGroupsFromCounterparties,
+  loadCounterpartyIds,
+  upsertRows
+} from '../../migration/backfill/normalized/normalized-upsert.js';
 
 import type { InMemoryMvpState } from './in-memory-mvp.state.js';
 import type { MvpPersistenceBackend } from './mvp-persistence.backend.js';
@@ -269,6 +283,175 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
           );
         }
       }
+
+      // Фаза 1 (срез 1a): изменённые контрагенты и группы — в нормализованные таблицы, той же
+      // транзакцией и только для авторитетной таблицы (при двойной записи — один раз).
+      if (tableName === this.authoritativeTable()) {
+        await this.projectChanged(client, tenantId, state);
+      }
+    });
+  }
+
+  /**
+   * Проекция изменённых сущностей проецируемых коллекций в нормализованные таблицы (РМ35).
+   *
+   * Снимок остаётся источником правды; таблицы догоняют его на каждом сохранении. Порядок
+   * уважает внешний ключ группа → контрагент: вставки контрагентов, вставки групп, удаления
+   * групп, удаления контрагентов. Группа, чей контрагент из снимка исчез, получает
+   * `counterparty_id = null` (исходное значение — в `payload`).
+   *
+   * Отказ одной сущности (например, `UNIQUE (tenant_id, code)` — код группы нигде не проверяется
+   * при создании) не должен откатить снимок: пачка пишется в точке сохранения, при отказе
+   * строки идут по одной, и каждая плохая уходит в журнал сверки `projection_failed`.
+   */
+  private async projectChanged(
+    client: PoolClient,
+    tenantId: string,
+    state: InMemoryMvpState
+  ): Promise<void> {
+    const changes = Object.fromEntries(
+      PROJECTED_COLLECTIONS.map((col) => [col, state.changedEntities(col)])
+    ) as Record<ProjectedCollection, ReturnType<InMemoryMvpState['changedEntities']>>;
+    if (
+      PROJECTED_COLLECTIONS.every(
+        (col) =>
+          changes[col] !== 'all' &&
+          changes[col].upserted.length === 0 &&
+          changes[col].deletedIds.length === 0
+      )
+    ) {
+      return;
+    }
+
+    const entityIds = (col: ProjectedCollection): string[] =>
+      (this.pick(state, col) as Array<{ id: string }>).map((e) => e.id);
+    const upsertedOf = (col: ProjectedCollection): unknown[] =>
+      changes[col] === 'all' ? this.pick(state, col) : changes[col].upserted;
+    const deletedOf = (col: ProjectedCollection): string[] =>
+      changes[col] === 'all' ? [] : changes[col].deletedIds;
+
+    // 1. Контрагенты.
+    await this.projectRows(
+      client,
+      tenantId,
+      'counterparties',
+      upsertedOf('counterparties'),
+      emptyContext()
+    );
+
+    // 2. Группы: ссылка на контрагента допустима, только если он есть в таблице И не уходит.
+    const groups = upsertedOf('groups') as Array<{ counterpartyId?: unknown }>;
+    const ctx = emptyContext();
+    const referenced = [
+      ...new Set(
+        groups
+          .map((g) => g.counterpartyId)
+          .filter((v): v is string => typeof v === 'string' && v !== '')
+      )
+    ];
+    const gone = new Set(deletedOf('counterparties'));
+    const survivors =
+      changes.counterparties === 'all' ? new Set(entityIds('counterparties')) : null;
+    for (const id of await loadCounterpartyIds(client, tenantId, referenced)) {
+      if (!gone.has(id) && (survivors === null || survivors.has(id))) ctx.counterparties.add(id);
+    }
+    await this.projectRows(client, tenantId, 'groups', groups, ctx);
+
+    // 3. Удаления: сначала группы, потом контрагенты (FK). Присвоение целиком — убрать лишнее.
+    for (const col of ['groups', 'counterparties'] as const) {
+      await this.projectSafely(client, tenantId, col, null, async () => {
+        if (changes[col] === 'all') {
+          if (col === 'counterparties') {
+            await detachGroupsFromCounterparties(client, tenantId, { keep: entityIds(col) });
+          }
+          await deleteAbsent(client, TABLE_SPECS[col], tenantId, entityIds(col));
+        } else {
+          if (col === 'counterparties') {
+            await detachGroupsFromCounterparties(client, tenantId, { deleted: deletedOf(col) });
+          }
+          await deleteRows(client, TABLE_SPECS[col], tenantId, deletedOf(col));
+        }
+      });
+    }
+  }
+
+  /** Пачкой в точке сохранения; при отказе — по одной, чтобы назвать плохую строку. */
+  private async projectRows(
+    client: PoolClient,
+    tenantId: string,
+    col: ProjectedCollection,
+    entities: unknown[],
+    ctx: ReturnType<typeof emptyContext>
+  ): Promise<void> {
+    if (entities.length === 0) return;
+    const spec = TABLE_SPECS[col];
+    const rows: Array<{ id: string; row?: ProjectedRow; error?: unknown }> = entities.map(
+      (entity) => {
+        const id = String((entity as { id?: unknown }).id ?? '');
+        try {
+          return { id, row: projectEntity(col, tenantId, entity, ctx) };
+        } catch (error) {
+          return { id, error };
+        }
+      }
+    );
+    for (const bad of rows.filter((r) => r.error !== undefined)) {
+      await this.logProjectionFailure(tenantId, col, bad.id, bad.error);
+    }
+    const good = rows.filter((r): r is { id: string; row: ProjectedRow } => r.row !== undefined);
+    if (good.length === 0) return;
+
+    await client.query('savepoint projection_batch');
+    try {
+      await upsertRows(
+        client,
+        spec,
+        good.map((r) => r.row)
+      );
+      await client.query('release savepoint projection_batch');
+      return;
+    } catch {
+      // Пачка не прошла — виновата одна или несколько строк; ниже они находятся поимённо.
+      await client.query('rollback to savepoint projection_batch');
+    }
+    for (const { id, row } of good) {
+      await this.projectSafely(client, tenantId, col, id, () => upsertRows(client, spec, [row]));
+    }
+  }
+
+  /** Один шаг проекции в своей точке сохранения; отказ — в журнал сверки, снимок не страдает. */
+  private async projectSafely(
+    client: PoolClient,
+    tenantId: string,
+    col: ProjectedCollection,
+    entityId: string | null,
+    step: () => Promise<void>
+  ): Promise<void> {
+    await client.query('savepoint projection_row');
+    try {
+      await step();
+      await client.query('release savepoint projection_row');
+    } catch (error) {
+      await client.query('rollback to savepoint projection_row');
+      await this.logProjectionFailure(tenantId, col, entityId, error);
+    }
+  }
+
+  private async logProjectionFailure(
+    tenantId: string,
+    col: ProjectedCollection,
+    entityId: string | null,
+    error: unknown
+  ): Promise<void> {
+    const message = error instanceof Error ? error.message : String(error);
+    this.logger.warn(
+      `Проекция ${col}/${entityId ?? '*'} центра ${tenantId} не записана: ${message}`
+    );
+    await this.logReconciliationIssue(tenantId, {
+      issueType: 'projection_failed',
+      collection: col,
+      entityId,
+      details: { message }
     });
   }
 
