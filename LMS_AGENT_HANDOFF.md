@@ -4,7 +4,7 @@
 
 ## 1. Current Date / Session
 
-- Date: 2026-09-23 (UTC+3), последняя запись — §5.554 (позиция 3 ТЗ перехода с CDOPROF: спайк производительности — блокер хранения подтверждён числами; дальше позиция 4 — аддитивные миграции)
+- Date: 2026-09-23 (UTC+3), последняя запись — §5.555 (позиция 4 ТЗ перехода с CDOPROF: аддитивные миграции 0099–0102 — роль curator, migration.\*, схема tasks, external_id; дальше позиция 5 — модуль tasks)
 - Agent: Claude Code
 - Repository: `D:/Создание LMS/Cursor LMS/cdoprof-`
 - Branch, if known: `main`
@@ -5552,6 +5552,54 @@ PR #493 построил `LearnersListScreen`, но его не импортир
 3 ошибки import-x/order в моих же файлах — починены `eslint --fix`). Светлая тема
 сверена после правок: вид не изменился (surface-muted и neutral-100 в светлой палитре
 совпадают побитово).
+
+### 5.555 ТЗ перехода с CDOPROF, позиция 4: аддитивные миграции без изменения поведения (0099–0102)
+
+**Зачем.** Позиции 5 (модуль задач), 7 (слой хранения) и 10 (импорт) должны начинаться с
+готовой схемы, а не с «а куда писать». Часть VI PR-4 ТЗ выделяет это в отдельный безопасный
+шаг: роль без пользователей, таблицы без читателей, колонки в таблицах, которые приложение
+пока не читает, — поведение не меняется по построению.
+
+**План:** `docs/superpowers/plans/2026-09-23-cdoprof-migration-phase-0-additive-migrations.md`.
+
+**Что сделано** (`apps/backend/migrations/`, номера — следующие свободные; номера ТЗ 0099/0107/0111
+— предложения, РМ22):
+
+- `0099_iam_curator_role_and_seed.sql` — роль `curator` «Куратор обучения» в каждом центре
+  (по образцу 0084) с **16 существующими** правами по §3/§12: `tenant.read`, `workspace.read`,
+  `counterparties.*`, `learners.read/write`, `groups.*`, `enrollments.read/write/change_status`,
+  `documents.read/generate`, `regulatory.export.read`, `courses.read`, `directions.read`.
+  **Новые коды (`tasks.*`, `calendar.read`, `reports.*`, `learners.credentials`, `import.run`)
+  НЕ заведены (РМ21):** сторож `permission-coverage` не даёт держать в базе право, которое ни
+  одна ручка не проверяет; они появятся вместе с контроллерами в позициях 5 и 10.
+- `0100_migration_legacy_ids_import_runs.sql` — `migration.legacy_ids` (PK по источнику +
+  индекс по цели), `migration.import_runs` (статусы `queued/running/succeeded/partial/failed/
+cancelled`, `dry_run`, `stats`), `migration.import_rows` (`created/updated/skipped/failed` с
+  причиной). Схема `migration` уже была (0018), `backfill_runs` не расширялся — там нет центра
+  и другая семантика.
+- `0101_tasks_schema.sql` — схема `tasks`: `tasks` (статусы §4, `due_at ≥ starts_at`),
+  `task_assignees`, `task_comments` (≤ 5000 знаков), `task_files`; индексы §17. Внешних ключей
+  на группы/контрагентов/слушателей **нет намеренно (РМ23)**: эти таблицы перестраивает Фаза 1
+  (`study_groups` ↔ `groups`), ключи добавит она вместе с бэкфиллом (`NOT VALID` + `VALIDATE`).
+- `0102_external_ids_on_domain_tables.sql` — `external_id`/`source_system` на контрагенте,
+  сотруднике контрагента, слушателе (+ `legacy_login`), группе (+ `legacy_number`),
+  зачислении, документе (+ `is_external`, `external_file_id`); частичные уникальные индексы
+  `(tenant_id, source_system, external_id) WHERE external_id IS NOT NULL`.
+
+**Проверки.** `pnpm test:migrations` зелёный; полная цепочка на чистой базе
+(`migration-bootstrap.full-chain.test.ts`, testcontainers) зелёная; живое применение на копии
+базы `trudskill_perf` **дважды** — 0 ошибок, роль в каждом центре с 16 правами, 10 таблиц,
+7 индексов; `pnpm ci:check` — см. PR.
+
+**Что осталось по этим требованиям.** МГ-J1.1 — 🔄: роль есть, чертёж меню
+(`role-blueprints.ts`), словарь `roles.ru.ts`, `docs/ia/roles.md` и снимок
+`role-permissions.fixture.ts` — позиция 6 (фронт `/tasks`), иначе сторож
+`roles-speak-russian` потребует имя для роли, которой ещё нет в снимке. МГ-G2 — 🔄: схема
+есть, модуль — позиция 5. МГ-K2.1 — ✅ по схеме (использование — Фаза 4).
+
+**Следующая задача:** позиция 5 — модуль `tasks` на бэкенде (сущность, репозиторий в
+нормализованной таблице, сервис, DTO, контроллер, трио тестов) + права `tasks.read/write/
+manage_all` одной миграцией с раздачей ролям. **От владельца (не блокирует):** О1, О2, О3, О7.
 
 ### 5.554 ТЗ перехода с CDOPROF, позиция 3: спайк производительности — блокер хранения ПОДТВЕРЖДЁН ЧИСЛАМИ
 
