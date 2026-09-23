@@ -1,5 +1,9 @@
 import { Module, Scope } from '@nestjs/common';
 
+import { MvpNormalizedReadsService } from './infrastructure/mvp-normalized-reads.service.js';
+import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
+import { MVP_STATE } from './infrastructure/mvp-state.token.js';
+import { MvpTenantRunner } from './infrastructure/mvp-tenant-runner.service.js';
 import { MvpEnrollmentService } from './mvp-enrollment.service.js';
 import { MvpInternalWorkerController } from './mvp-internal-worker.controller.js';
 import { backendEnv } from '../../env.js';
@@ -41,10 +45,11 @@ import { PostgresIdentityPolicyRepository } from './identity/postgres-identity-p
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MvpPersistenceRepositoryAdapter } from './infrastructure/mvp-persistence.repository.adapter.js';
 import { MVP_PERSISTENCE_BACKEND } from './infrastructure/mvp-persistence.token.js';
-import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
-import { MVP_STATE } from './infrastructure/mvp-state.token.js';
-import { MvpTenantRunner } from './infrastructure/mvp-tenant-runner.service.js';
 import { PostgresMvpPersistenceBackend } from './infrastructure/postgres-mvp-persistence.backend.js';
+import { COUNTERPARTIES_REPOSITORY } from './infrastructure/repositories/counterparties.repository.js';
+import { GROUPS_REPOSITORY } from './infrastructure/repositories/groups.repository.js';
+import { InMemoryRegistryRepository } from './infrastructure/repositories/in-memory-registry.repository.js';
+import { PostgresCounterpartiesRepository } from './infrastructure/repositories/postgres-counterparties.repository.js';
 import { LearnerPdfCardService } from './learner-pdf-card.service.js';
 import { LearnersBulkImportService } from './learners-bulk-import.service.js';
 import { PlatformLibraryController } from './library/platform-library.controller.js';
@@ -144,6 +149,7 @@ import {
   type VideoProviderRegistry
 } from '../../infrastructure/video-provider/video.provider.js';
 import { BackgroundTasksModule } from '../background-tasks/background-tasks.module.js';
+import { PostgresGroupsRepository } from './infrastructure/repositories/postgres-groups.repository.js';
 
 @Module({
   imports: [
@@ -340,6 +346,25 @@ import { BackgroundTasksModule } from '../background-tasks/background-tasks.modu
     ProctoringRetentionSchedulerService,
     { provide: RecertificationService, scope: Scope.REQUEST, useClass: RecertificationService },
     { provide: MVP_PERSISTENCE_BACKEND, useClass: MvpPersistenceRepositoryAdapter },
+    /* Фаза 1 перехода с CDOPROF (срез 1b): репозитории контрагентов и групп. В памяти таблиц
+       нет — там пустые реестры; чтение из них включает только флаг LMS_NORMALIZED_COLLECTIONS. */
+    {
+      provide: COUNTERPARTIES_REPOSITORY,
+      useFactory: (db: DatabaseService) =>
+        backendEnv.ALLOW_IN_MEMORY_STATE
+          ? new InMemoryRegistryRepository([], 'id')
+          : new PostgresCounterpartiesRepository(db),
+      inject: [DatabaseService]
+    },
+    {
+      provide: GROUPS_REPOSITORY,
+      useFactory: (db: DatabaseService) =>
+        backendEnv.ALLOW_IN_MEMORY_STATE
+          ? new InMemoryRegistryRepository([], 'counterpartyId')
+          : new PostgresGroupsRepository(db),
+      inject: [DatabaseService]
+    },
+    MvpNormalizedReadsService,
     /* ФТ-F3: секрет ручки бота значением контейнера — иначе контроллер нечем проверить. */
     { provide: TELEGRAM_WEBHOOK_SECRET, useValue: backendEnv.TELEGRAM_WEBHOOK_SECRET },
     { provide: MVP_STATE, scope: Scope.REQUEST, useClass: InMemoryMvpState },
