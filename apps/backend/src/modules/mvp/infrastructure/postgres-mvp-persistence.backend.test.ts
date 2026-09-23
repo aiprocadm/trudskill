@@ -189,7 +189,7 @@ describe('PII at-rest encryption (ФТ-C3.3, Фаза 0 Task 7)', () => {
 
 describe('проекция контрагентов и групп в нормализованные таблицы (Фаза 1, срез 1a, РМ35)', () => {
   const isProjectionWrite = (sql: string): boolean =>
-    /^(insert into|delete from) (crm\.counterparties|learning\.groups|learning\.learners|learning\.enrollments|learning\.enrollment_status_history)\b/i.test(
+    /^(insert into|delete from) (crm\.counterparties|learning\.groups|learning\.group_courses|learning\.learners|learning\.enrollments|learning\.enrollment_status_history|assessment\.exam_results)\b/i.test(
       sql.trimStart()
     );
 
@@ -282,12 +282,12 @@ describe('проекция контрагентов и групп в норма�
     const backend = new PostgresMvpPersistenceBackend(db as never);
     const state = new InMemoryMvpState();
     state.setRawSnapshot(snapshot(), (_c, raw) => [...raw]);
-    // Курсы группы в срезе 3 ещё не проецируются — их правка не должна трогать таблицы.
-    state.groupCourses.push({
-      id: 'gc1',
+    // Курсы центра не проецируются (остаются в снимке) — их правка не должна трогать таблицы.
+    state.courses.push({
+      id: 'c_new',
       tenantId: 'tenant_demo',
-      groupId: 'g1',
-      courseId: 'c1'
+      title: 'Новый курс',
+      status: 'draft'
     } as never);
 
     await backend.writeLegacy('tenant_demo', state);
@@ -450,7 +450,7 @@ describe('проекция слушателей (Фаза 1, срез 2a): ПД�
 
 describe('проекция зачислений и истории (Фаза 1, срез 3a)', () => {
   const isWrite = (sql: string): boolean =>
-    /^(insert into|delete from) (crm\.counterparties|learning\.groups|learning\.learners|learning\.enrollments|learning\.enrollment_status_history)\b/i.test(
+    /^(insert into|delete from) (crm\.counterparties|learning\.groups|learning\.group_courses|learning\.learners|learning\.enrollments|learning\.enrollment_status_history|assessment\.exam_results)\b/i.test(
       sql.trimStart()
     );
 
@@ -523,10 +523,41 @@ describe('проекция зачислений и истории (Фаза 1, �
             changedAt: AT.createdAt
           }
         ]
+      ],
+      [
+        'groupCourses',
+        [
+          {
+            id: 'gc1',
+            tenantId: 'tenant_demo',
+            ...AT,
+            groupId: 'g1',
+            courseId: 'c1',
+            sortOrder: 0,
+            status: 'active'
+          }
+        ]
+      ],
+      [
+        'examResults',
+        [
+          {
+            id: 'r1',
+            tenantId: 'tenant_demo',
+            ...AT,
+            enrollmentId: 'e1',
+            learnerId: 'l1',
+            testId: 't1',
+            attemptsCount: 1,
+            maxScore: 10,
+            passed: false,
+            status: 'active'
+          }
+        ]
       ]
     ]);
 
-  it('порядок записи: контрагенты → слушатели → группы → зачисления → история', async () => {
+  it('порядок записи: контрагенты → слушатели → группы → курсы группы → зачисления → история → результаты', async () => {
     const { db, writes } = makeDb();
     const backend = new PostgresMvpPersistenceBackend(db as never);
     const state = new InMemoryMvpState();
@@ -542,6 +573,8 @@ describe('проекция зачислений и истории (Фаза 1, �
       status: 'completed',
       changedAt: AT.updatedAt
     } as never);
+    (state.groupCourses[0] as { requiresProctoring?: boolean }).requiresProctoring = true;
+    (state.examResults[0] as { passed: boolean }).passed = true;
 
     await backend.writeLegacy('tenant_demo', state);
 
@@ -549,8 +582,49 @@ describe('проекция зачислений и истории (Фаза 1, �
       'insert into crm.counterparties',
       'insert into learning.learners',
       'insert into learning.groups',
+      'insert into learning.group_courses',
       'insert into learning.enrollments',
-      'insert into learning.enrollment_status_history'
+      'insert into learning.enrollment_status_history',
+      'insert into assessment.exam_results'
+    ]);
+  });
+
+  it('пересдача (срез 4a): результат меняется на месте — одна запись, не вторая строка', async () => {
+    const { db, writes } = makeDb();
+    const backend = new PostgresMvpPersistenceBackend(db as never);
+    const state = new InMemoryMvpState();
+    state.setRawSnapshot(snapshot(), (_c, raw) => raw.map((r) => ({ ...(r as object) })));
+    const result = state.examResults[0] as { attemptsCount: number; bestScore?: number };
+    result.attemptsCount = 2;
+    result.bestScore = 9;
+
+    await backend.writeLegacy('tenant_demo', state);
+
+    expect(writes).toEqual(['insert into assessment.exam_results']);
+    expect(state.examResults).toHaveLength(1);
+  });
+
+  it('удаление группы целиком: результаты → история → зачисления → курсы группы → группа', async () => {
+    const { db, writes } = makeDb();
+    const backend = new PostgresMvpPersistenceBackend(db as never);
+    const state = new InMemoryMvpState();
+    state.setRawSnapshot(snapshot(), (_c, raw) => [...raw]);
+    state.examResults.splice(0, 1);
+    state.enrollmentStatusHistory.splice(0, 1);
+    state.enrollments.splice(0, 1);
+    state.groupCourses.splice(0, 1);
+    state.groups.splice(0, 1);
+
+    await backend.writeLegacy('tenant_demo', state);
+
+    expect(writes).toEqual([
+      'delete from assessment.exam_results',
+      'delete from learning.enrollment_status_history',
+      // Перед удалением зачислений их история подчищается ещё раз (detach) — так было и в срезе 3a.
+      'delete from learning.enrollment_status_history',
+      'delete from learning.enrollments',
+      'delete from learning.group_courses',
+      'delete from learning.groups'
     ]);
   });
 

@@ -357,6 +357,58 @@ describe('круговой проход: projectEntity → rowToEntity возв�
     ).toEqual(withDates);
   });
 
+  it('курс группы без флагов и порядка: в колонках false/0/active, обратно поля не выдумываются (срез 4a)', () => {
+    const source = { ...base, groupId: 'g1', courseId: 'c1', durationDays: 30 };
+    const row = projectEntity('groupCourses', T, source, emptyContext());
+    expect(row.columns.requires_pre_exam_auth).toBe(false);
+    expect(row.columns.requires_proctoring).toBe(false);
+    expect(row.columns.sort_order).toBe(0);
+    expect(row.columns.status).toBe('active');
+    expect(rowToEntity('groupCourses', asDbRow(row))).toEqual(source);
+    // Флаги, заданные явно, возвращаются как есть — включая явный false.
+    const explicit = {
+      ...source,
+      sortOrder: 2,
+      status: 'active',
+      requiresPreExamAuth: true,
+      requiresIdentityVerification: false,
+      requiresProctoring: true
+    };
+    expect(
+      rowToEntity(
+        'groupCourses',
+        asDbRow(projectEntity('groupCourses', T, explicit, emptyContext()))
+      )
+    ).toEqual(explicit);
+  });
+
+  it('результат экзамена: finalized_at нужен базе, в снимке его нет — обратно не возвращается (срез 4a)', () => {
+    const source = {
+      ...base,
+      enrollmentId: 'e1',
+      learnerId: 'l1',
+      testId: 't1',
+      bestAttemptId: 'a1',
+      attemptsCount: 2,
+      bestScore: 9,
+      finalScore: 9,
+      maxScore: 10,
+      passingScore: 7,
+      passed: true,
+      status: 'active'
+    };
+    const row = projectEntity('examResults', T, source, emptyContext());
+    expect(row.columns.finalized_at).toBe(base.updatedAt);
+    expect(row.columns.is_passed).toBe(true);
+    expect(rowToEntity('examResults', asDbRow(row))).toEqual(source);
+    // Результат бэкфилла без attemptsCount тоже не получает выдуманного поля.
+    const legacy: Record<string, unknown> = { ...source };
+    delete legacy.attemptsCount;
+    expect(
+      rowToEntity('examResults', asDbRow(projectEntity('examResults', T, legacy, emptyContext())))
+    ).toEqual(legacy);
+  });
+
   it('история статусов: created_at нужен базе, но у сущности снимка его нет — обратно не возвращается', () => {
     const source = {
       id: 'h1',
