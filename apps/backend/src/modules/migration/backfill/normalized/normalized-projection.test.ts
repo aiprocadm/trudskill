@@ -335,4 +335,41 @@ describe('круговой проход: projectEntity → rowToEntity возв�
       attemptsCount: 2
     });
   });
+
+  it('зачисление без completedAt/enrolledAt: даты подставлены в колонки, но обратно не выдумываются', () => {
+    const source = { ...base, groupId: 'g1', learnerId: 'l1', status: 'completed' };
+    const row = projectEntity('enrollments', T, source, emptyContext());
+    expect(row.columns.completed_at).toBe(base.updatedAt);
+    expect(row.columns.enrolled_at).toBe(base.createdAt);
+    const back = rowToEntity('enrollments', asDbRow(row));
+    expect(back).toEqual(source);
+    // А если даты были — они возвращаются.
+    const withDates = {
+      ...source,
+      enrolledAt: '2026-08-01T00:00:00.000Z',
+      completedAt: '2026-08-15T00:00:00.000Z'
+    };
+    expect(
+      rowToEntity(
+        'enrollments',
+        asDbRow(projectEntity('enrollments', T, withDates, emptyContext()))
+      )
+    ).toEqual(withDates);
+  });
+
+  it('история статусов: created_at нужен базе, но у сущности снимка его нет — обратно не возвращается', () => {
+    const source = {
+      id: 'h1',
+      tenantId: T,
+      enrollmentId: 'e1',
+      status: 'completed',
+      changedAt: base.updatedAt,
+      reason: 'сдал'
+    };
+    const back = rowToEntity(
+      'enrollmentStatusHistory',
+      asDbRow(projectEntity('enrollmentStatusHistory', T, source, emptyContext()))
+    );
+    expect(back).toEqual(source);
+  });
 });

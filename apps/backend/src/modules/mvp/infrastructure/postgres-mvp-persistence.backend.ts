@@ -25,6 +25,7 @@ import {
   deleteAbsent,
   deleteRows,
   detachGroupsFromCounterparties,
+  detachHistoryFromEnrollments,
   loadCounterpartyIds,
   loadUserIds,
   upsertRows
@@ -371,21 +372,86 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
     }
     await this.projectRows(client, tenantId, 'groups', groups, ctx);
 
-    // 4. Удаления: группы, слушатели, затем контрагенты (FK; на слушателя могут ссылаться
-    // зачисления из бэкфилла — отказ уйдёт в журнал). Присвоение целиком — убрать лишнее.
-    for (const col of ['groups', 'learners', 'counterparties'] as const) {
-      await this.projectSafely(client, tenantId, col, null, async () => {
-        if (changes[col] === 'all') {
-          if (col === 'counterparties') {
-            await detachGroupsFromCounterparties(client, tenantId, { keep: entityIds(col) });
-          }
-          await deleteAbsent(client, TABLE_SPECS[col], tenantId, entityIds(col));
-        } else {
-          if (col === 'counterparties') {
-            await detachGroupsFromCounterparties(client, tenantId, { deleted: deletedOf(col) });
-          }
-          await deleteRows(client, TABLE_SPECS[col], tenantId, deletedOf(col));
+    // 4. Зачисления и их история (срез 3a): ссылки на группу и слушателя не обнуляются —
+    // отсутствие цели это ошибка данных, строка уйдёт в журнал поимённо. История — после зачислений.
+    await this.projectRows(
+      client,
+      tenantId,
+      'enrollments',
+      upsertedOf('enrollments'),
+      emptyContext()
+    );
+    await this.projectRows(
+      client,
+      tenantId,
+      'enrollmentStatusHistory',
+      upsertedOf('enrollmentStatusHistory'),
+      emptyContext()
+    );
+
+    // 5. Удаления в обратном порядке ключей: история, зачисления (их история — каскадом),
+    // группы, слушатели, контрагенты. На зачисление могут ссылаться результаты из бэкфилла —
+    // отказ уйдёт в журнал, а пачка удалений повторится по одной. Присвоение целиком — убрать лишнее.
+    for (const col of [
+      'enrollmentStatusHistory',
+      'enrollments',
+      'groups',
+      'learners',
+      'counterparties'
+    ] as const) {
+      const keep = entityIds(col);
+      const gone = deletedOf(col);
+      const prepare = async (): Promise<void> => {
+        if (col === 'counterparties') {
+          await detachGroupsFromCounterparties(
+            client,
+            tenantId,
+            changes[col] === 'all' ? { keep } : { deleted: gone }
+          );
         }
+        if (col === 'enrollments') {
+          await detachHistoryFromEnrollments(
+            client,
+            tenantId,
+            changes[col] === 'all' ? { keep } : { deleted: gone }
+          );
+        }
+      };
+      if (changes[col] === 'all') {
+        await this.projectSafely(client, tenantId, col, null, async () => {
+          await prepare();
+          await deleteAbsent(client, TABLE_SPECS[col], tenantId, keep);
+        });
+      } else if (gone.length > 0) {
+        await this.projectDeletes(client, tenantId, col, gone, prepare);
+      }
+    }
+  }
+
+  /** Удаление пачкой в точке сохранения; при отказе — по одной, чтобы назвать строку, которую держит ключ. */
+  private async projectDeletes(
+    client: PoolClient,
+    tenantId: string,
+    col: ProjectedCollection,
+    ids: string[],
+    prepare: () => Promise<void>
+  ): Promise<void> {
+    await client.query('savepoint projection_delete');
+    try {
+      await prepare();
+      await deleteRows(client, TABLE_SPECS[col], tenantId, ids);
+      await client.query('release savepoint projection_delete');
+      return;
+    } catch {
+      // Пачку держит одна или несколько строк — ниже они находятся поимённо.
+      await client.query('rollback to savepoint projection_delete');
+    }
+    for (const id of ids) {
+      await this.projectSafely(client, tenantId, col, id, async () => {
+        if (col === 'enrollments') {
+          await detachHistoryFromEnrollments(client, tenantId, { deleted: [id] });
+        }
+        await deleteRows(client, TABLE_SPECS[col], tenantId, [id]);
       });
     }
   }

@@ -189,7 +189,7 @@ describe('PII at-rest encryption (ФТ-C3.3, Фаза 0 Task 7)', () => {
 
 describe('проекция контрагентов и групп в нормализованные таблицы (Фаза 1, срез 1a, РМ35)', () => {
   const isProjectionWrite = (sql: string): boolean =>
-    /^(insert into|delete from) (crm\.counterparties|learning\.groups|learning\.learners)\b/i.test(
+    /^(insert into|delete from) (crm\.counterparties|learning\.groups|learning\.learners|learning\.enrollments|learning\.enrollment_status_history)\b/i.test(
       sql.trimStart()
     );
 
@@ -282,12 +282,12 @@ describe('проекция контрагентов и групп в норма�
     const backend = new PostgresMvpPersistenceBackend(db as never);
     const state = new InMemoryMvpState();
     state.setRawSnapshot(snapshot(), (_c, raw) => [...raw]);
-    // Зачисления в срезе 2 ещё не проецируются — их правка не должна трогать таблицы.
-    state.enrollments.push({
-      id: 'e1',
+    // Курсы группы в срезе 3 ещё не проецируются — их правка не должна трогать таблицы.
+    state.groupCourses.push({
+      id: 'gc1',
       tenantId: 'tenant_demo',
       groupId: 'g1',
-      learnerId: 'l1'
+      courseId: 'c1'
     } as never);
 
     await backend.writeLegacy('tenant_demo', state);
@@ -445,5 +445,127 @@ describe('проекция слушателей (Фаза 1, срез 2a): ПД�
     expect(params.filter((p) => typeof p === 'string' && p.startsWith('enc:'))).toHaveLength(0);
     expect(params.some((p) => typeof p === 'string' && /^[0-9a-f]{64}$/.test(p))).toBe(false);
     expect(params).toContain('Удалено');
+  });
+});
+
+describe('проекция зачислений и истории (Фаза 1, срез 3a)', () => {
+  const isWrite = (sql: string): boolean =>
+    /^(insert into|delete from) (crm\.counterparties|learning\.groups|learning\.learners|learning\.enrollments|learning\.enrollment_status_history)\b/i.test(
+      sql.trimStart()
+    );
+
+  function makeDb() {
+    const writes: string[] = [];
+    const client = {
+      query: vi.fn(async (sql: string) => {
+        if (isWrite(sql)) {
+          writes.push(sql.trimStart().split(/\s+/).slice(0, 3).join(' '));
+          return { rows: [], rowCount: (sql.match(/\)\s*,\s*\(/g) ?? []).length + 1 };
+        }
+        return [];
+      })
+    };
+    return {
+      writes,
+      db: {
+        withTransaction: async (fn: (c: typeof client) => Promise<void>) => fn(client),
+        query: vi.fn(async () => [])
+      }
+    };
+  }
+
+  const AT = { createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-02T00:00:00.000Z' };
+  const snapshot = () =>
+    new Map<string, unknown[]>([
+      [
+        'counterparties',
+        [{ id: 'cp1', tenantId: 'tenant_demo', ...AT, code: 'CP-1', name: 'Р', status: 'active' }]
+      ],
+      [
+        'learners',
+        [
+          {
+            id: 'l1',
+            tenantId: 'tenant_demo',
+            ...AT,
+            firstName: 'А',
+            lastName: 'Б',
+            status: 'active'
+          }
+        ]
+      ],
+      [
+        'groups',
+        [{ id: 'g1', tenantId: 'tenant_demo', ...AT, code: 'G-1', name: 'Г', status: 'active' }]
+      ],
+      [
+        'enrollments',
+        [
+          {
+            id: 'e1',
+            tenantId: 'tenant_demo',
+            ...AT,
+            groupId: 'g1',
+            learnerId: 'l1',
+            status: 'active',
+            enrolledAt: AT.createdAt
+          }
+        ]
+      ],
+      [
+        'enrollmentStatusHistory',
+        [
+          {
+            id: 'h1',
+            tenantId: 'tenant_demo',
+            enrollmentId: 'e1',
+            status: 'active',
+            changedAt: AT.createdAt
+          }
+        ]
+      ]
+    ]);
+
+  it('порядок записи: контрагенты → слушатели → группы → зачисления → история', async () => {
+    const { db, writes } = makeDb();
+    const backend = new PostgresMvpPersistenceBackend(db as never);
+    const state = new InMemoryMvpState();
+    state.setRawSnapshot(snapshot(), (_c, raw) => raw.map((r) => ({ ...(r as object) })));
+    (state.counterparties[0] as { name: string }).name = 'Ромашка';
+    (state.learners[0] as { firstName: string }).firstName = 'Анна';
+    (state.groups[0] as { name: string }).name = 'Группа';
+    (state.enrollments[0] as { status: string }).status = 'completed';
+    state.enrollmentStatusHistory.push({
+      id: 'h2',
+      tenantId: 'tenant_demo',
+      enrollmentId: 'e1',
+      status: 'completed',
+      changedAt: AT.updatedAt
+    } as never);
+
+    await backend.writeLegacy('tenant_demo', state);
+
+    expect(writes).toEqual([
+      'insert into crm.counterparties',
+      'insert into learning.learners',
+      'insert into learning.groups',
+      'insert into learning.enrollments',
+      'insert into learning.enrollment_status_history'
+    ]);
+  });
+
+  it('удаление зачисления: сначала его история, потом само зачисление', async () => {
+    const { db, writes } = makeDb();
+    const backend = new PostgresMvpPersistenceBackend(db as never);
+    const state = new InMemoryMvpState();
+    state.setRawSnapshot(snapshot(), (_c, raw) => [...raw]);
+    state.enrollments.splice(0, 1);
+
+    await backend.writeLegacy('tenant_demo', state);
+
+    expect(writes).toEqual([
+      'delete from learning.enrollment_status_history',
+      'delete from learning.enrollments'
+    ]);
   });
 });
