@@ -13,5 +13,9 @@ import type { NormalizableCollection } from './normalized-collections.js';
  */
 export const READS_NORMALIZED = 'reads_normalized_collection';
 
-export const ReadsNormalized = (collection: NormalizableCollection) =>
-  SetMetadata(READS_NORMALIZED, collection);
+/**
+ * Несколько коллекций (портал: слушатели через зачисления и группы) — снимок не грузится,
+ * только если включены ВСЕ названные; иначе ручка идёт снимком целиком.
+ */
+export const ReadsNormalized = (...collections: NormalizableCollection[]) =>
+  SetMetadata(READS_NORMALIZED, collections);

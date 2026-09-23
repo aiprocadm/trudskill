@@ -486,6 +486,23 @@ describe.skipIf(!dockerAvailable)('SQL-репозитории контраген
       expect(
         (await repo.list(T, eq({}, null, { counterpartyId: 'cp1' }))).items.map((e) => e.id)
       ).toEqual(['e1']);
+      // Срез 3c: слушатели представителя через зачисления и группы — l1 (g1 → cp1), но не l2 (g2 → cp2) и не l1 по g3 без контрагента.
+      expect(
+        (
+          await learnersRepo.list(
+            T,
+            parseRegistryListQuery({} as never, LEARNER_SORT_COLUMNS, { counterpartyId: 'cp1' })
+          )
+        ).items.map((l) => l.id)
+      ).toEqual(['l1']);
+      expect(
+        (
+          await learnersRepo.list(
+            T,
+            parseRegistryListQuery({} as never, LEARNER_SORT_COLUMNS, { counterpartyId: 'cp_none' })
+          )
+        ).total
+      ).toBe(0);
 
       // Фильтры и сортировка.
       expect((await repo.list(T, eq({ status: 'completed' }))).items.map((e) => e.id)).toEqual([

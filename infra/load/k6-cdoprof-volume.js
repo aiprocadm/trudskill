@@ -34,6 +34,7 @@ const LIST_P95_MS = Number(__ENV.LIST_P95_MS || 500);
 
 const groupsDuration = new Trend('groups_list_ms', true);
 const learnersDuration = new Trend('learners_list_ms', true);
+const enrollmentsDuration = new Trend('enrollments_list_ms', true);
 const searchDuration = new Trend('search_ms', true);
 
 export const options = {
@@ -47,6 +48,7 @@ export const options = {
   thresholds: {
     groups_list_ms: [`p(95)<${LIST_P95_MS}`],
     learners_list_ms: [`p(95)<${LIST_P95_MS}`],
+    enrollments_list_ms: [`p(95)<${LIST_P95_MS}`],
     search_ms: [`p(95)<${LIST_P95_MS}`],
     http_req_failed: ['rate<0.01']
   }
@@ -61,6 +63,7 @@ const headers = {
 /** Списки: первая страница — то, что открывают чаще всего; дальняя — цена пагинации в памяти. */
 const GROUP_QUERIES = ['', '?page=2', '?page=400', '?q=2024-0'];
 const LEARNER_QUERIES = ['', '?page=2', '?page=200', '?q=%D0%98%D0%B2%D0%B0'];
+const ENROLLMENT_QUERIES = ['', '?page=2', '?page=500', '?status=active'];
 /** Поиск под ThrottlerGuard 120/мин — зовём не чаще одного раза за шесть итераций. */
 const SEARCH_QUERIES = ['2024-0', '%D0%9F%D0%B5%D1%82%D1%80'];
 
@@ -75,6 +78,10 @@ export default function () {
   const iteration = __ITER;
   timed(groupsDuration, `/groups${GROUP_QUERIES[iteration % GROUP_QUERIES.length]}`);
   timed(learnersDuration, `/learners${LEARNER_QUERIES[iteration % LEARNER_QUERIES.length]}`);
+  timed(
+    enrollmentsDuration,
+    `/enrollments${ENROLLMENT_QUERIES[iteration % ENROLLMENT_QUERIES.length]}`
+  );
   if (iteration % 6 === 0) {
     timed(searchDuration, `/search?q=${SEARCH_QUERIES[(iteration / 6) % SEARCH_QUERIES.length]}`);
   }
@@ -94,6 +101,7 @@ export function handleSummary(data) {
     `Объём CDOPROF, VUS=${VUS}, ${DURATION}, запросов ${requests}`,
     `  /groups   ${p('groups_list_ms')}`,
     `  /learners ${p('learners_list_ms')}`,
+    `  /enrollments ${p('enrollments_list_ms')}`,
     `  /search   ${p('search_ms')}`,
     `  ошибок    ${(failed * 100).toFixed(2)} %`
   ];

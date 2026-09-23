@@ -78,7 +78,9 @@ describe('пометка @ReadsNormalized (Фаза 1, срез 1b)', () => {
 
   function makeWithReflector(backend: TestBackend, collection: string | undefined) {
     const reflector = {
-      getAllAndOverride: vi.fn((key: string) => (key === READS_NORMALIZED ? collection : undefined))
+      getAllAndOverride: vi.fn((key: string) =>
+        key === READS_NORMALIZED && collection !== undefined ? collection.split(',') : undefined
+      )
     } as never;
     return new MvpRequestPersistenceInterceptor(
       {} as never,
@@ -132,6 +134,20 @@ describe('пометка @ReadsNormalized (Фаза 1, срез 1b)', () => {
       const backend = new TestBackend();
       const interceptor = makeWithReflector(backend, undefined);
       await lastValueFrom(interceptor.intercept(makeCtx(req), { handle: () => of('rows') }));
+      expect(backend.loadIntoState).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('несколько коллекций (срез 3c): снимок пропускается, только если включены ВСЕ', async () => {
+    const spy = vi
+      .spyOn(normalizedCollections, 'isNormalizedRead')
+      .mockImplementation((c) => c === 'learners');
+    try {
+      const backend = new TestBackend();
+      const interceptor = makeWithReflector(backend, 'learners,enrollments,groups');
+      await lastValueFrom(interceptor.intercept(ctxWithHandler(), { handle: () => of('rows') }));
       expect(backend.loadIntoState).toHaveBeenCalledTimes(1);
     } finally {
       spy.mockRestore();

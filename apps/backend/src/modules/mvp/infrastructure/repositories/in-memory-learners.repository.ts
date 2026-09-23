@@ -14,10 +14,19 @@ import type { Learner } from '../../mvp.types.js';
  * по индексу, как в SQL. `decryptLearnerPiiAtRest` в сервисе чтения пропускает открытые значения.
  */
 export class InMemoryLearnersRepository implements LearnersRepository {
-  constructor(private readonly rows: Learner[]) {}
+  constructor(
+    private readonly rows: Learner[],
+    /** `learnerId → контрагенты групп, куда он зачислен` — скоуп представителя заказчика. */
+    private readonly learnerCounterparties: Map<string, string[]> = new Map()
+  ) {}
 
   async list(tenantId: string, query: RegistryListQuery): Promise<RegistryListPage<Learner>> {
     let items = this.rows.filter((row) => row.tenantId === tenantId);
+    if (query.counterpartyId) {
+      items = items.filter((row) =>
+        (this.learnerCounterparties.get(row.id) ?? []).includes(query.counterpartyId!)
+      );
+    }
     if (query.status) items = items.filter((row) => row.status === query.status);
     if (query.q) {
       if (looksLikeSnils(query.q)) {

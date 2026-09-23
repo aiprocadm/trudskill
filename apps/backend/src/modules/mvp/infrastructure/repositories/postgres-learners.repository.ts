@@ -114,6 +114,14 @@ export class PostgresLearnersRepository implements LearnersRepository {
   ): { extra: string; params: unknown[] } {
     const params: unknown[] = [tenantId];
     const conditions: string[] = [];
+    if (query.counterpartyId) {
+      // Скоуп представителя заказчика (ФТ-E5) — как в снимке: слушатели, зачисленные в группы
+      // его контрагента, любой статус зачисления; группа без контрагента не считается.
+      params.push(query.counterpartyId);
+      conditions.push(
+        `exists (select 1 from learning.enrollments e join learning.groups g on g.tenant_id = e.tenant_id and g.id = e.group_id where e.tenant_id = $1 and e.learner_id = learning.learners.id and g.counterparty_id = $${params.length})`
+      );
+    }
     if (query.status) {
       params.push(query.status);
       conditions.push(`status = $${params.length}`);
