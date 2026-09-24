@@ -453,6 +453,18 @@ export class NumberingPreviewQueryDto {
   groupId?: string;
 }
 
+/** МГ-F3.1 (срез 19.3): сброс счётчика — подтверждение и номер, с которого начать. */
+export class ResetNumberingRuleDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(32)
+  confirmation!: string;
+
+  @IsInt({ message: 'startCounter: ожидается целое число' })
+  @Min(1, { message: 'startCounter: нумерация начинается с единицы или больше' })
+  startCounter!: number;
+}
+
 export class CreateNumberingRuleDto {
   @IsString()
   @MinLength(1)

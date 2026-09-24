@@ -1234,6 +1234,37 @@ export class DocumentsService {
     this.writeNumberingRuleAudit('documents.numbering_rule_updated', row, before, actorId, ctx);
     return row;
   }
+  /**
+   * МГ-F3.1 (срез 19.3): «сбросить счётчик» как в CDOPROF — только администратор центра, с вводом
+   * подтверждения и записью в журнал действий. В отличие от правки (`updateNumberingRule`),
+   * сброс может вести счётчик НАЗАД (новый год, переход с бумаги). Дубля это не создаёт: номер,
+   * совпавший с уже выданным, отклоняется при выдаче (`document_number_taken`, заявка 0088).
+   *
+   * Подтверждение — число уже выданных номеров, а не слово-заклинание (`CMP-005`): человек
+   * переписывает то, что видит в строке, и сброс по устаревшему экрану (кто-то успел выпустить
+   * документ) не проходит.
+   */
+  resetNumberingRule(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    req: { confirmation: string; startCounter: number },
+    ctx: RequestContext
+  ) {
+    const row = this.getNumberingRule(tenantId, id);
+    if (req.confirmation.trim() !== String(row.currentCounter)) {
+      throw new BadRequestException({
+        code: 'numbering_reset_confirmation_mismatch',
+        message: `Для сброса введите число уже выданных номеров — ${row.currentCounter}.`
+      });
+    }
+    const before = { currentCounter: row.currentCounter, periodKey: row.periodKey };
+    row.currentCounter = req.startCounter - 1;
+    row.updatedAt = this.now();
+    this.writeNumberingRuleAudit('documents.numbering_rule_reset', row, before, actorId, ctx);
+    return row;
+  }
+
   activateNumberingRule(
     tenantId: string,
     actorId: string | undefined,

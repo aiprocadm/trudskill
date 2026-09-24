@@ -100,7 +100,6 @@ const SILENT: Record<string, number> = {
   'src/features/learners/learners-list-screen.tsx': 1,
   'src/features/licenses/licenses-list.tsx': 1,
   'src/features/notification-recipients/screens.tsx': 1,
-  'src/features/numbering/screens.tsx': 1,
   'src/features/payments/screens.tsx': 1,
   'src/features/platform-tenants/screens.tsx': 3,
   'src/features/practical-submissions/submission-screen.tsx': 3,

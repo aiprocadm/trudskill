@@ -190,6 +190,8 @@ const VERBS: Record<string, Record<Gender, string>> = {
  * обстоятельством («по приказу», «за неуплату»). Фраза — целиком, ТЗ редизайна §9.
  */
 const PHRASES: Record<string, string> = {
+  /* МГ-F3.1 (срез 19.3): сброс счётчика нумерации — отдельное событие, не «правка правила». */
+  'documents.numbering_rule_reset': 'Счётчик нумерации сброшен',
   /* ТЗ перехода с CDOPROF, МГ-G2: переходы задачи и её комментарии. */
   'tasks.task_status_changed': 'Статус задачи изменён',
   'tasks.task_rescheduled': 'Срок задачи перенесён',
