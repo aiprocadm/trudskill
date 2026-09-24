@@ -6,6 +6,7 @@ import {
   formatPeriod,
   groupStatusLabel,
   isGroupArchivable,
+  isGroupLocked,
   normalizeGroupStatus
 } from './group-status';
 
@@ -34,5 +35,17 @@ describe('статусы группы на экране', () => {
     expect(formatPeriod('2026-11-05', '2026-12-18')).toBe('05.11.2026 — 18.12.2026');
     expect(formatPeriod(undefined, '2026-12-18')).toBe('— — 18.12.2026');
     expect(formatPeriod(undefined, undefined)).toBe('—');
+  });
+});
+
+describe('isGroupLocked (МГ-B4.1)', () => {
+  it('закрытая, архивная, отменённая и старая completed — под замком; учащаяся и черновик — нет', () => {
+    for (const status of ['closed', 'archived', 'cancelled', 'completed']) {
+      expect(isGroupLocked(status)).toBe(true);
+    }
+    for (const status of ['draft', 'recruiting', 'in_progress', 'exam', 'documents', 'active']) {
+      expect(isGroupLocked(status)).toBe(false);
+    }
+    expect(isGroupLocked(undefined)).toBe(false);
   });
 });

@@ -81,6 +81,12 @@ export const isGroupArchivable = (raw: string | undefined): boolean => {
   return status === 'closed' || status === 'cancelled';
 };
 
+/** Закрытая, архивная или отменённая (и старая `completed`): даты, код и компания не правятся — зеркало сервера (МГ-B4.1). */
+export const isGroupLocked = (raw: string | undefined): boolean => {
+  const status = normalizeGroupStatus(raw);
+  return status === 'closed' || status === 'archived' || status === 'cancelled';
+};
+
 /** Быстрые отборы реестра (МГ-B3.2) — ключи и подписи как на сервере. */
 export const GROUP_QUICK_FILTERS = [
   { value: 'learning', label: 'Учатся' },
