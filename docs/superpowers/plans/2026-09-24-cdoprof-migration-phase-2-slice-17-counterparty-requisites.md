@@ -39,10 +39,10 @@
 
 **Files:** `mvp/mvp.types.ts`, `mvp/create-counterparty-extended.dto.ts`, `mvp/update-counterparty-extended.dto.ts`, `mvp/counterparties/counterparty-requisites.ts` (новый), `mvp/mvp.service.ts`, `migration/backfill/normalized/normalized-projection.ts` (+ тест), `mvp/infrastructure/repositories/postgres-counterparties.repository.ts`, `mvp/counterparties/inn-suggest.provider.ts` (новый), `mvp/counterparties/counterparty-suggest.service.ts` (+ тест), `mvp/mvp.controller.ts`, `mvp/mvp.module.ts`, `env.schema.ts`, `mvp/mvp.dto-validation.test.ts`, `frontend/src/lib/errors/error-text.ts`.
 
-- [ ] Поля и DTO; общий список `COUNTERPARTY_REQUISITE_FIELDS`; служба создания и правки.
-- [ ] Проекция и репозиторий; тест проекции (колонки, кривая дата → `payload`).
-- [ ] Провайдер, служба, ручка, ключ окружения; тесты службы и провайдера (фикстура ответа DaData, пусто → 404, ошибка → 503, noop → 503, кривой ИНН → 400).
-- [ ] Документация §5.598, `pnpm ci:check`, PR, слияние.
+- [x] Поля и DTO; общий список `COUNTERPARTY_REQUISITE_FIELDS`; служба создания и правки.
+- [x] Проекция и репозиторий; тест проекции (колонки, кривая дата → `payload`).
+- [x] Провайдер, служба, ручка, ключ окружения; тесты службы и провайдера (фикстура ответа DaData, пусто → 404, ошибка → 503, noop → 503, кривой ИНН → 400).
+- [x] Документация §5.598, `pnpm ci:check`, PR, слияние. Отклонение: поиск репозитория расширен новыми колонками (краткое название, договор, ОГРН) — иначе пропадал поиск по номеру договора.
 
 **Acceptance:** реквизиты сохраняются и читаются из колонок; `GET counterparties/suggest?inn=7707083893` при фикстуре DaData отдаёт реквизиты; без ключа — 503 со статьёй.
 
