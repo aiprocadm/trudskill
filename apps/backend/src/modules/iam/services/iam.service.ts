@@ -89,6 +89,8 @@ export class IamService {
       name: 'Администратор центра'
     },
     { id: 'r_manager', tenantId: 'tenant_demo', code: 'manager', name: 'Руководитель' },
+    /* МГ-J1 (0099): куратор обучения есть и в памяти — иначе демо-стенд без базы не знает роль. */
+    { id: 'r_curator', tenantId: 'tenant_demo', code: 'curator', name: 'Куратор обучения' },
     { id: 'r_methodist', tenantId: 'tenant_demo', code: 'methodist', name: 'Методист' }
   ];
 

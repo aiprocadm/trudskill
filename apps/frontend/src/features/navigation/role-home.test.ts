@@ -105,7 +105,9 @@ describe('resolveRoleHome (ФТ-H2, Фаза 5 Task 1)', () => {
       ['platform_admin', ['workspace.read'], '/workspace'],
       // У методиста нет прав на группы и зачисления — сводка открывается `courses.read`.
       ['methodist', ['courses.read'], '/methodist'],
-      ['manager', ['groups.read', 'counterparties.read'], '/manager']
+      ['manager', ['groups.read', 'counterparties.read'], '/manager'],
+      // МГ-J1 (срез 8.10): до панели `/curator` (позиция 11) дом куратора — оперативная панель.
+      ['curator', ['workspace.read'], '/workspace']
     ];
     for (const [role, permissions, href] of byRole) {
       expect(resolveRoleHome(session([role], permissions))).toBe(href);
