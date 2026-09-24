@@ -89,6 +89,7 @@ export const VARIABLE_CATALOG: readonly VariableCatalogEntry[] = [
   entry('course', 'code', 'Код программы'),
   entry('course', 'title', 'Название программы'),
   entry('course', 'description', 'Описание программы'),
+  entry('course', 'presentation_title', 'Наименование программы для документов («представление»)'),
 
   // --- Программа обучения (метаданные версии курса) ---
   entry('program', 'academic_hours', 'Объём программы в академических часах'),
@@ -201,11 +202,27 @@ export function classifyPlaceholders(
   for (const name of placeholders) {
     const found =
       VARIABLE_CATALOG.find((item) => item.code === name) ??
-      extraKnown.find((item) => item.code === name);
+      extraKnown.find((item) => item.code === name) ??
+      courseExtraVariableEntry(name);
     if (found) known.push(found);
     else unknown.push(name);
   }
   return { known, unknown };
+}
+
+/**
+ * МГ-E2.1 (срез 16.2): `course.extra.<ключ>` — поле, которое задаёт сам курс. Какие ключи у
+ * каких курсов, проверка бланка не знает (бланк общий на много курсов), поэтому любой
+ * правильный ключ считается известным; у курса без такого поля напечатается пустое место.
+ */
+export function courseExtraVariableEntry(name: string): VariableCatalogEntry | undefined {
+  const match = /^course\.extra\.([a-z][a-z0-9_]{0,39})$/.exec(name);
+  if (!match) return undefined;
+  return {
+    code: name,
+    category: 'course',
+    description: `Поле курса для документов «${match[1]}» — задаётся в карточке курса`
+  };
 }
 
 /** Записи каталога для именованных полей центра — подпись из настройки становится описанием. */
@@ -270,6 +287,7 @@ export function demoVariables(): Record<string, unknown> {
     'course.code': 'DEMO-40',
     'course.title': 'Программа-образец, 40 часов',
     'course.description': 'Демонстрационная программа для предпросмотра бланка',
+    'course.presentation_title': 'Обучение по охране труда по программе «Пример»',
 
     'program.academic_hours': 40,
     'program.training_type': 'primary',

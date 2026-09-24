@@ -238,8 +238,27 @@ export function resolveCourseVariables(
         return ctx.course?.title ?? '';
       case 'description':
         return ctx.course?.description ?? '';
+      // МГ-E2.1 (срез 16.2): «представление» — наименование программы для документов; не задано —
+      // печатается название курса, а не пустое место в удостоверении.
+      case 'presentation_title':
+        return ctx.course?.presentationTitle ?? ctx.course?.title ?? '';
       default:
         return '';
     }
   });
+}
+
+/** Префикс именованных полей курса в шаблонах: `{course.extra.<ключ>}` (МГ-E2.1). */
+export const COURSE_EXTRA_PREFIX = 'course.extra.';
+
+/**
+ * Значения именованных полей курса («Присвоена квалификация», «Разряд»…): ключи задаёт сам курс,
+ * поэтому набор переменных у разных курсов разный — он приходит из курса, а не из каталога.
+ */
+export function resolveCourseExtraVariables(course: Course | undefined): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const field of course?.docExtraFields ?? []) {
+    result[`${COURSE_EXTRA_PREFIX}${field.key}`] = field.value;
+  }
+  return result;
 }
