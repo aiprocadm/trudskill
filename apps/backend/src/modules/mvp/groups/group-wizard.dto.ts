@@ -85,6 +85,16 @@ export class GroupWizardLearnersDto {
   @IsString({ each: true })
   existingIds?: string[];
 
+  /**
+   * МГ-D2.1 (срез 14.4): сотрудники компании группы — сервер заводит им слушателей (или берёт
+   * уже связанных) и пишет связь «сотрудник → слушатель».
+   */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(1000)
+  @IsString({ each: true })
+  employeeIds?: string[];
+
   /** Строки «ФИО; должность; СНИЛС; email; телефон». */
   @IsOptional()
   @IsArray()

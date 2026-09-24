@@ -382,7 +382,7 @@ export interface GroupWizardRequest {
   /** МГ-B6.1: из какой группы скопировано — только для аудита. */
   copyOfGroupId?: string;
   courses: Array<{ courseId: string; courseVersionId?: string; durationDays?: number }>;
-  learners?: { existingIds?: string[]; rows?: GroupWizardLearnerRow[] };
+  learners?: { existingIds?: string[]; employeeIds?: string[]; rows?: GroupWizardLearnerRow[] };
   access: { mode: WizardAccessMode; message?: string };
 }
 
@@ -391,6 +391,8 @@ export interface GroupWizardOutcomeRow {
   rowNumber: number;
   status: 'created' | 'reused' | 'enrolled_only' | 'failed';
   learnerId?: string;
+  /** МГ-D2.1 (срез 14.4): строка «из сотрудников компании». */
+  employeeId?: string;
   enrollmentId?: string;
   errorCode?: string;
   errorMessage?: string;

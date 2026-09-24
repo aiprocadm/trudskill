@@ -69,9 +69,9 @@ const invitesOf = (events: { emit: ReturnType<typeof vi.fn> }) =>
   events.emit.mock.calls.filter(([name]) => String(name).includes('invited'));
 
 describe('GroupWizardService', () => {
-  it('создаёт группу с кодом по шаблону, курсом и слушателями: новый — created, по СНИЛС — reused, плохая строка — failed', () => {
+  it('создаёт группу с кодом по шаблону, курсом и слушателями: новый — created, по СНИЛС — reused, плохая строка — failed', async () => {
     const { wizard, course, existing, mvp, audit } = setup();
-    const out = wizard.complete(
+    const out = await wizard.complete(
       T,
       ctx.userId,
       baseRequest(course.id),
@@ -96,9 +96,9 @@ describe('GroupWizardService', () => {
     );
   });
 
-  it('начало обучения в прошлом — группа сразу «учатся»; без курсов — 400', () => {
+  it('начало обучения в прошлом — группа сразу «учатся»; без курсов — 400', async () => {
     const { wizard, course } = setup();
-    const out = wizard.complete(
+    const out = await wizard.complete(
       T,
       ctx.userId,
       baseRequest(course.id, {
@@ -108,7 +108,7 @@ describe('GroupWizardService', () => {
       DEFAULT_GROUP_CREATION_SETTINGS
     );
     expect(out.group.status).toBe('in_progress');
-    expect(() =>
+    await expect(
       wizard.complete(
         T,
         ctx.userId,
@@ -116,12 +116,12 @@ describe('GroupWizardService', () => {
         ctx,
         DEFAULT_GROUP_CREATION_SETTINGS
       )
-    ).toThrow(BadRequestException);
+    ).rejects.toThrow(BadRequestException);
   });
 
-  it('доступы «позже» — приглашения не уходят; «email» — событие приглашения на каждого с почтой', () => {
+  it('доступы «позже» — приглашения не уходят; «email» — событие приглашения на каждого с почтой', async () => {
     const { wizard, course, events } = setup();
-    wizard.complete(
+    await wizard.complete(
       T,
       ctx.userId,
       baseRequest(course.id, { access: { mode: 'later' } }),
@@ -129,7 +129,7 @@ describe('GroupWizardService', () => {
       DEFAULT_GROUP_CREATION_SETTINGS
     );
     expect(invitesOf(events)).toHaveLength(0);
-    wizard.complete(
+    await wizard.complete(
       T,
       ctx.userId,
       baseRequest(course.id, { idempotencyKey: 'wiz-3', group: { name: 'С письмами' } }),
@@ -139,10 +139,10 @@ describe('GroupWizardService', () => {
     expect(invitesOf(events)).toHaveLength(2);
   });
 
-  it('копия группы (МГ-B6.1): источник пишется в аудит; чужой или несуществующий источник — 404', () => {
+  it('копия группы (МГ-B6.1): источник пишется в аудит; чужой или несуществующий источник — 404', async () => {
     const { wizard, course, mvp, audit } = setup();
     const source = mvp.createGroup(T, ctx.userId, { name: 'Исходная' }, ctx);
-    wizard.complete(
+    await wizard.complete(
       T,
       ctx.userId,
       baseRequest(course.id, { idempotencyKey: 'wiz-copy', copyOfGroupId: source.id }),
@@ -155,7 +155,7 @@ describe('GroupWizardService', () => {
         newValues: expect.objectContaining({ copyOfGroupId: source.id })
       })
     );
-    expect(() =>
+    await expect(
       wizard.complete(
         T,
         ctx.userId,
@@ -163,20 +163,20 @@ describe('GroupWizardService', () => {
         ctx,
         DEFAULT_GROUP_CREATION_SETTINGS
       )
-    ).toThrow(NotFoundException);
+    ).rejects.toThrow(NotFoundException);
     expect(mvp.listGroups(T, {}).total).toBe(2);
   });
 
-  it('повтор с тем же ключом — прежний результат, вторая группа не создаётся; черновик достраивается', () => {
+  it('повтор с тем же ключом — прежний результат, вторая группа не создаётся; черновик достраивается', async () => {
     const { wizard, course, mvp } = setup();
-    const first = wizard.complete(
+    const first = await wizard.complete(
       T,
       ctx.userId,
       baseRequest(course.id),
       ctx,
       DEFAULT_GROUP_CREATION_SETTINGS
     );
-    const again = wizard.complete(
+    const again = await wizard.complete(
       T,
       ctx.userId,
       baseRequest(course.id),
@@ -187,7 +187,7 @@ describe('GroupWizardService', () => {
     expect(mvp.listGroups(T, {}).total).toBe(1);
 
     const draft = mvp.createGroup(T, ctx.userId, { name: 'Черновик', comment: 'из шага 1' }, ctx);
-    const completed = wizard.complete(
+    const completed = await wizard.complete(
       T,
       ctx.userId,
       baseRequest(course.id, {
@@ -203,7 +203,7 @@ describe('GroupWizardService', () => {
       status: 'recruiting',
       comment: 'из шага 1'
     });
-    expect(() =>
+    await expect(
       wizard.complete(
         T,
         ctx.userId,
@@ -211,6 +211,6 @@ describe('GroupWizardService', () => {
         ctx,
         DEFAULT_GROUP_CREATION_SETTINGS
       )
-    ).toThrow(ConflictException);
+    ).rejects.toThrow(ConflictException);
   });
 });

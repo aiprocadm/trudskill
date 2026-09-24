@@ -4,17 +4,20 @@ import {
   HttpException,
   Inject,
   Injectable,
+  Optional,
   Scope
 } from '@nestjs/common';
 
 import { normalizeGroupStatus } from './group-status.js';
 import { classifyWizardLearnerRows } from './group-wizard-rows.js';
 import { AuditService } from '../../audit/audit.service.js';
+import { CounterpartyPeopleService } from '../counterparty-people/counterparty-people.service.js';
 import { MvpService } from '../mvp.service.js';
 
 import type { GroupCreationSettings } from './group-defaults.js';
 import type { GroupWizardRequest, WizardAccessMode } from './group-wizard.dto.js';
 import type { RequestContext } from '../../../common/context/request-context.js';
+import type { EmployeeLearnerResult } from '../counterparty-people/counterparty-people.types.js';
 import type { GroupEntity, GroupWizardOutcome, GroupWizardOutcomeRow } from '../mvp.types.js';
 
 /**
@@ -32,16 +35,20 @@ import type { GroupEntity, GroupWizardOutcome, GroupWizardOutcomeRow } from '../
 export class GroupWizardService {
   constructor(
     @Inject(MvpService) private readonly mvp: MvpService,
-    @Inject(AuditService) private readonly auditService: AuditService
+    @Inject(AuditService) private readonly auditService: AuditService,
+    /* МГ-D2.1 (срез 14.4): «из сотрудников компании»; необязательна — тесты собирают мастер руками. */
+    @Optional()
+    @Inject(CounterpartyPeopleService)
+    private readonly people?: CounterpartyPeopleService
   ) {}
 
-  complete(
+  async complete(
     tenantId: string,
     actorId: string | undefined,
     request: GroupWizardRequest,
     context: RequestContext,
     settings: GroupCreationSettings
-  ): GroupWizardOutcome {
+  ): Promise<GroupWizardOutcome> {
     const cached = this.mvp.getGroupWizardOutcomeIfAny(tenantId, request.idempotencyKey);
     if (cached) return cached;
     if (request.courses.length === 0) {
@@ -153,6 +160,60 @@ export class GroupWizardService {
       if (row.learnerId && !learnerRowByLearnerId.has(row.learnerId)) {
         learnerIds.push(row.learnerId);
         learnerRowByLearnerId.set(row.learnerId, row);
+      }
+    }
+
+    // 3б. Из сотрудников компании (МГ-D2.1, срез 14.4, РМ120): сотрудник → слушатель, связь в обе
+    //     стороны; без компании у группы — отказ строкой, а не всей группы.
+    const employeeIds = request.learners?.employeeIds ?? [];
+    if (employeeIds.length > 0) {
+      const results: EmployeeLearnerResult[] =
+        group.counterpartyId && this.people
+          ? await this.people.learnersForEmployees(
+              tenantId,
+              group.counterpartyId,
+              employeeIds,
+              context,
+              {
+                findLearnerIdByEmail: (email) =>
+                  this.mvp.findLearnersByEmailOrSnils(tenantId, [email], [])[0]?.id,
+                createLearner: (employee) =>
+                  this.mvp.createLearnerExtended(
+                    tenantId,
+                    actorId,
+                    {
+                      firstName: employee.firstName,
+                      lastName: employee.lastName,
+                      ...(employee.middleName ? { middleName: employee.middleName } : {}),
+                      ...(employee.email ? { email: employee.email } : {}),
+                      ...(employee.position ? { position: employee.position } : {}),
+                      ...(employee.phone ? { phone: employee.phone } : {}),
+                      counterpartyId: employee.counterpartyId
+                    },
+                    context
+                  ).id
+              }
+            )
+          : [...new Set(employeeIds)].map((employeeId) => ({
+              employeeId,
+              status: 'failed' as const,
+              errorCode: 'wizard_employees_need_counterparty',
+              errorMessage: 'Сотрудников можно зачислить, только когда у группы выбрана компания.'
+            }));
+      for (const result of results) {
+        const row: GroupWizardOutcomeRow = {
+          rowNumber: 0,
+          status: result.status,
+          employeeId: result.employeeId,
+          ...(result.learnerId ? { learnerId: result.learnerId } : {}),
+          ...(result.errorCode ? { errorCode: result.errorCode } : {}),
+          ...(result.errorMessage ? { errorMessage: result.errorMessage } : {})
+        };
+        rows.push(row);
+        if (row.learnerId && !learnerRowByLearnerId.has(row.learnerId)) {
+          learnerIds.push(row.learnerId);
+          learnerRowByLearnerId.set(row.learnerId, row);
+        }
       }
     }
 

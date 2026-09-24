@@ -66,6 +66,15 @@ export interface EmployeesPage {
   pageSize: number;
 }
 
+/** Сотрудник → слушатель при зачислении (МГ-D2.1, срез 14.4): итог по каждому сотруднику. */
+export interface EmployeeLearnerResult {
+  employeeId: string;
+  status: 'created' | 'reused' | 'failed';
+  learnerId?: string;
+  errorCode?: string;
+  errorMessage?: string;
+}
+
 /** Итог массового добавления — частичный успех, отказы поимённо. */
 export interface EmployeesBulkRow {
   rowNumber: number;

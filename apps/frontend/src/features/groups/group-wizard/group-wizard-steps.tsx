@@ -15,10 +15,13 @@ import {
 } from './group-wizard-model';
 import { FieldError } from '../../../components/form-feedback';
 import { SectionCard } from '../../../components/state-wrappers';
+import { hasPermission } from '../../../lib/rbac/permissions';
+import { useAuth } from '../../auth/context';
 import { LearnerSelect, useLearnerNames } from '../../learners/learner-picker';
 import { useCounterpartiesList, useCoursesList } from '../../mvp/hooks';
 import { ClientSelect } from '../group-picker';
 import { STUDY_FORM_LABEL, formatDateRu } from '../group-status';
+import { WizardEmployeePicker } from './wizard-employee-picker';
 
 import type { WizardState, WizardStepId } from './group-wizard-model';
 import type { GroupWizardOutcome, WizardAccessMode } from '../../mvp/types';
@@ -122,7 +125,9 @@ export const StepWho = (props: StepProps & { suggestedCode: string | null }): Re
       <div className="ui-field">
         <ClientSelect
           value={state.counterpartyId}
-          onChange={(counterpartyId) => patch({ counterpartyId })}
+          onChange={(counterpartyId) =>
+            patch({ counterpartyId, employeeIds: [], employeeNames: {} })
+          }
           label="Компания-заказчик"
           emptyLabel="— без компании: учатся физлица —"
         />
@@ -294,13 +299,21 @@ export const StepLearners = (props: StepProps): ReactElement => {
   const { state, patch } = props;
   const [picked, setPicked] = useState('');
   const names = useLearnerNames();
+  const { session } = useAuth();
+  /* Список сотрудников компании читается правом на компании; без него блок не показывается. */
+  const canPickEmployees =
+    Boolean(state.counterpartyId) &&
+    hasPermission(session?.permissions ?? [], 'counterparties.read');
   const rows = useMemo(() => parseLearnerLines(state.learnerText), [state.learnerText]);
   const addExisting = (learnerId: string) => {
     setPicked('');
     if (!learnerId || state.existingLearnerIds.includes(learnerId)) return;
     patch({ existingLearnerIds: [...state.existingLearnerIds, learnerId] });
   };
-  const total = state.existingLearnerIds.length + rows.length;
+  const total =
+    state.existingLearnerIds.length +
+    (state.counterpartyId ? state.employeeIds.length : 0) +
+    rows.length;
   return (
     <SectionCard title="Слушатели">
       <p className="ui-hint">
@@ -351,6 +364,15 @@ export const StepLearners = (props: StepProps): ReactElement => {
             </li>
           ))}
         </ul>
+      ) : null}
+      {canPickEmployees ? (
+        <WizardEmployeePicker
+          counterpartyId={state.counterpartyId}
+          selected={state.employeeIds}
+          onChange={(employeeIds, employeeNames) =>
+            patch({ employeeIds, employeeNames: { ...state.employeeNames, ...employeeNames } })
+          }
+        />
       ) : null}
       <label htmlFor="wizard-learner-text" className="ui-field">
         <span className="ui-field-label">Новые слушатели списком</span>
@@ -410,7 +432,9 @@ export const StepAccess = (props: StepProps & { suggestedCode: string | null }):
     ? (clientsData?.items.find((item) => item.id === state.counterpartyId)?.name ?? 'выбрана')
     : 'без компании (физлица)';
   const learnersTotal =
-    state.existingLearnerIds.length + parseLearnerLines(state.learnerText).length;
+    state.existingLearnerIds.length +
+    (state.counterpartyId ? state.employeeIds.length : 0) +
+    parseLearnerLines(state.learnerText).length;
   const sheetReason =
     'Лист доступов появится вместе с входом по логину (Фаза 6) — пока выберите письмо или «позже».';
   const modes: WizardAccessMode[] = ['email', 'sheet', 'later'];
@@ -499,9 +523,10 @@ export const WizardResult = ({
       byRow: new Map(
         parseLearnerLines(state.learnerText).map((row) => [row.rowNumber, row.fullName])
       ),
-      byLearner: learnerNames
+      byLearner: learnerNames,
+      byEmployee: new Map(Object.entries(state.employeeNames))
     }),
-    [state.learnerText, learnerNames]
+    [state.learnerText, learnerNames, state.employeeNames]
   );
   const summary = wizardOutcomeSummary(outcome, names);
   const succeeded = outcome.enrollments.rows.filter((row) => row.status !== 'failed');
