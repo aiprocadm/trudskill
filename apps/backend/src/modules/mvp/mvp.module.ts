@@ -1,6 +1,8 @@
 import { Module, Scope } from '@nestjs/common';
 
 import { GroupSettingsService } from './groups/group-settings.service.js';
+import { GroupStatusScanner } from './groups/group-status.scanner.service.js';
+import { GroupStatusSchedulerService } from './groups/group-status.scheduler.service.js';
 import { MvpNormalizedReadsService } from './infrastructure/mvp-normalized-reads.service.js';
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
 import { MVP_STATE } from './infrastructure/mvp-state.token.js';
@@ -355,6 +357,9 @@ import { PostgresLearnersRepository } from './infrastructure/repositories/postgr
     // ФТ-E2 (Task 12): закрытие истёкших попыток без участия клиента.
     ExpiredAttemptsScanner,
     ExpiredAttemptsSchedulerService,
+    /* Фаза 2, срез 8.2 (МГ-B3.1): ежедневные автопереходы статусов групп. */
+    GroupStatusScanner,
+    GroupStatusSchedulerService,
     IdentityRetentionSchedulerService,
     ProctoringRetentionScanner,
     ProctoringRetentionSchedulerService,

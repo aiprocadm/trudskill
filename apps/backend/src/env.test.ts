@@ -355,3 +355,22 @@ describe('сторож разбора булевых переменных окр
     expect(offenders).toEqual([]);
   });
 });
+
+describe('GROUP_STATUS_SCAN_ENABLED / GROUP_STATUS_CRON_SCHEDULE (срез 8.2)', () => {
+  const validDevEnv = {
+    ...baseEnv,
+    AUTH_JWT_SECRET: 'dev-secret-not-placeholder',
+    SESSION_SECRET: 'dev-session-not-placeholder'
+  } as const;
+
+  it('выключен по умолчанию, расписание — 02:00 UTC', () => {
+    const env = backendEnvSchema.parse(validDevEnv);
+    expect(env.GROUP_STATUS_SCAN_ENABLED).toBe(false);
+    expect(env.GROUP_STATUS_CRON_SCHEDULE).toBe('0 2 * * *');
+  });
+
+  it('строка «true» включает сканер', () => {
+    const env = backendEnvSchema.parse({ ...validDevEnv, GROUP_STATUS_SCAN_ENABLED: 'true' });
+    expect(env.GROUP_STATUS_SCAN_ENABLED).toBe(true);
+  });
+});
