@@ -55,6 +55,8 @@ import { FrdoRegistryXlsxWriter } from './frdo-registry/frdo-registry-xlsx.write
 import { FrdoRegistryController } from './frdo-registry/frdo-registry.controller.js';
 import { FrdoRegistryService } from './frdo-registry/frdo-registry.service.js';
 import { GroupSettingsService } from './groups/group-settings.service.js';
+import { IssueReadinessController } from './groups/issue-readiness.controller.js';
+import { IssueReadinessService } from './groups/issue-readiness.service.js';
 import { InMemoryIdentityPolicyRepository } from './identity/in-memory-identity-policy.repository.js';
 import { LearnerDossierService } from './identity/learner-dossier.service.js';
 import { PostgresIdentityPolicyRepository } from './identity/postgres-identity-policy.repository.js';
@@ -224,6 +226,8 @@ import { LearnersRegistryExportService } from './learners/learners-registry-expo
     MvpInternalWorkerController,
     OtRegistryController,
     CloseGroupChainController,
+    /* МГ-F5.1 (срез 20.1): «что мешает выпустить документы» группы. */
+    IssueReadinessController,
     FrdoRegistryController,
     EisotTestingRegistryController,
     RostechnadzorRegistryController,
@@ -411,6 +415,7 @@ import { LearnersRegistryExportService } from './learners/learners-registry-expo
     },
     /* Фаза 2, срез 8.1: шаблон кода и значения по умолчанию группы из настроек центра. */
     GroupSettingsService,
+    IssueReadinessService,
     /* МГ-C1.3: описание именованных полей личного дела из настроек центра. */
     LearnerFieldsSettingsService,
     /* Фаза 2, срез 8.4: мастер создания группы поверх request-scoped MvpService. */

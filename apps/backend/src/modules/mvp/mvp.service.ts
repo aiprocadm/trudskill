@@ -31,7 +31,11 @@ import {
   attemptLimitFor,
   purposeOfTest
 } from './exam/retake-policy.js';
-import { type ExamReadinessReport, buildExamReadiness } from './exam-readiness.js';
+import {
+  type ExamReadinessIssue,
+  type ExamReadinessReport,
+  buildExamReadiness
+} from './exam-readiness.js';
 import { parseFullName } from './fio.js';
 import {
   summarizeCounterpartyProgress,
@@ -102,6 +106,7 @@ import type {
   SetGroupStatusRequest,
   UpdateGroupRequest
 } from './groups/group.dto.js';
+import type { IssueReadinessItem, IssueReadinessLearnerFacts } from './groups/issue-readiness.js';
 import type { BulkImportOutcome } from './learners-bulk-import.types.js';
 import type {
   AddCommissionMemberRequest,
@@ -7647,6 +7652,72 @@ export class MvpService {
       report.ready = false;
     }
     return report;
+  }
+
+  /**
+   * МГ-F5.1 (срез 20.1): факты для «что мешает выпустить документы» — готовность экзамена по
+   * каждому курсу группы и данные слушателей из снимка. Согласия и настройки центра добавляет
+   * `IssueReadinessService`: они живут вне снимка состояния.
+   */
+  issueReadinessFacts(
+    tenantId: string,
+    groupId: string
+  ): {
+    groupIssues: IssueReadinessItem[];
+    examIssues: ExamReadinessIssue[];
+    learners: IssueReadinessLearnerFacts[];
+  } {
+    const group = this.state.groups.find((g) => g.tenantId === tenantId && g.id === groupId);
+    if (!group) {
+      throw new NotFoundException({ code: 'not_found', message: 'Группа не найдена' });
+    }
+    const courseIds = [
+      ...new Set(
+        this.state.groupCourses
+          .filter((gc) => gc.tenantId === tenantId && gc.groupId === groupId)
+          .map((gc) => gc.courseId)
+      )
+    ];
+    const groupIssues: IssueReadinessItem[] =
+      courseIds.length === 0
+        ? [
+            {
+              code: 'group_courses_missing',
+              message: 'В группе нет курсов — документы выпускаются по курсу группы'
+            }
+          ]
+        : [];
+    const examIssues = courseIds.flatMap(
+      (courseId) => this.getExamReadiness(tenantId, groupId, courseId).issues
+    );
+    const byLearner = new Map<string, IssueReadinessLearnerFacts>();
+    for (const enrollment of this.state.enrollments) {
+      if (
+        enrollment.tenantId !== tenantId ||
+        enrollment.groupId !== groupId ||
+        enrollment.status === 'cancelled'
+      ) {
+        continue;
+      }
+      const learner = this.state.learners.find(
+        (l) => l.tenantId === tenantId && l.id === enrollment.learnerId
+      );
+      if (!learner) continue;
+      const known = byLearner.get(learner.id);
+      // Несколько записей одного слушателя в группе: сдал хоть по одной — результат есть.
+      const resultCode =
+        known?.resultCode === 'passed' ? 'passed' : (enrollment.resultCode ?? known?.resultCode);
+      byLearner.set(learner.id, {
+        id: learner.id,
+        fullName: [learner.lastName, learner.firstName, learner.middleName]
+          .filter(Boolean)
+          .join(' '),
+        dateOfBirth: learner.dateOfBirth,
+        position: learner.position,
+        resultCode
+      });
+    }
+    return { groupIssues, examIssues, learners: [...byLearner.values()] };
   }
 
   /**

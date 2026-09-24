@@ -44,6 +44,17 @@ const STEP_TEXT: Record<keyof IssuanceReadiness, string> = {
  * Отказ обязан говорить, ЧТО не сделано и КУДА идти: «Ошибка 412» человеку ничего не сообщает
  * (правило продукта №4). `null` означает «всё готово, запрета нет».
  */
+/** МГ-F5.1 (срез 20.1): чего не хватает центру — по шагу, словами (для отчёта группы). */
+export const missingIssuanceSteps = (
+  readiness: IssuanceReadiness
+): Array<{ code: string; message: string }> =>
+  (Object.keys(STEP_TEXT) as Array<keyof IssuanceReadiness>)
+    .filter((key) => !readiness[key])
+    .map((key) => ({
+      code: `center_${key}_missing`,
+      message: `Нужно ${STEP_TEXT[key]}`
+    }));
+
 export const issuanceBlockedMessage = (readiness: IssuanceReadiness): string | null => {
   const missing = (Object.keys(STEP_TEXT) as Array<keyof IssuanceReadiness>).filter(
     (key) => !readiness[key]
