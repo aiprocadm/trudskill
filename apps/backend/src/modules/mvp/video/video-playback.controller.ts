@@ -6,13 +6,20 @@ import {
   Inject,
   Param,
   Post,
+  Res,
+  StreamableFile,
   UseGuards,
   UseInterceptors
 } from '@nestjs/common';
 import { IsArray, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
 
 import { DocumentMaterialService } from './document-material.service.js';
-import { LearningHoursService, renderLearningJournalCsv } from './learning-hours.service.js';
+import {
+  LEARNING_JOURNAL_XLSX_CONTENT_TYPE,
+  LearningHoursService,
+  renderLearningJournalCsv,
+  renderLearningJournalXlsx
+} from './learning-hours.service.js';
 import { VideoPlaybackService } from './video-playback.service.js';
 import { VideoProgressService } from './video-progress.service.js';
 import { assertValidDto } from '../../../common/app-validation.pipe.js';
@@ -23,6 +30,7 @@ import { PermissionGuard } from '../../iam/permission.guard.js';
 import { MvpRequestPersistenceInterceptor } from '../infrastructure/mvp-request-persistence.interceptor.js';
 
 import type { RequestContext } from '../../../common/context/request-context.js';
+import type { Response } from 'express';
 
 class PlaybackRequestDto {
   /** Зачисление, по которому слушатель смотрит урок — именно оно даёт право на ссылку. */
@@ -135,5 +143,23 @@ export class VideoPlaybackController {
   @Header('Content-Type', 'text/csv; charset=utf-8')
   async learningJournalCsv(@CurrentContext() c: RequestContext, @Param('groupId') groupId: string) {
     return renderLearningJournalCsv(await this.hours.getGroupJournal(c.tenantId!, groupId));
+  }
+
+  /** МГ-B4.2: статистика посещений книгой Excel — то же право, что у журнала. */
+  @Get('groups/:groupId/learning-journal.xlsx')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('groups.read')
+  async learningJournalXlsx(
+    @CurrentContext() c: RequestContext,
+    @Param('groupId') groupId: string,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    const journal = await this.hours.getGroupJournal(c.tenantId!, groupId);
+    res.setHeader('Content-Type', LEARNING_JOURNAL_XLSX_CONTENT_TYPE);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="learning-journal-${encodeURIComponent(groupId)}.xlsx"`
+    );
+    return new StreamableFile(await renderLearningJournalXlsx(journal));
   }
 }

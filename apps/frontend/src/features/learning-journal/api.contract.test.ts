@@ -2,6 +2,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type {
   fetchLearningJournalCsvUrl as FetchCsv,
+  fetchLearningJournalFileUrl as FetchFile,
   learningJournalApi as JournalApi,
   toMinutes as ToMinutes
 } from './api';
@@ -17,6 +18,7 @@ describe('learning journal api contract', () => {
   const fetchMock = vi.fn();
   let learningJournalApi: typeof JournalApi;
   let fetchLearningJournalCsvUrl: typeof FetchCsv;
+  let fetchLearningJournalFileUrl: typeof FetchFile;
   let toMinutes: typeof ToMinutes;
 
   const envelope = (data: unknown) =>
@@ -35,6 +37,7 @@ describe('learning journal api contract', () => {
     const mod = await import('./api');
     learningJournalApi = mod.learningJournalApi;
     fetchLearningJournalCsvUrl = mod.fetchLearningJournalCsvUrl;
+    fetchLearningJournalFileUrl = mod.fetchLearningJournalFileUrl;
     toMinutes = mod.toMinutes;
   });
 
@@ -87,6 +90,19 @@ describe('learning journal api contract', () => {
     expect(url).toBe('blob:journal');
     const [requestUrl] = fetchMock.mock.calls[0]! as [string, RequestInit];
     expect(requestUrl).toContain('/groups/grp_1/learning-journal.csv');
+  });
+
+  // МГ-B4.2: XLSX — та же дорожка, другой хвост адреса.
+  it('XLSX берётся с /learning-journal.xlsx тем же способом', async () => {
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal('URL', { ...URL, createObjectURL: vi.fn(() => 'blob:journal-xlsx') });
+    fetchMock.mockResolvedValueOnce(new Response('PK', { status: 200 }));
+
+    const url = await fetchLearningJournalFileUrl(session, 'grp_1', 'xlsx');
+
+    expect(url).toBe('blob:journal-xlsx');
+    const [requestUrl] = fetchMock.mock.calls[0]! as [string, RequestInit];
+    expect(requestUrl).toContain('/groups/grp_1/learning-journal.xlsx');
   });
 
   it('ошибка выгрузки доходит текстом, а не пустым файлом', async () => {

@@ -25,6 +25,14 @@ export interface LearningJournalEntryDto {
   testSeconds: number;
   /** ФТ-F4 (Фаза 5 Task 9): посещённые вебинары группы. */
   webinarSeconds: number;
+  /** МГ-B4.2 (срез 8.8): статистика посещений поверх часов; поля необязательные. */
+  lastLoginAt?: string;
+  progressPercent?: number;
+  attemptsCount: number;
+  bestScore?: number;
+  maxScore?: number;
+  examPassed?: boolean;
+  resultCode?: string;
 }
 
 export interface LearningJournalDto {
@@ -48,16 +56,19 @@ export const learningJournalApi = {
     })
 };
 
+export type LearningJournalFileFormat = 'csv' | 'xlsx';
+
 /**
- * Выгрузка CSV: сервер отдаёт файл, а не конверт API, поэтому идём мимо `apiRequest`
- * и возвращаем object-URL — на проверке просят файл, а не скриншот.
+ * Выгрузка файлом: сервер отдаёт файл, а не конверт API, поэтому идём мимо `apiRequest`
+ * и возвращаем object-URL — на проверке просят файл, а не скриншот. XLSX — МГ-B4.2.
  */
-export async function fetchLearningJournalCsvUrl(
+export async function fetchLearningJournalFileUrl(
   session: UserSession,
-  groupId: string
+  groupId: string,
+  format: LearningJournalFileFormat
 ): Promise<string> {
   const res = await fetch(
-    `${frontendEnv.NEXT_PUBLIC_API_BASE_URL}/groups/${groupId}/learning-journal.csv`,
+    `${frontendEnv.NEXT_PUBLIC_API_BASE_URL}/groups/${groupId}/learning-journal.${format}`,
     {
       headers: {
         authorization: `Bearer ${session.tokens.accessToken}`,
@@ -68,6 +79,10 @@ export async function fetchLearningJournalCsvUrl(
   if (!res.ok) throw new Error(`Не удалось выгрузить журнал (HTTP ${res.status})`);
   return URL.createObjectURL(await res.blob());
 }
+
+/** Прежнее имя для CSV — вызовы и тесты не переписываются. */
+export const fetchLearningJournalCsvUrl = (session: UserSession, groupId: string) =>
+  fetchLearningJournalFileUrl(session, groupId, 'csv');
 
 /** Секунды в минуты — в отчёте нужны минуты, а не 145800. */
 export function toMinutes(seconds: number): number {
