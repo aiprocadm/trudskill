@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
+import { DocumentSampleForm } from './document-sample-form';
 import { GroupCoursesList } from './group-courses-list';
 import { GroupEditDrawer } from './group-edit-drawer';
 import {
@@ -559,7 +560,19 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
         </SectionCard>
 
         {/* МГ-F5.1 (срез 20.1): что мешает выпустить документы — до нажатия «Закрыть группу». */}
-        <IssueReadinessSection groupId={id} />
+        <IssueReadinessSection groupId={id}>
+          {canGenerateDocuments ? (
+            <DocumentSampleForm
+              groupId={id}
+              learners={(enrollments?.items ?? [])
+                .filter((e) => e.status !== 'cancelled')
+                .map((e) => ({
+                  enrollmentId: e.id,
+                  name: learnerNameCell(learnerNames, e.learnerId)
+                }))}
+            />
+          ) : null}
+        </IssueReadinessSection>
 
         {/* ФТ-B3.4: доказательная база на проверке ГИТ/Минтруда. */}
         <LearningJournalSection groupId={id} />

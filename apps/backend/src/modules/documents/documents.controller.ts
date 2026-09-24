@@ -30,6 +30,7 @@ import {
   CreateUploadUrlDto,
   DiscardQuarantinedDto,
   DocumentReasonDto,
+  DocumentSampleDto,
   GenerateDocumentDto,
   GenerateDocumentsBatchDto,
   IssueGroupOrderDto,
@@ -54,6 +55,7 @@ import { DocumentsNormalizedReadsService } from './infrastructure/documents-norm
 import { DocumentsRequestPersistenceInterceptor } from './infrastructure/documents-request-persistence.interceptor.js';
 import { IssuanceReadinessService } from './issuance-readiness.service.js';
 import { JobQuarantineService } from './job-quarantine.service.js';
+import { SAMPLE_DOCUMENT_NUMBER } from './numbering-format.js';
 import { validateProtocolTemplate } from './protocol-compliance.js';
 import { TemplateInspectionService } from './template-inspection.service.js';
 import { demoVariables } from './variable-catalog.js';
@@ -364,6 +366,37 @@ export class DocumentsController {
    * ФТ-A3.3: «Сгенерировать пример» — тот же движок, что у боевой выдачи, но на демо-данных.
    * Отдаём PDF потоком: конверт ответа для бинарных тел не применяется (см. @Res в проекте).
    */
+  /**
+   * МГ-F5.1 (срез 20.2): образец документа на НАСТОЯЩИХ данных группы или слушателя — «как
+   * выйдет», до выпуска. Номера нет: вместо него «ОБРАЗЕЦ», ничего не выпускается и не
+   * сохраняется. Право — выпуск документов: образец показывает персональные данные группы.
+   */
+  @Post('documents/sample')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.generate')
+  async sampleDocument(
+    @CurrentContext() c: RequestContext,
+    @Body() raw: unknown,
+    @Res() res: Response
+  ) {
+    const b = assertValidDto(DocumentSampleDto, raw);
+    if (!this.variables) {
+      throw new BadRequestException({
+        code: 'sample_unavailable',
+        message: 'Образец сейчас собрать нельзя — повторите чуть позже.'
+      });
+    }
+    const { task, fileId } = this.documentsService.sampleTask(c.tenantId!, b);
+    const variables = await this.variables.build({ tenantId: c.tenantId!, task });
+    variables['document.number'] = SAMPLE_DOCUMENT_NUMBER;
+    const images = await this.inspection.previewImages(c.tenantId!);
+    const pdf = await this.inspection.preview(c.tenantId!, fileId, variables, images);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="sample.pdf"');
+    res.setHeader('Content-Length', String(pdf.length));
+    res.end(pdf);
+  }
+
   @Post('template-versions/:id/preview')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
