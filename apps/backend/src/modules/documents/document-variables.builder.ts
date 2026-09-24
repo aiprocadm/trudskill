@@ -20,6 +20,11 @@ import { todayIn } from '../../common/utils/tenant-calendar.js';
 import { backendEnv } from '../../env.js';
 import { TenantTimezoneService } from '../../infrastructure/tenant/tenant-timezone.service.js';
 import { MvpTenantRunner } from '../mvp/infrastructure/mvp-tenant-runner.service.js';
+import {
+  extraFieldVariableCode,
+  learnerExtraFieldsFrom,
+  resolveExtraFieldVariables
+} from '../mvp/learners/learner-extra-fields.js';
 import { REGULATORY_ACTS_SEED } from '../mvp/regulatory-acts.seed.js';
 import { LicensesService } from '../org/licenses.service.js';
 import { TenantService } from '../tenant/tenant.service.js';
@@ -73,7 +78,8 @@ export class DocumentVariablesBuilder {
     reservedNumber?: string;
     document?: GeneratedDocumentEntity;
   }): Promise<Record<string, unknown>> {
-    const codes = allVariableCodes();
+    // МГ-C1.3 (РМ86): именованные поля центра — свои коды поверх общего каталога.
+    const codes = [...allVariableCodes(), ...(await this.extraLearnerCodes(params.tenantId))];
     // Пояс центра нужен запасной дате выпуска (журнал 301) — разрешаем один раз на сборку.
     this.tenantTimezone = await this.timezones?.resolve(params.tenantId);
     const [mvpVariables, tenantVariables] = await Promise.all([
@@ -93,6 +99,18 @@ export class DocumentVariablesBuilder {
       ...mvpVariables,
       ...this.buildDocumentVariables(params, codes)
     };
+  }
+
+  /** Коды `learner.extra.<ключ>` из настроек центра; без настроек или без базы — пусто. */
+  private async extraLearnerCodes(tenantId: string): Promise<string[]> {
+    if (!this.tenants) return [];
+    try {
+      const stored = await this.tenants.getSettings(tenantId);
+      return learnerExtraFieldsFrom(stored.payload).map((def) => extraFieldVariableCode(def.key));
+    } catch {
+      // Настроек у центра может не быть — документ собирается без именованных полей.
+      return [];
+    }
   }
 
   /** Категория `document.*` + дата прописью (её нет в pure-резолвере). */
@@ -263,6 +281,11 @@ export class DocumentVariablesBuilder {
 
     if (learner) {
       Object.assign(result, resolveLearnerVariables({ learner }, pick('learner.')));
+      // После общих переменных: `learner.extra.*` общий резолвер вернул бы пустыми.
+      Object.assign(
+        result,
+        resolveExtraFieldVariables(learner.extraFields, pick('learner.extra.'))
+      );
     }
     if (enrollment) {
       Object.assign(result, resolveEnrollmentVariables({ enrollment }, pick('enrollment.')));

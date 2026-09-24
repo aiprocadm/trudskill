@@ -12,7 +12,7 @@ import type { FilesService } from '../files/files.service.js';
 const T = 'tenant_demo';
 
 /** Файловый слой отдаёт указанный буфер; AV-гейт считается пройденным. */
-function makeService(fileBody: Buffer) {
+function makeService(fileBody: Buffer, extraFields?: unknown) {
   const files = {
     getReadableFile: vi.fn(async () => ({ storageKey: 'templates/t/x.docx', sizeBytes: 1 }))
   } as unknown as FilesService;
@@ -25,6 +25,10 @@ function makeService(fileBody: Buffer) {
       legalName: 'ООО УЦ',
       taxNumber: '7701',
       payload: {}
+    })),
+    getSettings: vi.fn(async () => ({
+      tenantId: T,
+      payload: extraFields ? { learnerExtraFields: extraFields } : {}
     }))
   };
   const service = new TemplateInspectionService(files, storage, tenants as never);
@@ -79,6 +83,19 @@ describe('TemplateInspectionService.inspect (ФТ-A3.2)', () => {
     const result = await service.inspect(T, 'file_1');
     const entry = result.known.find((item) => item.code === 'tenant.name');
     expect(entry?.description).toMatch(/[А-Яа-я]/);
+  });
+
+  // МГ-C1.3 (РМ86): поле, описанное в настройках центра, — известная переменная; неописанное — нет.
+  it('treats tenant-defined learner fields as known and the rest as typos', async () => {
+    const body = buildDocx(p('{learner.extra.otdel} / {learner.extra.none}'));
+    const { service } = makeService(body, [{ key: 'otdel', label: 'Отдел', type: 'text' }]);
+    const result = await service.inspect(T, 'file_1');
+    const known = result.known.find((item) => item.code === 'learner.extra.otdel');
+    expect(known?.description).toContain('Отдел');
+    expect(result.unknown).toEqual(['learner.extra.none']);
+    // Без описания и первое поле — опечатка.
+    const bare = await makeService(body).service.inspect(T, 'file_1');
+    expect(bare.unknown).toEqual(['learner.extra.otdel', 'learner.extra.none']);
   });
 
   it('a non-DOCX file yields a readable 400 instead of a crash', async () => {

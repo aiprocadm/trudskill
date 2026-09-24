@@ -11,11 +11,13 @@ import { collectDocumentImageRefs } from './document-images.js';
 import {
   type VariableCatalogEntry,
   classifyPlaceholders,
+  extraLearnerVariableEntries,
   isImageVariable
 } from './variable-catalog.js';
 import { backendEnv } from '../../env.js';
 import { S3StorageClient } from '../../infrastructure/storage/s3-storage.client.js';
 import { FilesService } from '../files/files.service.js';
+import { learnerExtraFieldsFrom } from '../mvp/learners/learner-extra-fields.js';
 import { tenantImageFileId } from '../tenant/tenant-document-images.js';
 import { TenantService } from '../tenant/tenant.service.js';
 
@@ -63,6 +65,16 @@ export class TemplateInspectionService {
     @Inject(TenantService) private readonly tenants: TenantService
   ) {}
 
+  private async extraKnown(tenantId: string): Promise<VariableCatalogEntry[]> {
+    try {
+      const stored = await this.tenants.getSettings(tenantId);
+      return extraLearnerVariableEntries(learnerExtraFieldsFrom(stored.payload));
+    } catch {
+      // Настроек у центра может не быть — тогда именованных полей нет, и это не ошибка проверки.
+      return [];
+    }
+  }
+
   /** Читает DOCX по fileId (через AV-гейт files-модуля) и раскладывает его плейсхолдеры. */
   async inspect(tenantId: string, fileId: string): Promise<TemplateInspection> {
     const docx = await this.readDocx(tenantId, fileId);
@@ -79,7 +91,8 @@ export class TemplateInspectionService {
       });
     }
     const placeholders = tags.map((tag) => tag.name);
-    const { known, unknown } = classifyPlaceholders(placeholders);
+    // МГ-C1.3 (РМ86): именованные поля центра для проверки шаблона — известные переменные.
+    const { known, unknown } = classifyPlaceholders(placeholders, await this.extraKnown(tenantId));
     // ФТ-A7.1: картинка, вставленная обычным тегом, молча напечатала бы UUID файла —
     // самая вероятная ошибка при первой настройке бланка, поэтому предупреждаем явно.
     const warnings = tags

@@ -2,6 +2,12 @@ import { Module, Scope } from '@nestjs/common';
 
 import { GroupStatusScanner } from './groups/group-status.scanner.service.js';
 import { GroupStatusSchedulerService } from './groups/group-status.scheduler.service.js';
+import { GroupWizardService } from './groups/group-wizard.service.js';
+import { IdentityPolicyController } from './identity/identity-policy.controller.js';
+import { IDENTITY_POLICY_REPOSITORY } from './identity/identity-policy.repository.js';
+import { IdentityPolicyService } from './identity/identity-policy.service.js';
+import { IdentityRetentionScanner } from './identity/identity-retention-scanner.service.js';
+import { IdentityRetentionSchedulerService } from './identity/identity-retention-scheduler.service.js';
 import { MvpNormalizedReadsService } from './infrastructure/mvp-normalized-reads.service.js';
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
 import { MVP_STATE } from './infrastructure/mvp-state.token.js';
@@ -37,12 +43,6 @@ import { FrdoRegistryXlsxWriter } from './frdo-registry/frdo-registry-xlsx.write
 import { FrdoRegistryController } from './frdo-registry/frdo-registry.controller.js';
 import { FrdoRegistryService } from './frdo-registry/frdo-registry.service.js';
 import { GroupSettingsService } from './groups/group-settings.service.js';
-import { GroupWizardService } from './groups/group-wizard.service.js';
-import { IdentityPolicyController } from './identity/identity-policy.controller.js';
-import { IDENTITY_POLICY_REPOSITORY } from './identity/identity-policy.repository.js';
-import { IdentityPolicyService } from './identity/identity-policy.service.js';
-import { IdentityRetentionScanner } from './identity/identity-retention-scanner.service.js';
-import { IdentityRetentionSchedulerService } from './identity/identity-retention-scheduler.service.js';
 import { InMemoryIdentityPolicyRepository } from './identity/in-memory-identity-policy.repository.js';
 import { LearnerDossierService } from './identity/learner-dossier.service.js';
 import { PostgresIdentityPolicyRepository } from './identity/postgres-identity-policy.repository.js';
@@ -168,6 +168,7 @@ import { PostgresExamResultsRepository } from './infrastructure/repositories/pos
 import { PostgresGroupCoursesRepository } from './infrastructure/repositories/postgres-group-courses.repository.js';
 import { PostgresGroupsRepository } from './infrastructure/repositories/postgres-groups.repository.js';
 import { PostgresLearnersRepository } from './infrastructure/repositories/postgres-learners.repository.js';
+import { LearnerFieldsSettingsService } from './learners/learner-fields-settings.service.js';
 
 @Module({
   imports: [
@@ -389,6 +390,8 @@ import { PostgresLearnersRepository } from './infrastructure/repositories/postgr
     },
     /* Фаза 2, срез 8.1: шаблон кода и значения по умолчанию группы из настроек центра. */
     GroupSettingsService,
+    /* МГ-C1.3: описание именованных полей личного дела из настроек центра. */
+    LearnerFieldsSettingsService,
     /* Фаза 2, срез 8.4: мастер создания группы поверх request-scoped MvpService. */
     { provide: GroupWizardService, scope: Scope.REQUEST, useClass: GroupWizardService },
     {

@@ -185,18 +185,38 @@ export function imageVariableCodes(): string[] {
  * Раскладка найденных в бланке плейсхолдеров на «известные / неизвестные» —
  * основа таблицы админ-UX при загрузке DOCX (ФТ-A3.2).
  */
-export function classifyPlaceholders(placeholders: string[]): {
+/**
+ * `extraKnown` — коды именованных полей центра (`learner.extra.<ключ>`, МГ-C1.3, РМ86): их нет в
+ * общем каталоге, но для конкретного центра они известны и подставляются при сборке.
+ */
+export function classifyPlaceholders(
+  placeholders: string[],
+  extraKnown: ReadonlyArray<VariableCatalogEntry> = []
+): {
   known: VariableCatalogEntry[];
   unknown: string[];
 } {
   const known: VariableCatalogEntry[] = [];
   const unknown: string[] = [];
   for (const name of placeholders) {
-    const found = VARIABLE_CATALOG.find((item) => item.code === name);
+    const found =
+      VARIABLE_CATALOG.find((item) => item.code === name) ??
+      extraKnown.find((item) => item.code === name);
     if (found) known.push(found);
     else unknown.push(name);
   }
   return { known, unknown };
+}
+
+/** Записи каталога для именованных полей центра — подпись из настройки становится описанием. */
+export function extraLearnerVariableEntries(
+  defs: ReadonlyArray<{ key: string; label: string }>
+): VariableCatalogEntry[] {
+  return defs.map((def) => ({
+    code: `learner.extra.${def.key}`,
+    category: 'learner',
+    description: `Поле личного дела центра: ${def.label}`
+  }));
 }
 
 /**
