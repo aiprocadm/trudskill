@@ -49,9 +49,9 @@
 
 **Files:** `migrations/0116_crm_contacts_employees_activate.sql`; `mvp/counterparty-people/{counterparty-people.types.ts, counterparty-people.repository.ts, postgres-counterparty-people.repository.ts, in-memory-counterparty-people.repository.ts, counterparty-people.dto.ts, counterparty-people.service.ts}` (+ тесты службы и DTO, интеграционный на живой базе); `mvp.controller.ts`, `mvp.module.ts`; сторожа (исключения с причиной, если потребуются); `audit/labels.ts`, `lib/errors/error-text.ts` на фронте.
 
-- [ ] Миграция + интеграционный тест на живой базе (два сотрудника без номера, досоздание компании).
-- [ ] Репозитории, служба, DTO, ручки; тесты службы (скоуп, частичный успех, связь со слушателем).
-- [ ] Документация §5.601, `pnpm ci:check`, PR, слияние.
+- [x] Миграция + интеграционный тест на живой базе (два сотрудника без номера, досоздание компании).
+- [x] Репозитории, служба, DTO, ручки; тесты службы (скоуп, частичный успех, связь со слушателем).
+- [x] Документация §5.601, `pnpm ci:check`, PR, слияние.
 
 ## Task 2: срез 14.2 — фронт
 
