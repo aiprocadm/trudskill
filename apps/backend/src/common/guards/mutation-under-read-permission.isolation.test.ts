@@ -41,6 +41,14 @@ const READ_WORDS = new Set(['read', 'view', 'list', 'export', 'download']);
 /** Изменяющие по глаголу HTTP ручки, которые по сути читают, — с причиной. */
 const EXEMPT: ReadonlyArray<{ route: string; why: string }> = [
   {
+    route: 'POST /saved-views',
+    why: 'своё представление реестра (МГ-H4.1, РМ106): пишет только запись владельца, чужие данные не трогает; право «смотреть» и есть право пользоваться реестром, отдельного права ТЗ не вводит; общие представления центра — отдельной ручкой под tenant.settings.write'
+  },
+  {
+    route: 'DELETE /saved-views/:id',
+    why: 'удаление своего представления: служба отказывает всем, кроме владельца (ForbiddenException saved_view_not_own), общие — отдельной ручкой под tenant.settings.write'
+  },
+  {
     route: 'POST /reports/builder/preview',
     why: 'конструктор отчётов: тело — описание отчёта, ответ — первые строки; ничего не сохраняется'
   },

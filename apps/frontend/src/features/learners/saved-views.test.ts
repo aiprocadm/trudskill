@@ -1,97 +1,65 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { LEARNER_PRESET_VIEWS, matchesQuery, readSavedViews, writeSavedViews } from './saved-views';
+import {
+  LEARNER_PRESET_VIEWS,
+  LEGACY_STORAGE_KEY,
+  clearLegacyViews,
+  matchesQuery,
+  readLegacyViews
+} from './saved-views';
 
 /**
- * `CMP-012` · быстрые отборы реестра.
- *
- * Хранилище браузера — ненадёжная среда: приватный режим запрещает запись, чужой код
- * может положить в ключ что угодно, старая версия могла записать другой формат. Экран
- * реестра из-за этого падать не должен — в худшем случае человек не увидит своих отборов.
+ * `CMP-012` · быстрые отборы реестра слушателей. С МГ-H4.1 (срез 11.3) свои отборы живут на
+ * сервере; здесь — готовые отборы, подсветка и разовый перенос из браузера.
  */
-
-/*
- * Хранилище подменяется так же, как в тестах сессии (`lib/auth/session-store.test.ts`):
- * тесты фронта идут в node-окружении, где `window` нет вовсе. Второй способ делать то же
- * самое разъехался бы с первым — берём готовый.
- */
-const originalWindow = globalThis.window;
-
-const createLocalStorage = () => {
-  const storage = new Map<string, string>();
+const storageOf = (raw: string | null) => {
+  let value = raw;
   return {
-    getItem: (key: string) => storage.get(key) ?? null,
-    setItem: (key: string, value: string) => {
-      storage.set(key, value);
+    getItem: () => value,
+    removeItem: () => {
+      value = null;
     },
-    removeItem: (key: string) => {
-      storage.delete(key);
-    },
-    clear: () => {
-      storage.clear();
-    }
+    current: () => value
   };
 };
 
 describe('быстрые отборы слушателей', () => {
-  beforeAll(() => {
-    Object.defineProperty(globalThis, 'window', {
-      value: { localStorage: createLocalStorage() },
-      configurable: true
-    });
-  });
-
-  afterAll(() => {
-    Object.defineProperty(globalThis, 'window', { value: originalWindow, configurable: true });
-  });
-
-  beforeEach(() => {
-    window.localStorage.clear();
-  });
-
-  it('из коробки приходят три готовых отбора — пустой список бесполезен', () => {
-    expect(LEARNER_PRESET_VIEWS).toHaveLength(3);
-    // Предустановленные нельзя удалить: это часть экрана, а не заметка человека.
+  it('из коробки — готовые отборы, включая «без почты» и «ни разу не входили» (МГ-C3.2)', () => {
     expect(LEARNER_PRESET_VIEWS.every((view) => view.preset)).toBe(true);
+    expect(LEARNER_PRESET_VIEWS.map((view) => view.id)).toContain('preset-no-email');
+    expect(LEARNER_PRESET_VIEWS.map((view) => view.id)).toContain('preset-never-logged-in');
   });
 
   it('готовые отборы опираются только на фильтры, которые у экрана есть', () => {
-    const known = new Set(['q', 'status']);
+    const known = new Set(['q', 'status', 'companyId', 'groupId', 'noEmail', 'neverLoggedIn']);
     for (const view of LEARNER_PRESET_VIEWS) {
-      expect(Object.keys(view.query).every((key) => known.has(key))).toBe(true);
+      for (const key of Object.keys(view.query)) expect(known.has(key)).toBe(true);
     }
   });
 
-  it('свой отбор переживает перезагрузку страницы', () => {
-    writeSavedViews([{ id: 'own-1', label: 'Мой отбор', query: { q: 'Иванов', status: '' } }]);
-    expect(readSavedViews()).toEqual([
-      { id: 'own-1', label: 'Мой отбор', query: { q: 'Иванов', status: '' } }
-    ]);
-  });
-
-  it('битое хранилище не роняет экран — отборов просто нет', () => {
-    window.localStorage.setItem('trudskill.learners.saved-views.v1', '{не json');
-    expect(readSavedViews()).toEqual([]);
-  });
-
-  it('чужой формат в ключе отбрасывается, а не показывается как отбор', () => {
-    window.localStorage.setItem(
-      'trudskill.learners.saved-views.v1',
-      JSON.stringify([{ nonsense: true }, { id: 'ok', label: 'Годный', query: {} }])
-    );
-    expect(readSavedViews()).toEqual([{ id: 'ok', label: 'Годный', query: {} }]);
-  });
-
-  it('подсветка отбора совпадает по значениям, а не по ссылке', () => {
-    const view = LEARNER_PRESET_VIEWS[1]!;
+  it('подсветка отбора совпадает по значениям, а не по ссылке; пусто и отсутствие — одно', () => {
+    const view = { id: 'x', label: 'x', query: { q: '', status: 'active' } };
     expect(matchesQuery(view, { q: '', status: 'active' })).toBe(true);
-    expect(matchesQuery(view, { q: 'Иванов', status: 'active' })).toBe(false);
+    expect(matchesQuery(view, { status: 'active' })).toBe(true);
+    expect(matchesQuery(view, { status: 'active', noEmail: '1' })).toBe(false);
   });
 
-  it('пустая строка и отсутствие значения — одно и то же', () => {
-    // Иначе «Все слушатели» не подсветится на свежем экране, где фильтры ещё не трогали.
-    const all = LEARNER_PRESET_VIEWS[0]!;
-    expect(matchesQuery(all, {})).toBe(true);
-    expect(matchesQuery(all, { q: '', status: '' })).toBe(true);
+  it('перенос из браузера: битое и чужое отбрасывается, после переноса ключ очищается', () => {
+    expect(readLegacyViews(undefined)).toEqual([]);
+    expect(readLegacyViews(storageOf('не json'))).toEqual([]);
+    expect(readLegacyViews(storageOf(JSON.stringify({ not: 'array' })))).toEqual([]);
+    const storage = storageOf(
+      JSON.stringify([
+        { id: 'own-1', label: 'Мои', query: { q: 'Иванов', status: '' } },
+        { id: 42, label: 'мусор' },
+        'строка'
+      ])
+    );
+    expect(readLegacyViews(storage)).toEqual([
+      { id: 'own-1', label: 'Мои', query: { q: 'Иванов', status: '' } }
+    ]);
+    clearLegacyViews(storage);
+    expect(storage.current()).toBeNull();
+    expect(LEGACY_STORAGE_KEY).toContain('learners');
   });
 });

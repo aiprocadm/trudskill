@@ -3,37 +3,49 @@ import type { SavedView } from '@trudskill/ui';
 /**
  * `CMP-012` · быстрые отборы реестра слушателей.
  *
- * **Хранение — в браузере.** ТЗ прямо ограничивает: серверное хранение потребовало бы
- * менять контракт API, а это вне границ редизайна (§14). Значит отборы живут у человека
- * на его машине и не переезжают между устройствами — это осознанное ограничение, а не
- * недоделка.
- *
- * Ключ с префиксом `trudskill.` — как у сессии (`lib/auth/session-store.ts`). Старый
- * префикс `cdoprof.` здесь не читается: отборов до ребрендинга не существовало, читать
- * нечего (`BR-020` требует двойного чтения только там, где данные могли остаться).
+ * С МГ-H4.1 (срез 11.3, РМ106) свои отборы живут на сервере (`/saved-views?entity=learners`):
+ * они видны с любого устройства и не пропадают с чисткой браузера. Здесь остаются готовые
+ * отборы экрана, сравнение «какой отбор сейчас включён» и разовый перенос того, что человек
+ * успел сохранить в браузере до переезда.
  */
+export const LEARNERS_VIEW_ENTITY = 'learners';
 
-const STORAGE_KEY = 'trudskill.learners.saved-views.v1';
+/** Ключ старого хранилища браузера — читается только для переноса и затем очищается. */
+export const LEGACY_STORAGE_KEY = 'trudskill.learners.saved-views.v1';
 
-/**
- * Предустановленные отборы. ТЗ: «умолчание вместо настройки» — пустой список бесполезен,
- * потому что им нельзя воспользоваться, пока сам что-нибудь не сохранишь.
- *
- * Три среза, за которыми администратор возвращается: весь реестр, кто учится сейчас и
- * архив. Они опираются только на те фильтры, что у экрана есть на самом деле, — выдумывать
- * отбор «не сдали экзамен», которого список не умеет, значит показать кнопку-обманку.
- */
 export const LEARNER_PRESET_VIEWS: SavedView[] = [
   { id: 'preset-all', label: 'Все слушатели', query: { q: '', status: '' }, preset: true },
   { id: 'preset-active', label: 'Сейчас учатся', query: { q: '', status: 'active' }, preset: true },
-  { id: 'preset-archived', label: 'В архиве', query: { q: '', status: 'archived' }, preset: true }
+  { id: 'preset-archived', label: 'В архиве', query: { q: '', status: 'archived' }, preset: true },
+  /* МГ-C3.2 (срез 11.2): кому нельзя выслать доступ и кто его не использовал. */
+  {
+    id: 'preset-no-email',
+    label: 'Без почты',
+    query: { q: '', status: '', noEmail: '1' },
+    preset: true
+  },
+  {
+    id: 'preset-never-logged-in',
+    label: 'Ни разу не входили',
+    query: { q: '', status: 'active', neverLoggedIn: '1' },
+    preset: true
+  }
 ];
 
-/** Свои отборы человека. Битое хранилище не роняет экран — просто отборов нет. */
-export const readSavedViews = (): SavedView[] => {
-  if (typeof window === 'undefined') return [];
+/** Подсветка отбора — по значениям фильтров, пустая строка и отсутствие — одно и то же. */
+export const matchesQuery = (view: SavedView, query: Record<string, string>): boolean =>
+  Object.keys({ ...view.query, ...query }).every(
+    (key) => (view.query[key] ?? '') === (query[key] ?? '')
+  );
+
+/**
+ * Отборы, сохранённые в браузере до переезда на сервер (РМ108): читаются один раз, битое или
+ * чужое отбрасывается. Пусто — переносить нечего.
+ */
+export const readLegacyViews = (storage: Pick<Storage, 'getItem'> | undefined): SavedView[] => {
+  if (!storage) return [];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = storage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -42,24 +54,20 @@ export const readSavedViews = (): SavedView[] => {
         typeof item === 'object' &&
         item !== null &&
         typeof (item as SavedView).id === 'string' &&
-        typeof (item as SavedView).label === 'string'
+        typeof (item as SavedView).label === 'string' &&
+        typeof (item as SavedView).query === 'object' &&
+        (item as SavedView).query !== null
     );
   } catch {
     return [];
   }
 };
 
-export const writeSavedViews = (views: SavedView[]): void => {
-  if (typeof window === 'undefined') return;
+/** После переноса ключ убирается — иначе отборы переезжали бы при каждом открытии. */
+export const clearLegacyViews = (storage: Pick<Storage, 'removeItem'> | undefined): void => {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(views));
+    storage?.removeItem(LEGACY_STORAGE_KEY);
   } catch {
-    /* Приватный режим и переполненное хранилище: отбор не сохранится, но экран живёт. */
+    /* Хранилище браузера может быть закрыто для записи — перенос всё равно состоялся. */
   }
 };
-
-/** Совпадает ли текущий отбор с сохранённым — по значениям, а не по ссылке. */
-export const matchesQuery = (view: SavedView, query: Record<string, string>): boolean =>
-  Object.keys({ ...view.query, ...query }).every(
-    (key) => (view.query[key] ?? '') === (query[key] ?? '')
-  );
