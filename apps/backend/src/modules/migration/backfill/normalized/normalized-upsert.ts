@@ -1,3 +1,5 @@
+import { type ProjectionContext, emptyContext } from './normalized-projection.js';
+
 import type { ColumnType, ProjectedRow, TableSpec } from './normalized-projection.js';
 import type { PoolClient } from 'pg';
 
@@ -201,6 +203,99 @@ export async function detachHistoryFromEnrollments(
   await client.query(
     `delete from learning.enrollment_status_history
       where tenant_id = $1 and not (enrollment_id = any($2::text[]))`,
+    [tenantId, scope.keep]
+  );
+}
+
+/**
+ * Соседи документа для проекции (срез 0b бэкфилл, срез 5a сохранение снимка документов):
+ * зачисление → слушатель и группа, группа → контрагент, файл — существует ли. Читается той же
+ * транзакцией, что и запись: документ, выпущенный в одном запросе с зачислением, может не найти
+ * его в таблице (сохранение документов коммитится раньше MVP) — тогда ссылка обнуляется, а
+ * исходник остаётся в `payload`; её восстановит следующий прогон бэкфилла или сверки.
+ */
+export async function loadGeneratedDocumentContext(
+  client: PoolClient,
+  tenantId: string,
+  documents: ReadonlyArray<Record<string, unknown>>
+): Promise<ProjectionContext> {
+  const ctx = emptyContext();
+  const enrollmentIds = [
+    ...new Set(
+      documents
+        .filter((d) => d.sourceEntityType === 'enrollment' && typeof d.sourceEntityId === 'string')
+        .map((d) => d.sourceEntityId as string)
+    )
+  ];
+  const groupIds = new Set(
+    documents
+      .filter((d) => d.sourceEntityType === 'group' && typeof d.sourceEntityId === 'string')
+      .map((d) => d.sourceEntityId as string)
+  );
+  if (enrollmentIds.length > 0) {
+    const found = await client.query<{ id: string; group_id: string; learner_id: string }>(
+      'select id, group_id, learner_id from learning.enrollments where tenant_id = $1 and id = any($2::text[])',
+      [tenantId, enrollmentIds]
+    );
+    for (const e of found.rows) {
+      ctx.enrollments.set(e.id, { groupId: e.group_id, learnerId: e.learner_id });
+      groupIds.add(e.group_id);
+    }
+  }
+  if (groupIds.size > 0) {
+    const found = await client.query<{ id: string; counterparty_id: string | null }>(
+      'select id, counterparty_id from learning.groups where tenant_id = $1 and id = any($2::text[])',
+      [tenantId, [...groupIds]]
+    );
+    for (const g of found.rows) ctx.groups.set(g.id, { counterpartyId: g.counterparty_id });
+  }
+  const fileIds = [
+    ...new Set(
+      documents.map((d) => d.fileId).filter((v): v is string => typeof v === 'string' && v !== '')
+    )
+  ];
+  if (fileIds.length > 0) {
+    const found = await client.query<{ id: string }>(
+      'select id from storage.files where tenant_id = $1 and id = any($2::text[])',
+      [tenantId, fileIds]
+    );
+    for (const f of found.rows) ctx.files.add(f.id);
+  }
+  return ctx;
+}
+
+/** Ссылки документа на сущности MVP, которые проекция снимает перед их удалением. */
+export type DocumentLinkColumn = 'learner_id' | 'group_id' | 'counterparty_id';
+
+/**
+ * Документы ссылаются на слушателя, группу и контрагента (ключи 0003/0105). Снимок документов
+ * при удалении этих сущностей в MVP не меняется, поэтому перед удалением (`deleted`) или чисткой
+ * лишних (`keep` — остальные) ссылка обнуляется, а исходник уходит в `payload.__detached`
+ * (обратная проекция такие ключи не отдаёт — у документа снимка этих полей нет).
+ */
+export async function detachDocumentsFrom(
+  client: PoolClient,
+  tenantId: string,
+  column: DocumentLinkColumn,
+  scope: { deleted: string[] } | { keep: string[] }
+): Promise<void> {
+  const set = `set ${column} = null,
+              payload = payload || jsonb_build_object('__detached', coalesce(payload->'__detached', '{}'::jsonb) || jsonb_build_object('${column}', ${column})),
+              updated_at = now()`;
+  if ('deleted' in scope) {
+    if (scope.deleted.length === 0) return;
+    await client.query(
+      `update documents.generated_documents
+          ${set}
+        where tenant_id = $1 and ${column} = any($2::text[])`,
+      [tenantId, scope.deleted]
+    );
+    return;
+  }
+  await client.query(
+    `update documents.generated_documents
+        ${set}
+      where tenant_id = $1 and ${column} is not null and not (${column} = any($2::text[]))`,
     [tenantId, scope.keep]
   );
 }

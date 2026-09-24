@@ -5553,6 +5553,26 @@ PR #493 построил `LearnersListScreen`, но его не импортир
 сверена после правок: вид не изменился (surface-muted и neutral-100 в светлой палитре
 совпадают побитово).
 
+### 5.569 ТЗ перехода с CDOPROF, позиция 7 (Фаза 1, срез 5a): проекция документов при сохранении снимка документов; панель руководителя видит документы (журнал 621)
+
+**Зачем.** Последняя «горячая» коллекция — `generatedDocuments` — живёт в ДОМЕНЕ ДОКУМЕНТОВ (снимок `documents.runtime_documents`), у которого не было ни поштучных отпечатков (один отпечаток на всё состояние, `writeSnapshot` переписывает все 8 коллекций), ни крючка проекции, ни пропуска снимка в интерцепторе. Без проекции таблица `documents.generated_documents` отставала от снимка сразу после первой выдачи. План — `docs/superpowers/plans/2026-09-24-cdoprof-migration-phase-1-slice-5-documents.md` (PR 5a).
+
+**Что сделано.**
+
+- `InMemoryDocumentsState.changedGeneratedDocuments()` — отпечатки документов поимённо, снимаются вместе с общим в `captureLoadFingerprint`; общий отпечаток по-прежнему решает «есть ли что писать» (РМ42).
+- `PostgresDocumentsPersistenceBackend.projectChanged` — в `writeSnapshot` после записи коллекций и идемпотентности, в той же транзакции, только для `authoritativeTable()` (при dual-write — ровно один раз, РМ41). Пачка → по одной → `projection_failed` в `documents.reconciliation_log`, снимок сохраняется всегда. Контекст (зачисление → слушатель и группа, группа → контрагент, файл) читает общий `loadGeneratedDocumentContext` в `normalized-upsert.ts` — тот же, что теперь у бэкфилла; чего в таблицах нет — обнуляется в `payload` (сохранение документов на смешанных маршрутах коммитится раньше MVP), восстановит следующий прогон бэкфилла/сверки (журнал 624).
+- Обратная проекция документа не выдумывает полей: `createdAt/updatedAt` (у сущности их нет), `kindCode`, `isExternal`, `isFinal` (из статуса), `finalizedAt`/`documentDate` (финальному) — в `__synthesized`; `learner_id/group_id/counterparty_id/enrollment_id` — скрытые колонки; служебные ключи `payload` (`__*`) наружу не идут.
+- Обратные ключи: `detachDocumentsFrom(client, tenantId, column, scope)` — перед удалением слушателей, групп и контрагентов в `projectChanged` MVP (пачкой и по одной) ссылка документа обнуляется, исходник — в `payload.__detached`.
+- **Попутная починка (дефект логики, журнал 621).** `GET dashboards/manager` считает выданные документы через `DocumentsService.issuedDocumentRefs`, но на маршруте не было `DocumentsRequestPersistenceInterceptor` — при драйвере `postgres` состояние документов пусто, и «выдано документов» у компаний всегда 0. Интерцептор на ручке + HTTP-тест, который падает без него.
+
+**Файлы.** `documents/in-memory-documents.state.ts`, `documents/infrastructure/postgres-documents-persistence.backend.ts` (+ `.test.ts` — мок отвечает `rowCount` по числу кортежей, 4 новых теста; новый `…projection.integration.test.ts`), `normalized-upsert.ts`, `normalized-backfill.service.ts`, `normalized-projection.ts` (+ `.test.ts`), `mvp/infrastructure/postgres-mvp-persistence.backend.ts` (+ `.test.ts`), `mvp.controller.ts`, `mvp.domains.http.integration.test.ts`, план, трекер, журнал 621–624.
+
+**Тесты.** Юниты + сторожа + HTTP-домены: 34 файла, 233 ✅; живая база (Docker): выпуск с ключами на слушателя/группу/контрагента/файл, документ без зачисления — строка с пустыми ссылками без отказа, отзыв → `is_final=false` с исходным флагом в `payload`, правка бланка не трогает строки документов, удаление слушателя в MVP отвязывает документ и не трогает снимок документов, удаление документа убирает строку ✅; `pnpm ci:check` — см. PR.
+
+**Журнал расхождений.** 621 (панель без документов — исправлено), 622 (`listDocuments.search` ищет подстроку по JSON всего документа, включая расшифрованный `variablesSnapshot` с ПДн), 623 (`page()` документов без потолка `pageSize` — потолок только на HTTP-границе `capHttpPageSize`), 624 (проекция документов и MVP — разные транзакции: документ, выпущенный в одном запросе с зачислением, получает пустые ссылки до следующего бэкфилла/сверки).
+
+**Дальше.** PR 5b: репозиторий `documents.generated_documents`, `DocumentsNormalizedReadsService`, пропуск снимка в `DocumentsRequestPersistenceInterceptor` (`@Optional() Reflector` последним), ручки `documents`, `documents/:id`, `admin/documents/issuance-journal` (+`.csv`) под флагом `generatedDocuments` (РМ43: `search` — по названию/номеру/типу, не по ПДн), k6 «после».
+
 ### 5.568 ТЗ перехода с CDOPROF, позиция 7 (Фаза 1, срез 4b): курсы группы и результаты экзаменов читаются из таблиц под флагом
 
 **Зачем.** Вторая половина среза 4 (план `docs/superpowers/plans/2026-09-23-cdoprof-migration-phase-1-slice-4-group-courses-exam-results.md`): после проекции 4a таблицы `learning.group_courses` и `assessment.exam_results` не отстают от снимка, и пять чистых GET-ручек можно перевести на SQL без загрузки снимка центра. Ушла в тот же PR #814, что и 4a (отклонение от плана «два PR»: вместе ровно 30 файлов, а стек-PR после squash-слияния конфликтует — урок §5.563).

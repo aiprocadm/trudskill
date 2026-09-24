@@ -24,6 +24,7 @@ import {
 import {
   deleteAbsent,
   deleteRows,
+  detachDocumentsFrom,
   detachGroupsFromCounterparties,
   detachHistoryFromEnrollments,
   loadCounterpartyIds,
@@ -424,21 +425,15 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
     ] as const) {
       const keep = entityIds(col);
       const gone = deletedOf(col);
+      const scope = changes[col] === 'all' ? { keep } : { deleted: gone };
       const prepare = async (): Promise<void> => {
         if (col === 'counterparties') {
-          await detachGroupsFromCounterparties(
-            client,
-            tenantId,
-            changes[col] === 'all' ? { keep } : { deleted: gone }
-          );
+          await detachGroupsFromCounterparties(client, tenantId, scope);
+          await detachDocumentsFrom(client, tenantId, 'counterparty_id', scope);
         }
-        if (col === 'enrollments') {
-          await detachHistoryFromEnrollments(
-            client,
-            tenantId,
-            changes[col] === 'all' ? { keep } : { deleted: gone }
-          );
-        }
+        if (col === 'groups') await detachDocumentsFrom(client, tenantId, 'group_id', scope);
+        if (col === 'learners') await detachDocumentsFrom(client, tenantId, 'learner_id', scope);
+        if (col === 'enrollments') await detachHistoryFromEnrollments(client, tenantId, scope);
       };
       if (changes[col] === 'all') {
         await this.projectSafely(client, tenantId, col, null, async () => {
@@ -471,9 +466,14 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
     }
     for (const id of ids) {
       await this.projectSafely(client, tenantId, col, id, async () => {
-        if (col === 'enrollments') {
-          await detachHistoryFromEnrollments(client, tenantId, { deleted: [id] });
+        const one = { deleted: [id] };
+        if (col === 'enrollments') await detachHistoryFromEnrollments(client, tenantId, one);
+        if (col === 'counterparties') {
+          await detachGroupsFromCounterparties(client, tenantId, one);
+          await detachDocumentsFrom(client, tenantId, 'counterparty_id', one);
         }
+        if (col === 'groups') await detachDocumentsFrom(client, tenantId, 'group_id', one);
+        if (col === 'learners') await detachDocumentsFrom(client, tenantId, 'learner_id', one);
         await deleteRows(client, TABLE_SPECS[col], tenantId, [id]);
       });
     }

@@ -46,9 +46,39 @@ export class InMemoryDocumentsState {
    */
   private fingerprintAtLoad: string | undefined = undefined;
 
+  /**
+   * Отпечатки документов поимённо (Фаза 1, срез 5a): проекция в `documents.generated_documents`
+   * пишет только изменённые документы, а не все документы центра на каждое сохранение.
+   * Остальные коллекции домена в таблицы не проецируются, им хватает общего отпечатка.
+   */
+  private documentFingerprintAtLoad: Map<string, string> | undefined = undefined;
+
   /** Снять отпечаток. Зовётся загрузкой сразу после раскладки снимка. */
   captureLoadFingerprint(): void {
     this.fingerprintAtLoad = this.fingerprint();
+    this.documentFingerprintAtLoad = new Map(
+      this.generatedDocuments.map((document) => [document.id, JSON.stringify(document)])
+    );
+  }
+
+  /**
+   * Какие документы менялись с чтения: новые и изменённые — целиком, удалённые — по id.
+   * Отпечатка нет (память, тесты) — `'all'`: проецировать всё и убрать из таблицы лишнее.
+   */
+  changedGeneratedDocuments():
+    | { upserted: GeneratedDocumentEntity[]; deletedIds: string[] }
+    | 'all' {
+    if (this.documentFingerprintAtLoad === undefined) return 'all';
+    const seen = new Set<string>();
+    const upserted: GeneratedDocumentEntity[] = [];
+    for (const document of this.generatedDocuments) {
+      seen.add(document.id);
+      if (this.documentFingerprintAtLoad.get(document.id) !== JSON.stringify(document)) {
+        upserted.push(document);
+      }
+    }
+    const deletedIds = [...this.documentFingerprintAtLoad.keys()].filter((id) => !seen.has(id));
+    return { upserted, deletedIds };
   }
 
   /**

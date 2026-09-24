@@ -4,7 +4,7 @@ import { PostgresDocumentsPersistenceBackend } from './postgres-documents-persis
 import { InMemoryDocumentsState } from '../in-memory-documents.state.js';
 
 import type { DatabaseService } from '../../../infrastructure/database/database.service.js';
-import type { TemplateEntity } from '../documents.types.js';
+import type { GeneratedDocumentEntity, TemplateEntity } from '../documents.types.js';
 
 /**
  * Правило «чтение не должно ничего писать» (журнал 299) и версия снимка (журнал 272/292).
@@ -21,13 +21,14 @@ interface RecordedQuery {
 }
 
 /** База-двойник: помнит, что у неё спрашивали, и отдаёт пустые выборки. */
-function makeRecordingDb() {
+function makeRecordingDb(failWhen?: (sql: string) => boolean) {
   const queries: RecordedQuery[] = [];
   const client = {
     query: vi.fn(async (sql: string, params: unknown[] = []) => {
       queries.push({ sql, params });
-      // rowCount = 1: сверка версии проходит — тут проверяется не она.
-      return { rows: [], rowCount: 1 };
+      if (failWhen?.(sql)) throw new Error('duplicate key value violates unique constraint');
+      // rowCount по числу кортежей: сверка версии проходит (1), проекция пачкой — «все записаны».
+      return { rows: [], rowCount: (sql.match(/\)\s*,\s*\(/g) ?? []).length + 1 };
     })
   };
   const db = {
@@ -39,6 +40,24 @@ function makeRecordingDb() {
   };
   return { queries, db: db as unknown as DatabaseService };
 }
+
+const document = (id: string): GeneratedDocumentEntity =>
+  ({
+    id,
+    tenantId: 't1',
+    templateId: 'tpl_1',
+    templateVersionId: 'tplv_1',
+    documentType: 'certificate',
+    name: 'Удостоверение',
+    sourceEntityType: 'enrollment',
+    sourceEntityId: 'e1',
+    fileId: 'f1',
+    status: 'final',
+    isFinal: true,
+    documentNumber: 'АБ-1',
+    documentDate: '2026-09-24',
+    generatedAt: '2026-09-24T10:00:00.000Z'
+  }) as GeneratedDocumentEntity;
 
 const template = (id: string): TemplateEntity =>
   ({
@@ -102,5 +121,101 @@ describe('PostgresDocumentsPersistenceBackend', () => {
 
     const versionGuard = queries.find((q) => q.sql.includes('core.tenant_state_versions'));
     expect(versionGuard?.params).toEqual(['t1', 'documents', 7]);
+  });
+
+  describe('проекция документов в documents.generated_documents (Фаза 1, срез 5a, РМ41)', () => {
+    const touches = (queries: RecordedQuery[], table: string) =>
+      queries.filter((q) => q.sql.includes(table));
+
+    it('правка бланка не трогает таблицу документов и не читает контекст', async () => {
+      const { queries, db } = makeRecordingDb();
+      const backend = new PostgresDocumentsPersistenceBackend(db);
+      const state = new InMemoryDocumentsState();
+      await backend.loadIntoState('t1', state);
+      state.templates.push(template('tpl_1'));
+      queries.length = 0;
+
+      await backend.saveFromState('t1', state);
+
+      expect(touches(queries, 'documents.generated_documents')).toEqual([]);
+      expect(touches(queries, 'learning.enrollments')).toEqual([]);
+    });
+
+    it('новый документ проецируется после снимка: контекст из таблиц, вставка одной пачкой', async () => {
+      const { queries, db } = makeRecordingDb();
+      const backend = new PostgresDocumentsPersistenceBackend(db);
+      const state = new InMemoryDocumentsState();
+      await backend.loadIntoState('t1', state);
+      state.generatedDocuments.push(document('doc_1'));
+      queries.length = 0;
+
+      await backend.saveFromState('t1', state);
+
+      const sqls = queries.map((q) => q.sql.trimStart());
+      const snapshotInsert = sqls.findIndex((s) =>
+        s.startsWith('insert into documents.runtime_documents')
+      );
+      const contextRead = sqls.findIndex((s) => s.includes('from learning.enrollments'));
+      const projection = sqls.findIndex((s) =>
+        s.startsWith('insert into documents.generated_documents')
+      );
+      expect(snapshotInsert).toBeGreaterThanOrEqual(0);
+      expect(contextRead).toBeGreaterThan(snapshotInsert);
+      expect(projection).toBeGreaterThan(contextRead);
+      expect(queries[projection]!.params).toContain('doc_1');
+      expect(sqls.some((s) => s.includes('from storage.files'))).toBe(true);
+      // Снимок — источник правды: проекция идёт в точке сохранения и её освобождает.
+      expect(sqls).toContain('release savepoint projection_batch');
+    });
+
+    it('отказ проекции одного документа не роняет снимок: откат до точки сохранения и журнал сверки', async () => {
+      const { queries, db } = makeRecordingDb((sql) =>
+        sql.trimStart().startsWith('insert into documents.generated_documents')
+      );
+      const backend = new PostgresDocumentsPersistenceBackend(db);
+      const state = new InMemoryDocumentsState();
+      await backend.loadIntoState('t1', state);
+      state.generatedDocuments.push(document('doc_bad'));
+      queries.length = 0;
+
+      await expect(backend.saveFromState('t1', state)).resolves.toBeUndefined();
+
+      const sqls = queries.map((q) => q.sql.trimStart());
+      expect(sqls.some((s) => s.startsWith('insert into documents.runtime_documents'))).toBe(true);
+      expect(sqls).toContain('rollback to savepoint projection_batch');
+      expect(sqls).toContain('rollback to savepoint projection_row');
+      const journal = queries.find((q) => q.sql.includes('documents.reconciliation_log'));
+      expect(journal?.params.slice(1, 4)).toEqual([
+        'projection_failed',
+        'generatedDocuments',
+        'doc_bad'
+      ]);
+    });
+
+    it('удалённый из снимка документ уходит и из таблицы', async () => {
+      const { queries, db } = makeRecordingDb();
+      // Снимок с одним документом: чтение отдаёт его, отпечаток запоминает.
+      (db.query as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+        async (sql: string, params: unknown[] = []) => {
+          queries.push({ sql, params });
+          return sql.includes("'generatedDocuments'") || params.includes('generatedDocuments')
+            ? [{ data: document('doc_gone') }]
+            : [];
+        }
+      );
+      const backend = new PostgresDocumentsPersistenceBackend(db);
+      const state = new InMemoryDocumentsState();
+      await backend.loadIntoState('t1', state);
+      expect(state.generatedDocuments.map((d) => d.id)).toEqual(['doc_gone']);
+      state.generatedDocuments.splice(0, 1);
+      queries.length = 0;
+
+      await backend.saveFromState('t1', state);
+
+      const del = queries.find((q) =>
+        q.sql.trimStart().startsWith('delete from documents.generated_documents')
+      );
+      expect(del?.params).toEqual(['t1', ['doc_gone']]);
+    });
   });
 });

@@ -617,6 +617,19 @@ const projectGeneratedDocument = (
   if (atRest.isFinal !== undefined && bool(atRest.isFinal) !== isFinal)
     payloadExtra.isFinal = atRest.isFinal;
   if (fileId !== null && !fileKnown) payloadExtra.fileId = fileId;
+  // У документа снимка нет createdAt/updatedAt, kindCode, isExternal; finalizedAt и documentDate
+  // подставляются финальному, isFinal — из статуса. Обратная проекция их не выдумает (срез 5a).
+  const synthesized = synthesizedOf(atRest, [
+    'createdAt',
+    'updatedAt',
+    'generatedAt',
+    'kindCode',
+    'isExternal',
+    'isFinal'
+  ]);
+  if (isFinal && str(atRest.finalizedAt) === null) synthesized.push('finalizedAt');
+  if (str(atRest.documentDate) === null && documentDate) synthesized.push('documentDate');
+  if (synthesized.length > 0) payloadExtra[SYNTHESIZED_KEY] = synthesized;
 
   return assemble(
     atRest,
@@ -792,8 +805,14 @@ export const SYNTHESIZED_KEY = '__synthesized';
 
 /** Колонки, которых у сущности снимка нет: обратная проекция их не отдаёт. */
 const HIDDEN_COLUMNS: Partial<Record<HotCollection, ReadonlyArray<string>>> = {
-  enrollmentStatusHistory: ['created_at']
+  enrollmentStatusHistory: ['created_at'],
+  // Связи документа считаются из контекста (зачисление → слушатель и группа → контрагент),
+  // у сущности снимка таких полей нет.
+  generatedDocuments: ['learner_id', 'group_id', 'counterparty_id', 'enrollment_id']
 };
+
+/** Служебные ключи `payload`, которые обратная проекция не отдаёт (`__synthesized`, `__detached`). */
+const isServiceKey = (key: string): boolean => key.startsWith('__');
 
 const COLUMN_TO_FIELD: Partial<Record<HotCollection, Record<string, string>>> = {
   learners: {
@@ -846,7 +865,7 @@ export function rowToEntity(
       if (key === 'sourceStatus') entity.status = value;
       else if (key === SYNTHESIZED_KEY) {
         for (const field of Array.isArray(value) ? value : []) delete entity[String(field)];
-      } else entity[key] = value;
+      } else if (!isServiceKey(key)) entity[key] = value;
     }
   }
   return entity;
