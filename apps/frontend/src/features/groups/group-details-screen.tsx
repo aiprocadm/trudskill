@@ -28,6 +28,7 @@ import {
   groupStatusLabel,
   isGroupArchivable
 } from './group-status';
+import { IssueReadinessSection } from './issue-readiness-section';
 import {
   PageContainer,
   PageHeader,
@@ -556,6 +557,9 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
           {expelDialog}
           <MutationError message={saveError} />
         </SectionCard>
+
+        {/* МГ-F5.1 (срез 20.1): что мешает выпустить документы — до нажатия «Закрыть группу». */}
+        <IssueReadinessSection groupId={id} />
 
         {/* ФТ-B3.4: доказательная база на проверке ГИТ/Минтруда. */}
         <LearningJournalSection groupId={id} />

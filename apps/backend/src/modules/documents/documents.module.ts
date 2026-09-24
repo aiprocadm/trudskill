@@ -131,6 +131,8 @@ const persistenceBackendClass =
   // request-scoped экземпляр состояния общий у перехватчика и DocumentsService.
   exports: [
     DocumentsService,
+    /* МГ-F5.1 (срез 20.1): «что мешает выпустить» группы показывает и настройку центра. */
+    IssuanceReadinessService,
     DocumentsTenantRunner,
     DOCUMENTS_PERSISTENCE_BACKEND,
     DocumentsRequestPersistenceInterceptor,
