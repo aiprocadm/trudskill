@@ -1,4 +1,5 @@
 import type {
+  Group,
   GroupPayload,
   GroupWizardLearnerRow,
   GroupWizardOutcome,
@@ -20,6 +21,8 @@ export type WizardStepId = 'who' | 'what' | 'learners' | 'access';
 export interface WizardState {
   /** Черновик шага 1 на сервере (РМ52, РМ56): создаётся при первом «Далее», потом правится. */
   draftId: string | null;
+  /** МГ-B6.1: мастер открыт как копия этой группы (РМ58). */
+  copyOfGroupId: string | null;
   name: string;
   code: string;
   counterpartyId: string;
@@ -37,6 +40,7 @@ export interface WizardState {
 
 export const EMPTY_WIZARD_STATE: WizardState = {
   draftId: null,
+  copyOfGroupId: null,
   name: '',
   code: '',
   counterpartyId: '',
@@ -109,6 +113,7 @@ export const buildWizardRequest = (
       ...groupPayloadOf(state, responsibleUserId),
       ...(state.draftId ? { draftId: state.draftId } : {})
     },
+    ...(state.copyOfGroupId ? { copyOfGroupId: state.copyOfGroupId } : {}),
     courses: state.courseIds.map((courseId) => ({ courseId })),
     ...(Object.keys(learners).length ? { learners } : {}),
     access: {
@@ -213,6 +218,78 @@ export const accessSummary = (outcome: GroupWizardOutcome): string => {
     return 'Лист доступов появится вместе с входом по логину; пока доступы выдаются из карточки группы.';
   }
   return 'Доступы пока не выдавали — сделайте это из карточки группы, когда будете готовы.';
+};
+
+/* ---- Копия группы (МГ-B6.1, РМ58–РМ60) ---- */
+
+const DAY_MS = 86_400_000;
+const pad2 = (n: number): string => String(n).padStart(2, '0');
+
+/** Местная дата браузера `YYYY-MM-DD`: человек видит и правит даты в своём календаре. */
+export const todayLocalIso = (now: Date = new Date()): string =>
+  `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+
+const utcOf = (iso: string): number => {
+  const [y = 0, m = 1, d = 1] = iso.split('-').map(Number);
+  return Date.UTC(y, m - 1, d);
+};
+
+/** `YYYY-MM-DD` ± дни без сдвига часовых поясов (счёт в UTC по календарным датам). */
+export const addDaysIso = (iso: string, days: number): string =>
+  new Date(utcOf(iso) + days * DAY_MS).toISOString().slice(0, 10);
+
+/** Целых дней от `from` до `to` (отрицательное — если `to` раньше). */
+export const daysBetweenIso = (from: string, to: string): number =>
+  Math.round((utcOf(to) - utcOf(from)) / DAY_MS);
+
+/**
+ * Состояние мастера для копии (ТЗ §6.3 МГ-B6.1): та же компания, курсы, настройки; код новый
+ * (пустой → по шаблону центра); даты сдвинуты на «сегодня − начало» (РМ60); слушатели —
+ * все с незавершёнными зачислениями, без повторов (РМ59); доступы — «позже» (люди уже в системе).
+ */
+export const copyStateFrom = (
+  source: {
+    group: Pick<
+      Group,
+      | 'id'
+      | 'name'
+      | 'counterpartyId'
+      | 'comment'
+      | 'startDate'
+      | 'endDate'
+      | 'examDate'
+      | 'studyForm'
+    >;
+    courseIds: string[];
+    enrollments: ReadonlyArray<{ learnerId: string; status: string }>;
+  },
+  today: string
+): WizardState => {
+  const { group } = source;
+  const delta = group.startDate ? daysBetweenIso(group.startDate, today) : 0;
+  const shift = (iso: string | undefined): string =>
+    group.startDate && iso ? addDaysIso(iso, delta) : '';
+  const learnerIds = Array.from(
+    new Set(
+      source.enrollments
+        .filter((enrollment) => enrollment.status !== 'cancelled')
+        .map((enrollment) => enrollment.learnerId)
+    )
+  );
+  return {
+    ...EMPTY_WIZARD_STATE,
+    copyOfGroupId: group.id,
+    name: `${group.name} (копия)`,
+    counterpartyId: group.counterpartyId ?? '',
+    comment: group.comment ?? '',
+    courseIds: Array.from(new Set(source.courseIds)),
+    startDate: shift(group.startDate),
+    endDate: shift(group.endDate),
+    examDate: shift(group.examDate),
+    studyForm: group.studyForm ?? '',
+    existingLearnerIds: learnerIds,
+    accessMode: 'later'
+  };
 };
 
 export const ACCESS_MODE_LABEL: Record<WizardAccessMode, string> = {

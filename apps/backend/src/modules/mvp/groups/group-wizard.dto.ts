@@ -115,6 +115,12 @@ export class GroupWizardRequest {
   @Type(() => GroupWizardGroupDto)
   group!: GroupWizardGroupDto;
 
+  /** МГ-B6.1: копия группы — источник для аудита; поведение мастера не меняет. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  copyOfGroupId?: string;
+
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(50)

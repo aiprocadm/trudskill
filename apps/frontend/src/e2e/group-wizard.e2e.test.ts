@@ -12,6 +12,7 @@ import {
   EMPTY_WIZARD_STATE,
   buildWizardRequest,
   canProceed,
+  copyStateFrom,
   parseLearnerLines
 } from '../features/groups/group-wizard/group-wizard-model';
 import { evaluateRouteAccess } from '../features/navigation/helpers';
@@ -77,6 +78,45 @@ describe('group wizard E2E smoke', () => {
     });
     expect(request.learners?.existingIds).toBeUndefined();
     expect(parseLearnerLines('').length).toBe(0);
+  });
+
+  it('pipeline: копия группы (МГ-B6.1) — даты сдвинуты на «сегодня − начало», источник уходит в запрос', () => {
+    const initial = copyStateFrom(
+      {
+        group: {
+          id: 'g_src',
+          name: 'R11, сентябрь',
+          counterpartyId: 'cp_1',
+          startDate: '2026-09-01',
+          endDate: '2026-09-15',
+          examDate: '2026-09-15'
+        },
+        courseIds: ['course_r11'],
+        enrollments: [
+          { learnerId: 'l1', status: 'active' },
+          { learnerId: 'l2', status: 'cancelled' }
+        ]
+      },
+      '2026-10-01'
+    );
+    for (const step of ['who', 'what', 'learners', 'access'] as const) {
+      expect(canProceed(step, initial)).toEqual({ ok: true });
+    }
+    const request = buildWizardRequest(initial, 'idem-copy', 'u_curator');
+    expect(request).toMatchObject({
+      copyOfGroupId: 'g_src',
+      group: {
+        name: 'R11, сентябрь (копия)',
+        counterpartyId: 'cp_1',
+        startDate: '2026-10-01',
+        endDate: '2026-10-15',
+        examDate: '2026-10-15'
+      },
+      courses: [{ courseId: 'course_r11' }],
+      learners: { existingIds: ['l1'] },
+      access: { mode: 'later' }
+    });
+    expect(request.group.code).toBeUndefined();
   });
 
   it('smoke: модули экрана и шагов загружаются (нет сломанных импортов)', async () => {

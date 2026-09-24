@@ -315,6 +315,23 @@ export const StepLearners = (props: StepProps): ReactElement => {
           emptyLabel="— найти слушателя по фамилии —"
         />
       </div>
+      {state.copyOfGroupId && state.existingLearnerIds.length > 0 ? (
+        <p className="ui-hint">
+          Слушатели скопированы из исходной группы — уберите лишних или очистите список, если состав
+          будет другим.
+        </p>
+      ) : null}
+      {state.existingLearnerIds.length > 1 ? (
+        <div className="ui-form-actions">
+          <button
+            type="button"
+            className="ui-button-link"
+            onClick={() => patch({ existingLearnerIds: [] })}
+          >
+            Убрать всех из группы
+          </button>
+        </div>
+      ) : null}
       {state.existingLearnerIds.length > 0 ? (
         <ul className="ui-bare-list" aria-label="Выбранные слушатели">
           {state.existingLearnerIds.map((learnerId) => (

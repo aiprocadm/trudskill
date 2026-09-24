@@ -1,20 +1,33 @@
 'use client';
 
-import { WizardSteps } from '@trudskill/ui';
+import { LoadingState, WizardSteps } from '@trudskill/ui';
 import { useRef, useState } from 'react';
 
 import {
   EMPTY_WIZARD_STATE,
   buildWizardRequest,
   canProceed,
+  copyStateFrom,
   groupPayloadOf,
-  shouldRotateKey
+  shouldRotateKey,
+  todayLocalIso
 } from './group-wizard-model';
 import { StepAccess, StepLearners, StepWhat, StepWho, WizardResult } from './group-wizard-steps';
-import { PageContainer, PageHeader, SectionError } from '../../../components/state-wrappers';
+import {
+  PageContainer,
+  PageHeader,
+  RecordNotFound,
+  SectionError
+} from '../../../components/state-wrappers';
 import { useUnsavedForm } from '../../../components/use-unsaved-form';
 import { useAuth } from '../../auth/context';
-import { useDomainMutations, useNextGroupCode } from '../../mvp/hooks';
+import {
+  useDomainMutations,
+  useEnrollments,
+  useGroup,
+  useGroupCourses,
+  useNextGroupCode
+} from '../../mvp/hooks';
 
 import type { WizardState, WizardStepId } from './group-wizard-model';
 import type { GroupWizardOutcome } from '../../mvp/types';
@@ -37,6 +50,8 @@ const NEXT_STEP: Record<WizardStepId, WizardStepId | null> = {
   access: null
 };
 
+const COPY_PAGE = { page: 1, page_size: 200 } as const;
+
 function newIdempotencyKey(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -52,12 +67,65 @@ function newIdempotencyKey(): string {
  * шага и один вызов `POST /groups/wizard` в конце — группа, курсы, слушатели, зачисления и
  * доступы одной транзакцией. Черновик уходит на сервер после шага 1 (РМ52, РМ56): если
  * человек бросит мастер, группа останется в реестре под статусом «Черновик», а не пропадёт.
+ *
+ * `copyOf` (МГ-B6.1, срез 8.6): мастер открывается с предзаполнением из существующей группы —
+ * данные грузятся отдельным компонентом, а форма стартует уже с готовым состоянием, поэтому
+ * предзаполнение не считается «несохранёнными изменениями».
  */
-export const GroupWizardScreen = () => {
+export const GroupWizardScreen = ({ copyOf }: { copyOf?: string | undefined }) =>
+  copyOf ? <GroupCopyLoader copyOf={copyOf} /> : <GroupWizardForm />;
+
+const GroupCopyLoader = ({ copyOf }: { copyOf: string }) => {
+  const source = useGroup(copyOf);
+  const courses = useGroupCourses(copyOf);
+  const enrollments = useEnrollments({ ...COPY_PAGE, group_id: copyOf });
+  if (source.notFound) {
+    return <RecordNotFound what="Группа для копии" backHref="/groups" backLabel="К группам" />;
+  }
+  const loadError = source.error ?? courses.error ?? enrollments.error;
+  if (loadError) {
+    return (
+      <PageContainer>
+        <PageHeader title="Новая группа" />
+        <SectionError
+          message={`Не удалось загрузить исходную группу: ${loadError}`}
+          onRetry={() =>
+            void Promise.all([source.refetch(), courses.refetch(), enrollments.refetch()])
+          }
+        />
+      </PageContainer>
+    );
+  }
+  if (!source.data || !courses.data || !enrollments.data) {
+    return (
+      <PageContainer>
+        <PageHeader title="Новая группа" />
+        <LoadingState message="Загружаем группу, чтобы скопировать…" />
+      </PageContainer>
+    );
+  }
+  const initial = copyStateFrom(
+    {
+      group: source.data,
+      courseIds: courses.data.items.map((course) => course.courseId),
+      enrollments: enrollments.data.items
+    },
+    todayLocalIso()
+  );
+  return <GroupWizardForm initial={initial} sourceName={source.data.name} />;
+};
+
+const GroupWizardForm = ({
+  initial = EMPTY_WIZARD_STATE,
+  sourceName
+}: {
+  initial?: WizardState;
+  sourceName?: string;
+}) => {
   const { session } = useAuth();
   const { saveGroupDraft, completeGroupWizard } = useDomainMutations();
   const nextCode = useNextGroupCode();
-  const [state, setState] = useState<WizardState>(EMPTY_WIZARD_STATE);
+  const [state, setState] = useState<WizardState>(initial);
   const [step, setStep] = useState<WizardStepId>('who');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -124,7 +192,11 @@ export const GroupWizardScreen = () => {
       {unsavedGuard}
       <PageHeader
         title="Новая группа"
-        subtitle="Кто учится, чему и когда, кого зачислить и как выдать доступы — четыре шага, одна группа"
+        subtitle={
+          sourceName
+            ? `Копия группы «${sourceName}»: проверьте даты и состав — код будет новым`
+            : 'Кто учится, чему и когда, кого зачислить и как выдать доступы — четыре шага, одна группа'
+        }
       />
       <WizardSteps
         steps={STEPS}

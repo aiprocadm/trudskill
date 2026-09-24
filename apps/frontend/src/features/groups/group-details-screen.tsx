@@ -12,6 +12,7 @@ import {
   statusAccessibleLabel,
   useConfirmDialog
 } from '@trudskill/ui';
+import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
 import {
@@ -65,6 +66,7 @@ import { proctoringApi } from '../proctoring/api';
  */
 export const GroupDetailsScreen = ({ id }: { id: string }) => {
   const { session } = useAuth();
+  const router = useRouter();
   const { data: group, error: groupLoadError, notFound, refetch: refetchGroup } = useGroup(id);
   useObjectCrumb(group?.name, { notFound, failed: Boolean(groupLoadError) });
   const canGenerateDocuments = hasPermission(session?.permissions ?? [], 'documents.generate');
@@ -197,6 +199,15 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
             : []),
           ...(canAssignCourse && isGroupArchivable(group?.status)
             ? [{ label: 'В архив', onSelect: confirmArchive }]
+            : []),
+          /* МГ-B6.1: копия — мастер с предзаполнением (те же компания, курсы, слушатели; даты сдвинуты, код новый). */
+          ...(canAssignCourse
+            ? [
+                {
+                  label: 'Копировать группу',
+                  onSelect: () => router.push(`/groups/new?copyOf=${encodeURIComponent(id)}`)
+                }
+              ]
             : [])
         ]}
       />
