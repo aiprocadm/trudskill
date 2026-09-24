@@ -29,6 +29,7 @@ import type {
   FrdoRegistryRecord,
   GroupCourse,
   GroupEntity,
+  GroupWizardIdempotencyRecord,
   IdentityVerification,
   Learner,
   Material,
@@ -272,6 +273,8 @@ export class InMemoryMvpState {
   bulkImportIdempotency: BulkImportIdempotencyRecord[] = [];
   /** ФТ-E3 (Фаза 5 Task 7) — idempotency цепочки «экзамен → протокол → реестр». */
   closeGroupChainIdempotency: CloseGroupChainIdempotencyRecord[] = [];
+  /** Фаза 2, срез 8.4 (МГ-B2) — idempotency мастера создания группы. */
+  groupWizardIdempotency: GroupWizardIdempotencyRecord[] = [];
   // Pillar A — Plan A collections (§5.2, §5.3)
   commissions: Commission[] = [];
   commissionMembers: CommissionMember[] = [];

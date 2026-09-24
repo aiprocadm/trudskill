@@ -28,6 +28,7 @@ export const MVP_COLLECTIONS = [
   'bulkEnrollmentIdempotency',
   'bulkImportIdempotency',
   'closeGroupChainIdempotency',
+  'groupWizardIdempotency',
   'commissions',
   'commissionMembers',
   'courseDocumentSets',

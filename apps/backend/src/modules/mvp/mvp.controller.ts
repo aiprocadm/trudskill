@@ -26,6 +26,8 @@ import { ManagerDashboardService } from './dashboards/manager-dashboard.service.
 import { MethodistDashboardService } from './dashboards/methodist-dashboard.service.js';
 import { ExamOutcomeService } from './exam/exam-outcome.service.js';
 import { GroupSettingsService } from './groups/group-settings.service.js';
+import { GroupWizardRequest } from './groups/group-wizard.dto.js';
+import { GroupWizardService } from './groups/group-wizard.service.js';
 import {
   CreateGroupRequest,
   SetGroupStatusRequest,
@@ -182,7 +184,10 @@ export class MvpController {
     private readonly normalizedReads: MvpNormalizedReadsService,
     /* Фаза 2, срез 8.1: настройки группы центра. Параметр ПОСЛЕДНИЙ (журнал 526). */
     @Inject(GroupSettingsService)
-    private readonly groupSettings: GroupSettingsService
+    private readonly groupSettings: GroupSettingsService,
+    /* Фаза 2, срез 8.4: мастер создания группы. Параметр ПОСЛЕДНИЙ (журнал 526). */
+    @Inject(GroupWizardService)
+    private readonly groupWizard: GroupWizardService
   ) {}
 
   @Get('counterparties')
@@ -849,6 +854,14 @@ export class MvpController {
       ? this.normalizedReads.lookupGroups(c.tenantId!, q)
       : this.mvpService.lookupGroups(c.tenantId!, q);
   }
+  /** МГ-B1.2: какой код получит новая группа — предзаполнение мастера. Стоит до `groups/:id`. */
+  @Get('groups/next-code')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('groups.read')
+  async previewGroupCode(@CurrentContext() c: RequestContext) {
+    const settings = await this.groupSettings.forTenant(c.tenantId!);
+    return { code: this.mvpService.previewGroupCode(c.tenantId!, settings.codePattern) };
+  }
   @Get('groups/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('groups.read')
@@ -879,6 +892,22 @@ export class MvpController {
   updateGroup(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() raw: unknown) {
     const b = assertValidDto(UpdateGroupRequest, raw);
     return this.mvpService.updateGroup(c.tenantId!, c.userId, id, b, c);
+  }
+  /**
+   * МГ-B2 (§6.2, §16): мастер создания группы одной транзакцией снимка — группа, курсы,
+   * слушатели с частичным успехом, зачисления, доступы. Права — все три, как у частей.
+   */
+  @Post('groups/wizard')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('groups.write', 'learners.write', 'enrollments.write')
+  async completeGroupWizard(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(GroupWizardRequest, raw);
+    // Те же гейты тарифа, что у частей мастера (Р13).
+    await this.tenantUsage.assertCanStartGroup(c.tenantId!);
+    if ((b.learners?.rows?.length ?? 0) > 0)
+      await this.tenantUsage.assertCanAddLearners(c.tenantId!);
+    const settings = await this.groupSettings.forTenant(c.tenantId!);
+    return this.groupWizard.complete(c.tenantId!, c.userId, b, c, settings);
   }
   /** МГ-B3.1: ручной переход статуса — только на соседний по цепочке. */
   @Post('groups/:id/status')

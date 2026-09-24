@@ -262,6 +262,48 @@ export interface BulkEnrollmentsOutcome {
   errors: BulkEnrollmentItemError[];
 }
 
+/** Строка результата мастера группы (§6.2 МГ-B2): слушатель из строки или из реестра. */
+export interface GroupWizardOutcomeRow {
+  /** 0 — слушатель из реестра (`existingIds`), иначе номер строки ввода. */
+  rowNumber: number;
+  status: 'created' | 'reused' | 'enrolled_only' | 'failed';
+  learnerId?: string;
+  enrollmentId?: string;
+  errorCode?: string;
+  errorMessage?: string;
+}
+
+/** Ответ `POST /groups/wizard` (§16): группа создаётся всегда, слушатели — с частичным успехом. */
+export interface GroupWizardOutcome {
+  idempotencyKey: string;
+  group: GroupEntity;
+  coursesAssigned: number;
+  enrollments: {
+    total: number;
+    created: number;
+    reused: number;
+    failed: number;
+    rows: GroupWizardOutcomeRow[];
+  };
+  access: {
+    mode: 'email' | 'sheet' | 'later';
+    /** Сколько приглашений ушло (у слушателя есть почта и режим `email`). */
+    sent: number;
+    /** Лист доступов — МГ-C4; до него всегда `null`, а `deferred` говорит, что доступы отложены. */
+    sheetFileId: string | null;
+    deferred: boolean;
+  };
+}
+
+/** Персист в коллекции `groupWizardIdempotency` MVP snapshot. */
+export interface GroupWizardIdempotencyRecord {
+  id: string;
+  tenantId: string;
+  idempotencyKey: string;
+  outcome: GroupWizardOutcome;
+  createdAt: string;
+}
+
 /** Персист в коллекции `bulkEnrollmentIdempotency` MVP snapshot. */
 export interface BulkEnrollmentIdempotencyRecord {
   id: string;

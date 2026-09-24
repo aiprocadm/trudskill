@@ -164,6 +164,7 @@ import type {
   FrdoDocumentKind,
   GroupCourse,
   GroupEntity,
+  GroupWizardOutcome,
   IdentityVerification,
   IdentityVerificationView,
   KpiSnapshotDto,
@@ -206,6 +207,11 @@ import type {
   GeneratedDocumentEntity
 } from '../documents/documents.types.js';
 import type { UploadIntent } from '../files/files.service.js';
+/** Мастер группы (МГ-B2): сразу «учится» и/или без письма-приглашения. */
+export interface EnrollmentCreateOptions {
+  activate?: boolean;
+  suppressInvite?: boolean;
+}
 
 interface ListResponse<T> {
   items: T[];
@@ -1925,8 +1931,43 @@ export class MvpService {
     }
   }
 
-  private todayForTenant(): string {
+  /** «Сегодня» в поясе центра — для статусов, отборов и мастера группы. */
+  todayForTenant(): string {
     return todayIn(this.state.tenantTimezone, new Date(this.now()));
+  }
+
+  /** `GET /groups/next-code` (МГ-B1.2): какой код получит новая группа по шаблону центра. */
+  previewGroupCode(tenantId: string, codePattern: string): string {
+    return generateGroupCode({
+      pattern: codePattern,
+      at: new Date(this.now()),
+      timezone: this.state.tenantTimezone,
+      existingCodes: this.state.groups.filter((g) => g.tenantId === tenantId).map((g) => g.code)
+    });
+  }
+
+  /** Мастер группы (МГ-B2): повтор с тем же ключом — прежний результат. */
+  getGroupWizardOutcomeIfAny(
+    tenantId: string,
+    idempotencyKey: string
+  ): GroupWizardOutcome | undefined {
+    return this.state.groupWizardIdempotency.find(
+      (r) => r.tenantId === tenantId && r.idempotencyKey === idempotencyKey
+    )?.outcome;
+  }
+
+  saveGroupWizardOutcome(
+    tenantId: string,
+    idempotencyKey: string,
+    outcome: GroupWizardOutcome
+  ): void {
+    this.state.groupWizardIdempotency.push({
+      id: this.id('wizardidem'),
+      tenantId,
+      idempotencyKey,
+      outcome,
+      createdAt: this.now()
+    });
   }
 
   createGroup(
@@ -2171,7 +2212,12 @@ export class MvpService {
   getGroupCourse(tenantId: string, id: string): GroupCourse {
     return this.getById(this.state.groupCourses, tenantId, id);
   }
-  createGroupCourse(tenantId: string, request: CreateGroupCourseRequest): GroupCourse {
+  createGroupCourse(
+    tenantId: string,
+    request: CreateGroupCourseRequest,
+    actorId?: string,
+    context?: RequestContext
+  ): GroupCourse {
     this.getById(this.state.groups, tenantId, request.groupId);
     this.getById(this.state.courses, tenantId, request.courseId);
     const duplicate = this.state.groupCourses.some(
@@ -2209,6 +2255,19 @@ export class MvpService {
       ...(pinnedVersionId ? { courseVersionId: pinnedVersionId } : {})
     };
     this.state.groupCourses.push(entity);
+    // Мастер группы (срез 8.4): назначение курса — тоже действие, которое видно в журнале.
+    if (context) {
+      this.audit(
+        tenantId,
+        actorId,
+        'learning.group_course_created',
+        'learning.group_course',
+        entity.id,
+        undefined,
+        entity,
+        context
+      );
+    }
     return entity;
   }
 
@@ -2759,7 +2818,8 @@ export class MvpService {
     tenantId: string,
     actorId: string | undefined,
     request: CreateEnrollmentRequest,
-    context: RequestContext
+    context: RequestContext,
+    options: EnrollmentCreateOptions = {}
   ): Enrollment {
     this.getById(this.state.groups, tenantId, request.groupId);
     this.getById(this.state.learners, tenantId, request.learnerId);
@@ -2781,7 +2841,8 @@ export class MvpService {
       tenantId,
       groupId: request.groupId,
       learnerId: request.learnerId,
-      status: 'pending',
+      // Мастер группы (МГ-B2, РМ49): при автоматическом режиме зачисления — сразу «учится».
+      status: options.activate ? 'active' : 'pending',
       enrolledAt: now,
       plannedEndAt: this.computePlannedEndAt(tenantId, request.groupId, now),
       createdAt: now,
@@ -2799,6 +2860,8 @@ export class MvpService {
       entity,
       context
     );
+    // Мастер группы (РМ50): доступы «позже»/«листом» — приглашение не отправляется.
+    if (options.suppressInvite) return entity;
     const invitedRecipient = learnerRecipient(
       this.state.learners.find((l) => l.tenantId === tenantId && l.id === entity.learnerId)
     );
@@ -2857,7 +2920,8 @@ export class MvpService {
     tenantId: string,
     actorId: string | undefined,
     request: CreateBulkEnrollmentsRequest,
-    context: RequestContext
+    context: RequestContext,
+    options: EnrollmentCreateOptions = {}
   ): BulkEnrollmentsOutcome {
     const explicit = (request.learnerIds ?? [])
       .map((lid) => String(lid).trim())
@@ -2911,7 +2975,8 @@ export class MvpService {
           tenantId,
           actorId,
           { groupId: request.groupId, learnerId },
-          context
+          context,
+          options
         );
         created.push(entity);
       } catch (err: unknown) {

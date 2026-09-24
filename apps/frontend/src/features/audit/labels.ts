@@ -240,6 +240,8 @@ const PHRASES: Record<string, string> = {
   'learning.group_status_changed': 'Статус группы изменён вручную',
   'learning.group_status_auto': 'Статус группы изменён по расписанию',
   'learning.group_archived': 'Группа отправлена в архив',
+  'learning.group_course_created': 'Курс назначен группе',
+  'learning.group_wizard_completed': 'Группа создана мастером',
   'learning.learner_linked_to_user': 'Слушатель связан с пользователем',
   'learning.commission_member_removed': 'Член комиссии исключён',
   'learning.course_version_program_meta_updated': 'Сведения о программе в версии курса изменены',

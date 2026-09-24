@@ -321,6 +321,14 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         return { total: 0, closed: 0, skipped: 0, rows: [] };
       }
 
+      // МГ-B2 (Фаза 2, срез 8.4) — мастер группы создаёт группу, слушателей и зачисления
+      // в одном запросе, поэтому требует ВСЕ ТРИ права своих частей сразу.
+      @Post('groups/wizard')
+      @RequirePermissions('groups.write', 'learners.write', 'enrollments.write')
+      completeGroupWizard() {
+        return { idempotencyKey: 'k', coursesAssigned: 0 };
+      }
+
       // ФТ-F4 Фаза 5 Task 9 — отметка посещения вебинара: право слушателя
       // webinars.attend; staff-право webinars.read «видеть» не значит «отмечаться».
       @Post('webinars/:id/join')
@@ -1571,6 +1579,58 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         body: JSON.stringify({ groupIds: ['g1'] })
       });
       /* POST в Nest по умолчанию отвечает 201 — важно, что не 403. */
+      expect(response.status).toBe(201);
+    });
+  });
+
+  // === МГ-B2 — мастер группы: права всех трёх частей (группа + слушатели + зачисления) ===
+  describe('group wizard (groups.write + learners.write + enrollments.write)', () => {
+    const wizardBody = {
+      idempotencyKey: 'wiz-http-1',
+      group: { name: 'Группа' },
+      courses: [{ courseId: 'c1' }],
+      access: { mode: 'later' }
+    };
+
+    it('POST /groups/wizard — 403 с одним groups.write: слушателей и зачисления это право не открывает', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['groups.write']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['manager'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/groups/wizard`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${token}`,
+          'x-tenant-id': 'tenant_demo',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify(wizardBody)
+      });
+      expect(response.status).toBe(403);
+    });
+
+    it('POST /groups/wizard — 201 со всеми тремя правами', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce([
+        'groups.write',
+        'learners.write',
+        'enrollments.write'
+      ]);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['manager'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/groups/wizard`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${token}`,
+          'x-tenant-id': 'tenant_demo',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify(wizardBody)
+      });
       expect(response.status).toBe(201);
     });
   });

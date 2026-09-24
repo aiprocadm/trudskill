@@ -1,6 +1,5 @@
 import { Module, Scope } from '@nestjs/common';
 
-import { GroupSettingsService } from './groups/group-settings.service.js';
 import { GroupStatusScanner } from './groups/group-status.scanner.service.js';
 import { GroupStatusSchedulerService } from './groups/group-status.scheduler.service.js';
 import { MvpNormalizedReadsService } from './infrastructure/mvp-normalized-reads.service.js';
@@ -37,6 +36,8 @@ import { ExamOutcomeService } from './exam/exam-outcome.service.js';
 import { FrdoRegistryXlsxWriter } from './frdo-registry/frdo-registry-xlsx.writer.js';
 import { FrdoRegistryController } from './frdo-registry/frdo-registry.controller.js';
 import { FrdoRegistryService } from './frdo-registry/frdo-registry.service.js';
+import { GroupSettingsService } from './groups/group-settings.service.js';
+import { GroupWizardService } from './groups/group-wizard.service.js';
 import { IdentityPolicyController } from './identity/identity-policy.controller.js';
 import { IDENTITY_POLICY_REPOSITORY } from './identity/identity-policy.repository.js';
 import { IdentityPolicyService } from './identity/identity-policy.service.js';
@@ -385,6 +386,8 @@ import { PostgresLearnersRepository } from './infrastructure/repositories/postgr
     },
     /* Фаза 2, срез 8.1: шаблон кода и значения по умолчанию группы из настроек центра. */
     GroupSettingsService,
+    /* Фаза 2, срез 8.4: мастер создания группы поверх request-scoped MvpService. */
+    { provide: GroupWizardService, scope: Scope.REQUEST, useClass: GroupWizardService },
     {
       provide: LEARNERS_REPOSITORY,
       useFactory: (db: DatabaseService) =>
