@@ -15,6 +15,10 @@ import {
   ValidateNested
 } from 'class-validator';
 
+import type { CourseDetails } from './course-details.types.js';
+
+export type { CourseDetails } from './course-details.types.js';
+
 const notNull = (_: unknown, value: unknown): boolean => value !== null;
 
 /** Ключ именованного поля курса для документов: `{course.extra.<ключ>}`. */
@@ -125,18 +129,6 @@ export const COURSE_DETAIL_FIELDS = [
 ] as const;
 
 export type CourseDetailField = (typeof COURSE_DETAIL_FIELDS)[number];
-
-export interface CourseDetails {
-  presentationTitle?: string;
-  sortNo?: number;
-  price?: number;
-  responsibleUserId?: string;
-  note?: string;
-  periodDaysDefault?: number;
-  frdoDocumentKind?: string;
-  certificateNumberParts?: string[];
-  docExtraFields?: Array<{ key: string; label: string; value: string }>;
-}
 
 /** Переносит поля курса: строки обрезаются, пустое — очищает; части номера — без пустых. */
 export function applyCourseDetails(

@@ -15,6 +15,10 @@
     "typecheck": {
       "dependsOn": ["^typecheck", "^build"]
     },
+    "@trudskill/frontend#typecheck": {
+      "dependsOn": ["^typecheck", "^build"],
+      "inputs": ["$TURBO_DEFAULT$", "../backend/src/**"]
+    },
     "test": {
       "dependsOn": ["^test", "^build"],
       "outputs": []

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { canArchiveCourse, courseHeaderAction } from './course-actions';
+import { CourseBasicsSection } from './course-basics-section';
 import {
   COURSE_TABS,
   assessmentSummary,
@@ -990,6 +991,8 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
       />
 
       <TabPanel id="params" activeId={tab}>
+        {/* МГ-E2.1 (срез 16.3): код, название, направление и поля карточки CDOPROF. */}
+        {course ? <CourseBasicsSection course={course} onSaved={() => void refetch()} /> : null}
         {/*
           ТЗ 8.4: «Версии» больше не отдельная вкладка. Версия программы и ЕСТЬ набор
           нормативных параметров на дату — разносить их по разным вкладкам значило бы
