@@ -5553,6 +5553,27 @@ PR #493 построил `LearnersListScreen`, но его не импортир
 сверена после правок: вид не изменился (surface-muted и neutral-100 в светлой палитре
 совпадают побитово).
 
+### 5.575 ТЗ перехода с CDOPROF, позиция 8 (Фаза 2, срез 8.4): мастер создания группы — бэкенд (МГ-B2)
+
+**Зачем.** Первая часть мастера группы по плану `docs/superpowers/plans/2026-09-24-cdoprof-migration-phase-2-slice-2-group-wizard.md` (решения РМ48–РМ52). В CDOPROF группа создаётся мастером из четырёх шагов (§6.2): кто учится → что и когда → слушатели → доступы. У нас каждая часть уже была отдельной ручкой, но админ проходил четыре экрана и мог остаться с группой без курса или слушателей без зачислений. Разведка: провайдера ЕГРЮЛ нет (РМ51), направлений у курса нет, «листа доступов» нет (МГ-C4), зачисления по умолчанию `pending`, письмо-приглашение летит до сохранения снимка.
+
+**Что сделано.**
+
+- `mvp/groups/group-wizard.dto.ts` — `GroupWizardRequest`: ключ идемпотентности, `group` (поля создания + `draftId` черновика шага 1), `courses[1..50]`, `learners` (`existingIds` + `rows` «ФИО; должность; СНИЛС; email; телефон»), `access.mode` (`email` / `sheet` / `later`).
+- `mvp/groups/group-wizard-rows.ts` (+ тест) — разбор строки и классификация: ФИО через общий `parseFullName`, СНИЛС той же контрольной суммой, что у импорта, почта по форме, дубли внутри пачки — отказ второй строки. Частичный успех: плохая строка помечается кодом и русской причиной, остальные принимаются.
+- `mvp/groups/group-wizard.service.ts` (+ тест) — `GroupWizardService.complete` (request-scoped, оркестрация через `MvpService`, поэтому всё — одна транзакция снимка): группа с нуля (`draft` → `recruiting` → при `startDate ≤ сегодня` центра `in_progress`, РМ49) или достройка черновика (`group.draftId`; не черновик — 409); курсы (уже назначенный — пропуск, не ошибка); слушатели — существующие по id + строки с переиспользованием по СНИЛС/почте (`findLearnersByEmailOrSnils`) и созданием через `createLearnerExtended`, доменный отказ → строка `failed`; зачисления пачкой (`${key}::wizard-enroll`) — `active` при `enrollmentMode = auto`; доступы: `email` — письмо-приглашение, `later` — без письма, `sheet` до МГ-C4 работает как `later` с `access.deferred = true` (РМ50). Результат `{ group, coursesAssigned, enrollments {total/created/reused/failed/rows}, access {mode, sent, sheetFileId, deferred} }` кэшируется по ключу в коллекции `groupWizardIdempotency` (зарегистрирована в `mvp-collections.ts`); аудит `learning.group_wizard_completed`.
+- `mvp.service.ts` — опции `EnrollmentCreateOptions { activate, suppressInvite }` у `createEnrollment` / `createBulkEnrollments` (по умолчанию поведение прежнее); `createGroupCourse` пишет аудит `learning.group_course_created`, когда передан контекст; `previewGroupCode`, `todayForTenant`, кэш результата мастера.
+- `mvp.controller.ts` — `POST /groups/wizard` (права всех трёх частей: `groups.write` + `learners.write` + `enrollments.write`; гейты тарифа Р13 как у частей), `GET /groups/next-code` (предпросмотр кода по шаблону центра для шага 1; стоит до `groups/:id`).
+- Фронт: русские фразы аудита для `learning.group_wizard_completed` и `learning.group_course_created`.
+
+**Файлы.** 16: 5 новых в `mvp/groups/` (DTO, строки + тест, сервис + тест), `mvp.service.ts`, `mvp.controller.ts`, `mvp.module.ts`, `mvp.types.ts`, `in-memory-mvp.state.ts`, `mvp-collections.ts`, 4 теста (стаб HTTP, домены HTTP, документы слушателя, сторож частичного успеха), `features/audit/labels.ts` (+ план, документация).
+
+**Тесты.** `group-wizard.service.test.ts` (4: полный проход с created/reused/failed и активными зачислениями; начало в прошлом → «учатся», без курсов → 400; `later` без писем, `email` — по письму каждому с почтой; повтор ключа — тот же результат, черновик достраивается, не черновик → 409), `group-wizard-rows.test.ts`, `mvp.http.integration.test.ts` (+2: 403 с одним `groups.write`, 201 со всеми тремя), `mvp.service.test.ts`, домены HTTP, сторожа `bulk-partial-success` (два цикла мастера с решением), DI, валидация тел, `common/guards` — 39 файлов, 362 ✅; фронт `audit-codes-described`, `error-codes-described` ✅; typecheck, eslint ✅; `pnpm ci:check` — см. PR.
+
+**Журнал.** 630 — письмо-приглашение уходит до сохранения снимка (мастер подавляет письмо при `later`/`sheet`, при `email` порядок прежний); 631 — ТЗ редизайна §8.2 «≤3 шагов» против четырёх шагов §6.2 ТЗ перехода (РМ48); 632 — аудит мастера пишется вне транзакции снимка (как у всех мутаций `MvpService`).
+
+**Дальше.** PR 8.5 — экран мастера на `/groups/new` (`WizardSteps`, четыре шага компонентами одного уровня, `useUnsavedForm`, `GET /groups/next-code`, `DirectorySelect` контрагента, `StaffSelect` ответственного, курсы флажками, строки слушателей, сводка `OperationOutcome`); затем B6.1 копия, B7.1 состав, B4.2 статистика, B4.1 дровер.
+
 ### 5.574 ТЗ перехода с CDOPROF, позиция 8 (Фаза 2, срез 8.3): статусы, отборы и поля группы на экранах (МГ-B1.1, B3.1, B3.2, B6.2 — фронт)
 
 **Зачем.** Третья часть среза 8 по плану `docs/superpowers/plans/2026-09-24-cdoprof-migration-phase-2-slice-1-group-model.md`: после 8.1–8.2 сервер знает восемь статусов, отборы и поля §4, а экраны показывали чип латиницей, фильтр из двух значений и форму из двух полей (журнал 629).

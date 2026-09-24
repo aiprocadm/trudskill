@@ -37,17 +37,23 @@
 
 ### Task 1: подавление приглашения и активация
 
+- [x] Сделано (§5.575, PR 8.4).
+
 **Files:** Modify `mvp.service.ts` (`createEnrollment`/`createBulkEnrollments` — опция `{ suppressInvite?: boolean; activate?: boolean }` последним необязательным аргументом; `createGroupCourse` — аудит `learning.group_course_created` при переданном актора), тесты.
 
 - [ ] Commit.
 
 ### Task 2: сервис мастера и ручки
 
+- [x] Сделано (§5.575, PR 8.4): HTTP-случаи мастера — в стабе `mvp.http.integration.test.ts` (403/201), полный проход — в `group-wizard.service.test.ts`.
+
 **Files:** Create `mvp/groups/group-wizard.dto.ts`, `mvp/groups/group-wizard.service.ts` (+ тест; оркестрация через `MvpService`: черновик/создание группы со статусом по дате, курсы, слушатели по строкам с разбором ФИО/СНИЛС и дедупом по `findLearnersByEmailOrSnils`, зачисления с активацией, доступы, ключ идемпотентности в коллекции снимка `groupWizardIdempotency` — регистрация в `mvp-collections.ts`), `mvp/groups/group-wizard-rows.ts` (+ тест: разбор строки «ФИО; должность; СНИЛС; email; телефон»); Modify `mvp.controller.ts` (`POST groups/wizard`, `GET groups/next-code`), `mvp.module.ts`, `mvp-collections.ts`, `bulk-partial-success.guard.test.ts` (DECIDED), `mvp.domains.http.integration.test.ts` (мастер: полный проход, повтор ключа, частичный успех, 403 без прав), `features/audit/labels.ts` (фразы), `error-text.ts` (если новые коды).
 
 - [ ] Commit.
 
 ### Task 3: документация 8.4
+
+- [x] Сделано (§5.575).
 
 handoff §5.575, трекер (РМ48–РМ52, О11, МГ-B2 🔄), README, CLAUDE, журнал (письмо-приглашение до коммита; §8.2 редизайна «≤3 шагов»; аудит вне транзакции снимка). `pnpm ci:check`, PR.
 
