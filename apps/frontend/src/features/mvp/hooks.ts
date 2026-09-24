@@ -18,6 +18,7 @@ import type {
   GroupPayload,
   GroupWizardRequest,
   GroupsListQuery,
+  InviteUserPayload,
   KpiFilterQuery,
   ProgramMetaPatch,
   UsersListQuery
@@ -241,6 +242,9 @@ export const useDomainMutations = () => {
     }) => wrap((authSession) => mvpApi.createBulkEnrollments(authSession, payload)),
     setUserRoles: (id: string, roleCodes: string[]) =>
       wrap((authSession) => mvpApi.setUserRoles(authSession, id, roleCodes)),
+    /* Итог приглашения показывает сама панель — общий тост здесь лишний. */
+    inviteUser: (payload: InviteUserPayload) =>
+      wrap((authSession) => mvpApi.inviteUser(authSession, payload), true),
     revokeSession: (sessionId: string) =>
       wrap((authSession) => mvpApi.revokeSession(authSession, sessionId)),
     startAttempt: (payload: { testId: string; enrollmentId: string; learnerId: string }) =>

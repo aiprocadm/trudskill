@@ -111,6 +111,7 @@ describe('AuthController public user contract', () => {
           "assessment.read.cross_learner",
           "learners.act_as",
         ],
+        "position": null,
         "status": "active",
         "tenantId": "tenant_demo",
       }
@@ -203,6 +204,44 @@ describe('AuthController public user contract', () => {
     expect(row).toBeDefined();
     expect(row?.metadata?.correlation_id).toBe('corr_contract_1');
     expect(row?.requestId).toBe('req_contract_1');
+  });
+
+  // МГ-J3.2 (срез 8.11): приглашение — учётка без пароля, роли, письмо; повтор почты — 409.
+  it('inviteUser заводит учётку без пароля с ролями, отвечает о письме и не пускает дубль почты', async () => {
+    const { controller, audit } = await makeController();
+
+    const result = await controller.inviteUser(context, {
+      email: 'New.Staff@Demo.local',
+      displayName: 'Новикова Анна',
+      roleCodes: ['methodist'],
+      position: 'методист'
+    });
+
+    expect(result.user).toMatchObject({
+      login: 'new.staff@demo.local',
+      email: 'new.staff@demo.local',
+      displayName: 'Новикова Анна',
+      position: 'методист',
+      status: 'active'
+    });
+    expect(result.user).not.toHaveProperty('passwordHash');
+    expect(result.roles.map((role) => role.code)).toEqual(['methodist']);
+    expect(result.invite.status).toBe('logged'); // журнальный отправитель — почты нет
+    const rows = await audit.list('tenant_demo');
+    expect(rows.some((r) => r.action === 'iam.user_created' && r.entityId === result.user.id)).toBe(
+      true
+    );
+    expect(
+      rows.some((r) => r.action === 'iam.user_roles_updated' && r.entityId === result.user.id)
+    ).toBe(true);
+
+    await expect(
+      controller.inviteUser(context, {
+        email: 'new.staff@demo.local',
+        displayName: 'Ещё раз',
+        roleCodes: ['methodist']
+      })
+    ).rejects.toThrow(/уже есть/);
   });
 
   it('does not leak passwordHash after PUT /users/:id (updateUser)', async () => {

@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 
-import { LoginDto, RefreshDto } from './dto/login.dto.js';
+import { InviteUserDto, LoginDto, RefreshDto } from './dto/login.dto.js';
 import { MagicLinkRedeemDto, MagicLinkRequestDto } from './dto/magic-link.dto.js';
 
 const validationPipe = new ValidationPipe({
@@ -110,6 +110,33 @@ describe('IAM DTO validation', () => {
           { type: 'body', metatype: MagicLinkRedeemDto, data: 'payload' }
         )
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  // МГ-J3.2: приглашение сотрудника — почта по форме, хотя бы одна роль.
+  describe('InviteUserDto', () => {
+    it('rejects invite without roles or with a malformed email', async () => {
+      await expect(
+        validationPipe.transform(
+          { email: 'a@b.ru', displayName: 'Имя', roleCodes: [] },
+          { type: 'body', metatype: InviteUserDto, data: 'payload' }
+        )
+      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(
+        validationPipe.transform(
+          { email: 'not-an-email', displayName: 'Имя', roleCodes: ['methodist'] },
+          { type: 'body', metatype: InviteUserDto, data: 'payload' }
+        )
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('accepts a full invite and drops unknown fields', async () => {
+      await expect(
+        validationPipe.transform(
+          { email: 'a@b.ru', displayName: 'Имя', roleCodes: ['methodist'], position: 'методист' },
+          { type: 'body', metatype: InviteUserDto, data: 'payload' }
+        )
+      ).resolves.toMatchObject({ email: 'a@b.ru', roleCodes: ['methodist'], position: 'методист' });
     });
   });
 });

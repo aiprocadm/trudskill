@@ -23,5 +23,6 @@ export const toUserResponse = (user: User): UserResponseDto => ({
   login: user.login,
   email: user.email,
   status: user.status,
-  displayName: user.displayName
+  displayName: user.displayName,
+  position: user.position ?? null
 });

@@ -1,5 +1,6 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Delete,
   ForbiddenException,
@@ -29,6 +30,7 @@ import { authCookie } from './auth-cookie.util.js';
 // не эмитит, и проверка просто пропускалась.
 import {
   CreateUserDto,
+  InviteUserDto,
   LoginDto,
   LogoutDto,
   RefreshDto,
@@ -53,6 +55,7 @@ import {
 } from './recovery-throttle.js';
 import { AuthService, TotpChallengeRequired } from './services/auth.service.js';
 import { IamService } from './services/iam.service.js';
+import { LoggingMagicLinkEmailSender } from './services/magic-link-email-sender.js';
 import {
   MAGIC_LINK_EMAIL_SENDER,
   type MagicLinkEmailSender
@@ -628,5 +631,85 @@ export class AuthController {
       context.requestId,
       context.correlationId
     );
+  }
+
+  /**
+   * МГ-J3.2 (срез 8.11, РМ72–РМ75): «Пригласить сотрудника» — учётка без пароля (логин =
+   * почта), роли под лимитом сотрудников, письмо со ссылкой входа. Ответ говорит, что стало
+   * с письмом: ушло, не ушло из-за ограничения частоты или записано в журнал (почта выключена).
+   * Аудит — `iam.user_created` и `iam.user_roles_updated` из тех же служб.
+   */
+  @Post('users/invite')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('iam.manage_roles')
+  async inviteUser(@CurrentContext() context: RequestContext, @Body() payload: InviteUserDto) {
+    const tenantId = context.tenantId!;
+    const email = payload.email.toLowerCase().trim();
+    if (await this.iamService.findUserByEmail(tenantId, email)) {
+      throw new ConflictException({
+        code: 'conflict',
+        message: `Сотрудник с почтой ${email} уже есть в центре — откройте его карточку в разделе «Люди и доступ».`
+      });
+    }
+    /* Лимит сотрудников (ФТ-D4.2) — до создания учётки: не оставлять учётку без ролей. */
+    if (payload.roleCodes.some((code) => code !== 'learner')) {
+      await this.staffLimit.assertCanAddStaff(tenantId);
+    }
+    const auditMeta = {
+      actorId: context.userId,
+      requestId: context.requestId,
+      correlationId: context.correlationId
+    };
+    const user = await this.iamService.createUser(
+      tenantId,
+      {
+        login: email,
+        email,
+        displayName: payload.displayName.trim(),
+        ...(payload.position?.trim() ? { position: payload.position.trim() } : {})
+      },
+      auditMeta
+    );
+    const roles = await this.iamService.setUserRoles(
+      tenantId,
+      user.id,
+      payload.roleCodes,
+      context.userId,
+      context.requestId,
+      context.correlationId
+    );
+    const invite = await this.sendInviteLink(tenantId, email, context);
+    return { user: this.iamService.toPublicUser(user), roles, invite };
+  }
+
+  /** Письмо приглашения = письмо входа по ссылке (РМ73); ограничение частоты — как у формы входа. */
+  private async sendInviteLink(
+    tenantId: string,
+    email: string,
+    context: RequestContext
+  ): Promise<{ status: 'sent' | 'throttled' | 'logged' }> {
+    const { rawToken } = await this.magicLinkService.requestLink({
+      tenantId,
+      email,
+      ...(context.ip ? { ip: context.ip } : {}),
+      ...(context.userAgent ? { userAgent: context.userAgent } : {}),
+      throttle: DEFAULT_RECOVERY_THROTTLE
+    });
+    if (!rawToken) return { status: 'throttled' };
+    let tenantName: string | undefined;
+    try {
+      tenantName = this.tenants ? (await this.tenants.getTenantById(tenantId)).name : undefined;
+    } catch {
+      // Имя центра нужно только для подписи письма: без него письмо всё равно уходит.
+      tenantName = undefined;
+    }
+    await this.magicLinkEmailSender.sendMagicLink({
+      email,
+      rawToken,
+      ...(tenantName ? { tenantName } : {})
+    });
+    return {
+      status: this.magicLinkEmailSender instanceof LoggingMagicLinkEmailSender ? 'logged' : 'sent'
+    };
   }
 }
