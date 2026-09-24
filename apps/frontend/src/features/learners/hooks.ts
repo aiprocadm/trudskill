@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { learnerHistoryApi, learnersApi } from './api';
+import { learnerFilesApi, learnerHistoryApi, learnersApi } from './api';
 import { ApiClientError } from '../../lib/api/client';
 import { useAuth } from '../auth/context';
 import { mvpApi } from '../mvp/api';
@@ -232,6 +232,18 @@ export function useLearnerHistory(learnerId: string, enabled: boolean) {
     queryKey: ['learner-history', learnerId],
     enabled: Boolean(session) && Boolean(learnerId) && enabled,
     queryFn: () => learnerHistoryApi.fetch(session!, learnerId),
+    /* Ошибка показывается внутри вкладки, а не тостом поверх карточки. */
+    meta: { suppressGlobalErrorToast: true }
+  });
+}
+
+/** Файлы личного дела — вкладка «Файлы» карточки (МГ-C2.1, срез 9.2). */
+export function useLearnerFiles(learnerId: string) {
+  const { session } = useAuth();
+  return useQuery({
+    queryKey: ['learner-files', learnerId],
+    enabled: Boolean(session) && Boolean(learnerId),
+    queryFn: () => learnerFilesApi.list(session!, learnerId),
     /* Ошибка показывается внутри вкладки, а не тостом поверх карточки. */
     meta: { suppressGlobalErrorToast: true }
   });

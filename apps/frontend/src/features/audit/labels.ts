@@ -233,6 +233,9 @@ const PHRASES: Record<string, string> = {
   'learner.personal_data_erased': 'Персональные данные слушателя стёрты',
   'assessment.attempt_expired_by_timer': 'Попытка теста завершена по таймеру',
   'assessment.test_questions_attached': 'Вопросы прикреплены к тесту',
+  /* МГ-C2.1 (срез 9.2): файлы личного дела. */
+  'learning.learner_file_attached': 'Файл добавлен в личное дело',
+  'learning.learner_file_removed': 'Файл удалён из личного дела',
   'assessment.test_rules_updated': 'Правила теста изменены',
   'learning.enrollments_bulk': 'Массовое зачисление выполнено',
   'learning.enrollment_status_changed': 'Статус зачисления изменён',

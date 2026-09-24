@@ -15,6 +15,7 @@ import { useState } from 'react';
 import { fetchLearnerDossierPdfUrl } from './api';
 import { useLearnerHistory } from './hooks';
 import { LearnerEditDrawer } from './learner-edit-drawer';
+import { LearnerFilesSection } from './learner-files-section';
 import { LearnerProfileSection } from './learner-profile-section';
 import {
   PageContainer,
@@ -50,7 +51,7 @@ import type { LearnerProfile } from './types';
  * 2. Блок «Личные данные (для PDF)» печатал полный СНИЛС под `learners.read` (журнал 638) и
  *    мёртвую кнопку «Экспорт PDF» — убран; СНИЛС раскрывается по причине в «Личном деле».
  * 3. Дело слушателя одним PDF (ФТ-C2) существовало только как ручка (журнал 641) — теперь в
- *    меню «Ещё» вместе с обезличиванием; лист доступов и «Выслать доступ» — срезы 9.2–9.3.
+ *    меню «Ещё» вместе с обезличиванием; «Выслать доступ» — срез 9.3, лист доступов — МГ-C4.
  * 4. Названия курса и группы приходят в агрегате карточки: три запроса справочников по 100
  *    строк с карточки ушли (РМ92).
  */
@@ -58,6 +59,8 @@ const LEARNER_CARD_TABS = [
   { id: 'personal', label: 'Личное дело' },
   { id: 'learning', label: 'Обучение' },
   { id: 'documents', label: 'Документы' },
+  /* МГ-C2.1 (срез 9.2): согласия и сканы — до N файлов, предел центра. */
+  { id: 'files', label: 'Файлы' },
   { id: 'history', label: 'История' }
 ];
 const TAB_IDS = LEARNER_CARD_TABS.map((tab) => tab.id);
@@ -253,6 +256,10 @@ export const LearnerDetailsScreen = ({ id }: { id: string }) => {
                 />
               ) : null}
             </SectionCard>
+          </TabPanel>
+
+          <TabPanel id="files" activeId={tab}>
+            <LearnerFilesSection learnerId={id} />
           </TabPanel>
 
           <TabPanel id="history" activeId={tab}>
