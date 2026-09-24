@@ -16,6 +16,7 @@ import {
   UseInterceptors
 } from '@nestjs/common';
 
+import { DOCUMENT_KINDS } from './document-kinds.js';
 import { DocumentsEnqueueService } from './documents-enqueue.service.js';
 import {
   CloseGroupDto,
@@ -214,6 +215,14 @@ export class DocumentsController {
         maxBytes: 25 * 1024 * 1024
       }
     );
+  }
+
+  /* МГ-F1.1 (срез 18.1): виды документов — общий каталог (паритет с CDOPROF, ТЗ §9.1). */
+  @Get('document-kinds')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.read')
+  listDocumentKinds() {
+    return { items: DOCUMENT_KINDS };
   }
 
   @Get('templates')

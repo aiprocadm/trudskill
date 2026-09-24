@@ -1508,6 +1508,8 @@ export interface CourseDocumentSetEntry {
   autoIssueOnCompletion: boolean;
   createdAt: string;
   updatedAt: string;
+  /** МГ-F1.1 (срез 18.1): вид документа строки набора (РМ123). */
+  kindCode?: string;
 }
 
 /** Re-exported from documents module — single source of truth for template_type and category_code unions. */

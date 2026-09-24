@@ -38,6 +38,7 @@ export function buildEnrollmentCompletedPayload(
           position: entry.position,
           isRequired: entry.isRequired,
           autoIssueOnCompletion: entry.autoIssueOnCompletion,
+          ...(entry.kindCode ? { kindCode: entry.kindCode } : {}),
           ...(version?.recertificationPeriodMonths
             ? { recertificationPeriodMonths: version.recertificationPeriodMonths }
             : {})

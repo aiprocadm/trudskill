@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
+import { assertDocumentKindFitsTemplate } from './document-kinds.js';
 import { DOCUMENT_REVOKED_EVENT } from './document-revoked.event.js';
 import { DOCUMENTS_STATE } from './documents-state.token.js';
 import {
@@ -422,8 +423,11 @@ export class DocumentsService {
     req: CreateTemplateBindingRequest,
     ctx: RequestContext
   ) {
-    this.getTemplate(tenantId, req.templateId);
+    const template = this.getTemplate(tenantId, req.templateId);
     this.validateBindingPayload(req.bindType, req.directionId, req.courseId, req.groupId);
+    if (req.kindCode) {
+      assertDocumentKindFitsTemplate(req.kindCode, template.templateType, template.name);
+    }
     const entity: TemplateBindingEntity = {
       id: this.id('tplbind'),
       tenantId,
@@ -435,7 +439,8 @@ export class DocumentsService {
       attachMode: req.attachMode ?? 'strict',
       inheritToChildren: req.inheritToChildren ?? false,
       priority: req.priority ?? 100,
-      createdAt: this.now()
+      createdAt: this.now(),
+      ...(req.kindCode ? { kindCode: req.kindCode } : {})
     };
     this.state.bindings.push(entity);
     this.auditService.write({
@@ -738,7 +743,8 @@ export class DocumentsService {
         enqueued_at: this.now()
       },
       ...(req.validUntil ? { validUntil: req.validUntil } : {}),
-      ...(req.groupId ? { groupId: req.groupId } : {})
+      ...(req.groupId ? { groupId: req.groupId } : {}),
+      ...(req.kindCode ? { kindCode: req.kindCode } : {})
     };
     this.state.tasks.push(task);
     this.state.idem.set(idemKey, { taskId: task.id, expiresAt: Date.now() + 24 * 60 * 60 * 1000 });
@@ -807,6 +813,7 @@ export class DocumentsService {
       templateId: task.templateId,
       templateVersionId: task.templateVersionId!,
       documentType: task.documentType,
+      ...(task.kindCode ? { kindCode: task.kindCode } : {}),
       name: `Document ${reserved.reservedNumber}`,
       sourceEntityType: task.sourceEntityType,
       sourceEntityId: task.sourceEntityId,

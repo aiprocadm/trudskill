@@ -57,6 +57,11 @@ const WITHOUT_TENANT: ReadonlyArray<Allowed> = [
     handler: 'mvp/mvp.controller.ts::Get counterparties/suggest',
     why: 'реквизиты по ИНН из общего реестра ЕГРЮЛ; данных центра не читает и не пишет'
   },
+  /* МГ-F1.1 (срез 18.1): виды документов учебного центра — общий каталог в коде (РМ123). */
+  {
+    handler: 'documents/documents.controller.ts::Get document-kinds',
+    why: 'каталог видов документов (паритет с CDOPROF) — один на платформу, данных центра нет'
+  },
   /* МГ-E2.1 (срез 16.1): виды документов ФИС ФРДО для выбора у курса — общий справочник. */
   {
     handler: 'mvp/mvp.controller.ts::Get frdo-document-kinds',

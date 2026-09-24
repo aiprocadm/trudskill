@@ -13,6 +13,8 @@ export interface EnrollmentCompletedDocumentSetEntry {
   autoIssueOnCompletion: boolean;
   /** Phase 5B — program validity (months) for this course version; undefined = бессрочно. */
   recertificationPeriodMonths?: number;
+  /** МГ-F1.1: вид документа строки набора — ставится на выпущенный документ. */
+  kindCode?: string;
 }
 
 export interface EnrollmentCompletedPayload {

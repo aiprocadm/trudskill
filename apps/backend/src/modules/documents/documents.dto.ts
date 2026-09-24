@@ -63,6 +63,8 @@ export interface CreateTemplateBindingRequest {
   attachMode?: string;
   inheritToChildren?: boolean;
   priority?: number;
+  /** МГ-F1.1: вид документа, для которого предназначен шаблон. */
+  kindCode?: string;
 }
 export interface UpdateTemplateBindingRequest {
   attachMode?: string;
@@ -81,6 +83,8 @@ export interface GenerateDocumentRequest {
   validUntil?: string;
   /** ФТ-A5.3 — группа, ради закрытия которой заведена задача (см. `closeGroup`). */
   groupId?: string;
+  /** МГ-F1.1: вид документа — ставится на выпущенный документ. */
+  kindCode?: string;
 }
 
 /**

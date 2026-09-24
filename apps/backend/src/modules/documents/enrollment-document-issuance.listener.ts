@@ -102,7 +102,8 @@ export class EnrollmentDocumentIssuanceListener {
                 sourceEntityType: 'enrollment',
                 sourceEntityId: enrollmentId,
                 documentType: CERTIFICATE_DOCUMENT_TYPE,
-                ...(validUntil ? { validUntil } : {})
+                ...(validUntil ? { validUntil } : {}),
+                ...(entry.kindCode ? { kindCode: entry.kindCode } : {})
               },
               traceCtx
             );
