@@ -21,6 +21,8 @@ export interface UserResponseContract {
   email: string | null;
   status: 'active' | 'blocked';
   displayName: string;
+  /** МГ-J3.2 (миграция 0112, РМ74): должность сотрудника; у старых учёток пусто. */
+  position?: string | null;
 }
 
 export interface SessionResponseContract {

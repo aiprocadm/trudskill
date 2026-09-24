@@ -41,6 +41,8 @@ export interface UserEntity {
   email: string | null;
   status: 'active' | 'blocked';
   displayName: string;
+  /** МГ-J3.2 (0112): должность сотрудника; у старых учёток пусто. */
+  position?: string | null;
   /**
    * Коды ролей человека (ТЗ 5.6 / Э6). Поле необязательное: его отдаёт только список
    * `GET /users`, карточка одного пользователя берёт роли отдельной ручкой.
@@ -53,6 +55,21 @@ export interface RoleEntity {
   tenantId: string;
   code: string;
   name: string;
+}
+
+/** МГ-J3.2: «Пригласить сотрудника» — тело `POST /users/invite`. */
+export interface InviteUserPayload {
+  email: string;
+  displayName: string;
+  roleCodes: string[];
+  position?: string;
+}
+
+/** Ответ приглашения: учётка, роли и что стало с письмом (ушло / ограничение частоты / журнал). */
+export interface InviteUserOutcome {
+  user: UserEntity & { position?: string | null };
+  roles: RoleEntity[];
+  invite: { status: 'sent' | 'throttled' | 'logged' };
 }
 
 export interface Counterparty extends BaseEntity {

@@ -163,7 +163,7 @@ export class IamService {
       totp_last_used_step: string | number | null;
     }>(
       `
-        select id, tenant_id, login, email, password_hash, status, display_name, totp_secret_encrypted, totp_enabled, totp_last_used_step
+        select id, tenant_id, login, email, password_hash, status, display_name, position, totp_secret_encrypted, totp_enabled, totp_last_used_step
         from iam.users
         where tenant_id = $1 and lower(email) = $2 and deleted_at is null
         limit 1
@@ -210,7 +210,7 @@ export class IamService {
       totp_last_used_step: string | number | null;
     }>(
       `
-        select id, tenant_id, login, email, password_hash, status, display_name, totp_secret_encrypted, totp_enabled, totp_last_used_step
+        select id, tenant_id, login, email, password_hash, status, display_name, position, totp_secret_encrypted, totp_enabled, totp_last_used_step
         from iam.users
         where tenant_id = $1 and login = $2 and deleted_at is null
         limit 1
@@ -272,7 +272,7 @@ export class IamService {
       totp_last_used_step: string | number | null;
     }>(
       `
-        select id, tenant_id, login, email, password_hash, status, display_name, counterparty_id, totp_secret_encrypted, totp_enabled, totp_last_used_step
+        select id, tenant_id, login, email, password_hash, status, display_name, position, counterparty_id, totp_secret_encrypted, totp_enabled, totp_last_used_step
         from iam.users
         where tenant_id = $1 and id = $2 and deleted_at is null
         limit 1
@@ -460,7 +460,7 @@ export class IamService {
       totp_last_used_step: string | number | null;
     }>(
       `
-        select id, tenant_id, login, email, password_hash, status, display_name, totp_secret_encrypted, totp_enabled, totp_last_used_step
+        select id, tenant_id, login, email, password_hash, status, display_name, position, totp_secret_encrypted, totp_enabled, totp_last_used_step
         from iam.users
         where tenant_id = $1 and deleted_at is null
         order by created_at desc
@@ -508,6 +508,8 @@ export class IamService {
       displayName: string;
       status?: 'active' | 'blocked';
       password?: string;
+      /** МГ-J3.2 (0112): должность сотрудника. */
+      position?: string | null;
     },
     auditMeta?: { actorId?: string; requestId?: string; correlationId?: string }
   ): Promise<User> {
@@ -526,7 +528,8 @@ export class IamService {
         email: payload.email ?? null,
         passwordHash,
         status: payload.status ?? 'active',
-        displayName: payload.displayName
+        displayName: payload.displayName,
+        position: payload.position ?? null
       };
       this.fallbackUsers.push(user);
       this.auditService.write({
@@ -545,8 +548,8 @@ export class IamService {
     const id = `u_${randomUUID().replace(/-/g, '')}`;
     await this.databaseService.query(
       `
-        insert into iam.users (id, tenant_id, login, email, password_hash, status, display_name)
-        values ($1, $2, $3, $4, $5, $6, $7)
+        insert into iam.users (id, tenant_id, login, email, password_hash, status, display_name, position)
+        values ($1, $2, $3, $4, $5, $6, $7, $8)
       `,
       [
         id,
@@ -555,7 +558,8 @@ export class IamService {
         payload.email ?? null,
         passwordHash,
         payload.status ?? 'active',
-        payload.displayName
+        payload.displayName,
+        payload.position ?? null
       ]
     );
 
@@ -576,13 +580,19 @@ export class IamService {
   async updateUser(
     tenantId: string,
     userId: string,
-    payload: { email?: string | null; displayName?: string; status?: 'active' | 'blocked' }
+    payload: {
+      email?: string | null;
+      displayName?: string;
+      status?: 'active' | 'blocked';
+      position?: string | null;
+    }
   ): Promise<User> {
     if (!this.databaseService) {
       const user = await this.getUser(tenantId, userId);
       if (payload.email !== undefined) user.email = payload.email;
       if (payload.displayName !== undefined) user.displayName = payload.displayName;
       if (payload.status !== undefined) user.status = payload.status;
+      if (payload.position !== undefined) user.position = payload.position;
       return user;
     }
 
@@ -594,6 +604,7 @@ export class IamService {
           email = $3,
           display_name = $4,
           status = $5,
+          position = $6,
           updated_at = now()
         where tenant_id = $1 and id = $2 and deleted_at is null
       `,
@@ -602,7 +613,8 @@ export class IamService {
         userId,
         payload.email !== undefined ? payload.email : current.email,
         payload.displayName ?? current.displayName,
-        payload.status ?? current.status
+        payload.status ?? current.status,
+        payload.position !== undefined ? payload.position : (current.position ?? null)
       ]
     );
 
@@ -743,6 +755,41 @@ export class IamService {
     }>('select id, code, description from iam.permissions order by code asc');
 
     return rows.map((row) => ({ id: row.id, code: row.code, description: row.description }));
+  }
+
+  /** МГ-J3.2: есть ли уже учётка с такой почтой в центре (почта сравнивается без регистра). */
+  async findUserByEmail(tenantId: string, rawEmail: string): Promise<User | null> {
+    const email = rawEmail.toLowerCase().trim();
+    if (!this.databaseService) {
+      return (
+        this.fallbackUsers.find(
+          (u) => u.tenantId === tenantId && (u.email ?? '').toLowerCase() === email
+        ) ?? null
+      );
+    }
+    const rows = await this.databaseService.query<{
+      id: string;
+      tenant_id: string;
+      login: string;
+      email: string | null;
+      password_hash: string;
+      status: 'active' | 'blocked';
+      display_name: string;
+      position: string | null;
+      counterparty_id: string | null;
+      totp_secret_encrypted: string | null;
+      totp_enabled: boolean;
+      totp_last_used_step: string | number | null;
+    }>(
+      `
+        select id, tenant_id, login, email, password_hash, status, display_name, position, counterparty_id, totp_secret_encrypted, totp_enabled, totp_last_used_step
+        from iam.users
+        where tenant_id = $1 and lower(email) = $2 and deleted_at is null
+        limit 1
+      `,
+      [tenantId, email]
+    );
+    return rows[0] ? this.toUser(rows[0]) : null;
   }
 
   async getUserRoles(tenantId: string, userId: string): Promise<Role[]> {
@@ -987,6 +1034,7 @@ export class IamService {
     password_hash: string;
     status: 'active' | 'blocked';
     display_name: string;
+    position?: string | null;
     counterparty_id?: string | null;
     totp_secret_encrypted?: string | null;
     totp_enabled?: boolean;
@@ -1001,6 +1049,7 @@ export class IamService {
       passwordHash: row.password_hash,
       status: row.status,
       displayName: row.display_name,
+      position: row.position ?? null,
       counterpartyId: row.counterparty_id ?? null,
       totpEnabled: row.totp_enabled ?? false,
       totpSecretEncrypted: row.totp_secret_encrypted ?? null,

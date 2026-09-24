@@ -30,6 +30,8 @@ import type {
   GroupWizardOutcome,
   GroupWizardRequest,
   GroupsListQuery,
+  InviteUserOutcome,
+  InviteUserPayload,
   KpiFilterQuery,
   KpiSnapshot,
   Learner,
@@ -93,6 +95,13 @@ export const mvpApi = {
       ...withAuth(session)
     }),
   listRoles: (session: UserSession) => apiRequest<RoleEntity[]>('/roles', withAuth(session)),
+  /* МГ-J3.2: приглашение сотрудника одной ручкой — учётка, роли, письмо со ссылкой входа. */
+  inviteUser: (session: UserSession, payload: InviteUserPayload) =>
+    apiRequest<InviteUserOutcome>('/users/invite', {
+      method: 'POST',
+      body: payload,
+      ...withAuth(session)
+    }),
   setUserRoles: (session: UserSession, id: string, roleCodes: string[]) =>
     apiRequest<RoleEntity[]>(`/users/${id}/roles`, {
       method: 'PUT',

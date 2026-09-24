@@ -10,6 +10,8 @@ export interface User {
   passwordHash: string;
   status: UserStatus;
   displayName: string;
+  /** МГ-J3.2 (0112): должность сотрудника — из приглашения или правки карточки. */
+  position?: string | null;
   /** ФТ-E5: контрагент представителя заказчика; пусто у персонала центра. */
   counterpartyId?: string | null;
   /** 2FA (ФТ-G3): подтверждённая TOTP-защита входа. Опциональны — legacy-конструкторы юзера их не знают. */

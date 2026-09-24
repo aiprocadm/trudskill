@@ -65,6 +65,10 @@ describe('mvp api envelope compatibility', () => {
       }
     ) => Promise<{ group: { id: string }; enrollments: { failed: number } }>;
     nextGroupCode: (session: UserSession) => Promise<{ code: string }>;
+    inviteUser: (
+      session: UserSession,
+      payload: { email: string; displayName: string; roleCodes: string[]; position?: string }
+    ) => Promise<{ user: { id: string }; invite: { status: string } }>;
     updateEnrollmentStatus: (
       session: UserSession,
       id: string,
@@ -165,6 +169,24 @@ describe('mvp api envelope compatibility', () => {
     const [resultUrl, resultInit] = fetchMock.mock.calls[1] ?? [];
     expect(String(resultUrl)).toContain('/enrollments/enr_1/result');
     expect((resultInit as RequestInit).method).toBe('PATCH');
+  });
+
+  // МГ-J3.2: приглашение — POST /users/invite, ответ говорит, что стало с письмом.
+  it('inviteUser шлёт POST /users/invite и читает итог письма из конверта', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(envelope({ user: { id: 'u_new' }, roles: [], invite: { status: 'sent' } }), {
+        status: 201
+      })
+    );
+    const result = await mvpApi.inviteUser(session, {
+      email: 'a@b.ru',
+      displayName: 'Новикова Анна',
+      roleCodes: ['methodist']
+    });
+    expect(result.invite.status).toBe('sent');
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(String(url)).toContain('/users/invite');
+    expect((init as RequestInit).method).toBe('POST');
   });
 
   it('nextGroupCode читает код из конверта по /groups/next-code', async () => {

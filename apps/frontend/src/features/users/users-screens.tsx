@@ -4,6 +4,7 @@ import { ListPage, LoadingState, StatusChip } from '@trudskill/ui';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+import { UserInviteDrawer } from './user-invite-drawer';
 import {
   PageContainer,
   PageHeader,
@@ -64,6 +65,8 @@ export const UsersPageScreen = () => {
   const [status, setStatus] = useState('');
   const [role, setRole] = useState('');
   const [page, setPage] = useState(1);
+  /* МГ-J3.2 (срез 8.11): единственное первичное действие реестра — пригласить сотрудника. */
+  const [inviting, setInviting] = useState(false);
   const { data, loading, error, refetch } = useUsersList({
     q,
     status,
@@ -100,7 +103,7 @@ export const UsersPageScreen = () => {
         title="Люди и доступ"
         subtitle="Сотрудники учебного центра: кто заходит в систему и что может делать"
         {...(canManage
-          ? {}
+          ? { primaryAction: { label: 'Пригласить сотрудника', onSelect: () => setInviting(true) } }
           : {
               /* Пометка о правах — не действие: живёт в служебном слоте (CMP-020). */
               toolsSlot: (
@@ -187,6 +190,9 @@ export const UsersPageScreen = () => {
         totalPages={totalPages}
         onPageChange={setPage}
       />
+      {inviting ? (
+        <UserInviteDrawer onClose={() => setInviting(false)} onInvited={() => void refetch()} />
+      ) : null}
     </PageContainer>
   );
 };
