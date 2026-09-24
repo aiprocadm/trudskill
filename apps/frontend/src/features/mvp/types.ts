@@ -82,9 +82,25 @@ export interface Learner extends BaseEntity {
   learnerNo?: string;
   firstName: string;
   lastName: string;
+  middleName?: string;
   email?: string;
   organizationUnitId?: string;
   linkedIamUserId?: string;
+  /* Личное дело (МГ-C1.1): СНИЛС, дата рождения и паспорт приходят масками. */
+  snils?: string;
+  dateOfBirth?: string;
+  position?: string;
+  phone?: string;
+  passport?: { series?: string; number?: string; issuedAt?: string; issuedBy?: string } | string;
+  gender?: 'm' | 'f';
+  birthPlace?: string;
+  citizenship?: string;
+  registrationAddress?: string;
+  educationLevel?: string;
+  diploma?: { series?: string; number?: string; institution?: string; surnameInDiploma?: string };
+  trackingNumber?: string;
+  deliveryMethod?: string;
+  counterpartyId?: string;
 }
 
 /** ФТ-E5: строка «Документы» портала заказчика — проекция без содержимого и ПДн-словаря. */

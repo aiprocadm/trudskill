@@ -2,8 +2,10 @@
 
 import { DetailLayout, KeyValueList, ListPage, LoadingState, StatusChip } from '@trudskill/ui';
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
+import { LearnerEditDrawer } from './learner-edit-drawer';
+import { LearnerProfileSection } from './learner-profile-section';
 import {
   PageContainer,
   PageHeader,
@@ -11,10 +13,14 @@ import {
   SectionCard,
   SectionError
 } from '../../components/state-wrappers';
+import { hasPermission } from '../../lib/rbac/permissions';
+import { useAuth } from '../auth/context';
 import { LearnerPdfCardSections } from '../learner-pdf-card/learner-pdf-card-sections';
 import { useCoursesList, useGroupsList, useLearner, useLearnerCourses } from '../mvp/hooks';
 import { ENROLLMENT_STATUS_LABEL, formatDate } from '../mvp/screen-helpers';
 import { useObjectCrumb } from '../navigation/use-object-crumb';
+
+import type { LearnerProfile } from './types';
 
 /*
  * TPL-002 — эталон карточки (ТЗ §8.2). Что изменилось против перенесённой версии:
@@ -34,6 +40,10 @@ const PAGE_SIZE = 100;
 
 export const LearnerDetailsScreen = ({ id }: { id: string }) => {
   const { data: learner, loading, error, notFound, refetch } = useLearner(id);
+  const { session } = useAuth();
+  /* МГ-C1.1 (срез 8.12b): правка личного дела — той же панелью, что и в реестре (один путь). */
+  const canEdit = hasPermission(session?.permissions ?? [], 'learners.write');
+  const [editing, setEditing] = useState(false);
   const { data: enrollmentPage, loading: enrollmentsLoading } = useLearnerCourses(id);
   const { data: coursePage } = useCoursesList({ page: 1, page_size: PAGE_SIZE });
   const { data: groupPage } = useGroupsList({ page: 1, page_size: PAGE_SIZE });
@@ -65,8 +75,26 @@ export const LearnerDetailsScreen = ({ id }: { id: string }) => {
     <PageContainer>
       <PageHeader
         title={fullName || 'Слушатель'}
-        subtitle="Личное дело: где учится, что уже получил"
+        subtitle="Личное дело: кто это, где учится, что уже получил"
+        {...(canEdit && learner
+          ? {
+              primaryAction: {
+                label: 'Редактировать личное дело',
+                onSelect: () => setEditing(true)
+              }
+            }
+          : {})}
       />
+      {editing && learner ? (
+        <LearnerEditDrawer
+          learner={learner as unknown as LearnerProfile}
+          onClose={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false);
+            void refetch();
+          }}
+        />
+      ) : null}
       {loading ? <LoadingState message="Загружаем карточку…" /> : null}
       {error ? <SectionError message={error} onRetry={() => void refetch()} /> : null}
       {learner ? (
@@ -92,6 +120,7 @@ export const LearnerDetailsScreen = ({ id }: { id: string }) => {
             </SectionCard>
           }
         >
+          <LearnerProfileSection learner={learner as unknown as LearnerProfile} />
           <SectionCard title="Обучение">
             {/* GOAL-4 волна 4: секция с таблицей — на общем каркасе, состояния не вручную. */}
             <ListPage

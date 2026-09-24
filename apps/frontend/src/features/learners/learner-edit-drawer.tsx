@@ -3,11 +3,12 @@
 import { DetailDrawer, DrawerCancelButton, PageTabs, TabPanel } from '@trudskill/ui';
 import { useState } from 'react';
 
-import { STATUS_LABEL, buildUpdatePayload } from './format';
+import { STATUS_LABEL, buildUpdatePayload, passportFormHint, toEditFormState } from './format';
 import { useUpdateLearnerProfile } from './hooks';
 import { LearnerPiiPanel } from './learner-pii-panel';
 import { isFormDirty } from '../../lib/forms/dirty';
 import { snilsInputHint } from '../../lib/snils';
+import { ClientSelect } from '../groups/group-picker';
 
 import type { LearnerEditFormState, LearnerListItem, LearnerStatus } from './types';
 
@@ -17,20 +18,8 @@ interface LearnerEditDrawerProps {
   onSaved: () => void;
 }
 
-function toFormState(learner: LearnerListItem): LearnerEditFormState {
-  return {
-    firstName: learner.firstName,
-    lastName: learner.lastName,
-    middleName: learner.middleName ?? '',
-    email: learner.email ?? '',
-    snils: learner.snils ?? '',
-    dateOfBirth: learner.dateOfBirth ?? '',
-    position: learner.position ?? '',
-    organizationUnitId: learner.organizationUnitId ?? '',
-    learnerNo: learner.learnerNo ?? '',
-    status: learner.status
-  };
-}
+/* Строки формы строит общая утилита (`format.ts`) — она же считает разницу для запроса. */
+const toFormState = toEditFormState;
 
 /**
  * Вкладки карточки слушателя (ТЗ 5.13 / Э13).
@@ -45,6 +34,8 @@ function toFormState(learner: LearnerListItem): LearnerEditFormState {
  */
 const LEARNER_TABS = [
   { id: 'profile', label: 'Данные слушателя' },
+  /* МГ-C1.1 (срез 8.12b, РМ79): личное дело — паспорт, адрес, образование, доставка, компания. */
+  { id: 'personal', label: 'Личное дело' },
   { id: 'erase', label: 'Обезличивание' }
 ];
 const FORM_ID = 'learner-edit-form';
@@ -62,15 +53,18 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
 
   // Подсказка по СНИЛС считается на каждый ввод: правило одно на весь фронт (`lib/snils`)
   // и зеркалит серверное — сервер всё равно отклонит, но человек узнает об этом сразу.
-  const snilsHint = snilsInputHint(form.snils);
+  /* Маска сервера в поле (`***-***-*** 95`) — не ввод человека: подсказку не показываем и не отправляем. */
+  const snilsHint = form.snils.includes('*') ? undefined : snilsInputHint(form.snils);
+  const passportHint = passportFormHint(form);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.firstName.trim() || !form.lastName.trim()) return;
     // Не отправляем заведомо неверный номер: иначе ответ придёт ошибкой 400, и человеку
     // придётся возвращаться к тому же полю через сообщение об ошибке сверху формы.
-    if (snilsHint) return;
-    const payload = buildUpdatePayload(form);
+    if (snilsHint || passportHint) return;
+    /* Только разница с исходной формой (РМ69/МГ-C1.1): маски сервера в запрос не попадают. */
+    const payload = buildUpdatePayload(form, initialForm);
     const result = await mutation.mutate(learner.id, payload);
     if (result) onSaved();
   };
@@ -98,7 +92,7 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
             disabled={mutation.isPending}
             onFallbackClose={onClose}
           />
-          {tab === 'profile' ? (
+          {tab === 'profile' || tab === 'personal' ? (
             <button
               type="submit"
               form={FORM_ID}
@@ -251,6 +245,187 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
             </div>
           ) : null}
         </form>
+      </TabPanel>
+
+      {/* МГ-C1.1: личное дело — та же форма (одна кнопка «Сохранить слушателя»), поля на второй вкладке. */}
+      <TabPanel id="personal" activeId={tab}>
+        <div className="ui-stack">
+          <p className="ui-hint">
+            Паспорт и дата рождения показаны частично; чтобы изменить, введите значение заново.
+            Пустое поле при сохранении очищает данные.
+          </p>
+          <label className="ui-field">
+            <span className="ui-field-label">Пол</span>
+            <select
+              className="ui-select"
+              form={FORM_ID}
+              value={form.gender}
+              onChange={(e) => setField('gender', e.target.value as LearnerEditFormState['gender'])}
+            >
+              <option value="">не указан</option>
+              <option value="m">мужской</option>
+              <option value="f">женский</option>
+            </select>
+          </label>
+          <label className="ui-field">
+            <span className="ui-field-label">Телефон</span>
+            <input
+              className="ui-input"
+              form={FORM_ID}
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              value={form.phone}
+              onChange={(e) => setField('phone', e.target.value)}
+            />
+          </label>
+          <label className="ui-field">
+            <span className="ui-field-label">Гражданство</span>
+            <input
+              className="ui-input"
+              form={FORM_ID}
+              value={form.citizenship}
+              onChange={(e) => setField('citizenship', e.target.value)}
+              placeholder="Россия"
+            />
+          </label>
+          <label className="ui-field">
+            <span className="ui-field-label">Место рождения</span>
+            <input
+              className="ui-input"
+              form={FORM_ID}
+              value={form.birthPlace}
+              onChange={(e) => setField('birthPlace', e.target.value)}
+            />
+          </label>
+          <label className="ui-field">
+            <span className="ui-field-label">Адрес регистрации</span>
+            <input
+              className="ui-input"
+              form={FORM_ID}
+              value={form.registrationAddress}
+              onChange={(e) => setField('registrationAddress', e.target.value)}
+            />
+          </label>
+          <fieldset className="ui-field">
+            <legend className="ui-field-label">Паспорт</legend>
+            <div className="ui-inline">
+              <input
+                className="ui-input"
+                form={FORM_ID}
+                aria-label="Серия паспорта"
+                value={form.passportSeries}
+                onChange={(e) => setField('passportSeries', e.target.value)}
+                placeholder="Серия"
+                inputMode="numeric"
+              />
+              <input
+                className="ui-input"
+                form={FORM_ID}
+                aria-label="Номер паспорта"
+                value={form.passportNumber}
+                onChange={(e) => setField('passportNumber', e.target.value)}
+                placeholder="Номер"
+                inputMode="numeric"
+              />
+            </div>
+            <input
+              className="ui-input"
+              form={FORM_ID}
+              type="date"
+              aria-label="Дата выдачи паспорта"
+              value={form.passportIssuedAt}
+              onChange={(e) => setField('passportIssuedAt', e.target.value)}
+            />
+            <input
+              className="ui-input"
+              form={FORM_ID}
+              aria-label="Кем выдан паспорт"
+              value={form.passportIssuedBy}
+              onChange={(e) => setField('passportIssuedBy', e.target.value)}
+              placeholder="Кем выдан"
+            />
+            {passportHint ? (
+              <span className="ui-field-error" role="alert">
+                {passportHint}
+              </span>
+            ) : null}
+          </fieldset>
+          <label className="ui-field">
+            <span className="ui-field-label">Образование</span>
+            <input
+              className="ui-input"
+              form={FORM_ID}
+              value={form.educationLevel}
+              onChange={(e) => setField('educationLevel', e.target.value)}
+              placeholder="Например: высшее"
+            />
+          </label>
+          <fieldset className="ui-field">
+            <legend className="ui-field-label">Диплом об образовании</legend>
+            <div className="ui-inline">
+              <input
+                className="ui-input"
+                form={FORM_ID}
+                aria-label="Серия диплома"
+                value={form.diplomaSeries}
+                onChange={(e) => setField('diplomaSeries', e.target.value)}
+                placeholder="Серия"
+              />
+              <input
+                className="ui-input"
+                form={FORM_ID}
+                aria-label="Номер диплома"
+                value={form.diplomaNumber}
+                onChange={(e) => setField('diplomaNumber', e.target.value)}
+                placeholder="Номер"
+              />
+            </div>
+            <input
+              className="ui-input"
+              form={FORM_ID}
+              aria-label="Учебное заведение"
+              value={form.diplomaInstitution}
+              onChange={(e) => setField('diplomaInstitution', e.target.value)}
+              placeholder="Учебное заведение"
+            />
+            <input
+              className="ui-input"
+              form={FORM_ID}
+              aria-label="Фамилия в дипломе"
+              value={form.diplomaSurname}
+              onChange={(e) => setField('diplomaSurname', e.target.value)}
+              placeholder="Фамилия в дипломе, если менялась"
+            />
+          </fieldset>
+          <div className="ui-field">
+            <ClientSelect
+              value={form.counterpartyId}
+              onChange={(counterpartyId) => setField('counterpartyId', counterpartyId)}
+              label="Компания-работодатель"
+              emptyLabel="— без компании —"
+            />
+          </div>
+          <label className="ui-field">
+            <span className="ui-field-label">Способ доставки документов</span>
+            <input
+              className="ui-input"
+              form={FORM_ID}
+              value={form.deliveryMethod}
+              onChange={(e) => setField('deliveryMethod', e.target.value)}
+              placeholder="Например: почтой, курьером, лично"
+            />
+          </label>
+          <label className="ui-field">
+            <span className="ui-field-label">Трек-номер отправления</span>
+            <input
+              className="ui-input"
+              form={FORM_ID}
+              value={form.trackingNumber}
+              onChange={(e) => setField('trackingNumber', e.target.value)}
+            />
+          </label>
+        </div>
       </TabPanel>
 
       {/* ФТ-G6: панель вне <form> — обезличивание не должно уехать по случайному Enter
