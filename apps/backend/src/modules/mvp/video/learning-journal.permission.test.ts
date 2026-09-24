@@ -14,7 +14,7 @@ import { REQUIRED_PERMISSIONS } from '../../iam/permission.decorator.js';
  * сводки (`GET /groups/:id/progress-summary`), и у экрана `/groups/:id`, где журнал живёт.
  */
 describe('VideoPlaybackController — журнал часов группы закрыт правом на группы', () => {
-  it.each(['learningJournal', 'learningJournalCsv'] as const)(
+  it.each(['learningJournal', 'learningJournalCsv', 'learningJournalXlsx'] as const)(
     '%s требует groups.read',
     (method) => {
       expect(

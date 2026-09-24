@@ -5,7 +5,8 @@ import { InMemoryVideoProgressRepository } from './in-memory-video-progress.repo
 import {
   LEARNING_JOURNAL_CSV_HEADER,
   LearningHoursService,
-  renderLearningJournalCsv
+  renderLearningJournalCsv,
+  renderLearningJournalXlsx
 } from './learning-hours.service.js';
 import {
   ACADEMIC_HOUR_MINUTES,
@@ -14,6 +15,7 @@ import {
   toAcademicHours
 } from './learning-hours.util.js';
 
+import type { DatabaseService } from '../../../infrastructure/database/database.service.js';
 import type { WebinarsService } from '../../communication/webinars.service.js';
 import type { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
 
@@ -132,8 +134,16 @@ function makeState(): InMemoryMvpState {
       { tenantId: T, id: 'enr_x', groupId: 'grp_other', learnerId: 'lrn_3', status: 'active' }
     ],
     learners: [
-      { tenantId: T, id: 'lrn_1', lastName: 'Яковлев', firstName: 'Ян' },
+      { tenantId: T, id: 'lrn_1', lastName: 'Яковлев', firstName: 'Ян', linkedIamUserId: 'usr_1' },
       { tenantId: T, id: 'lrn_2', lastName: 'Абрамов', firstName: 'Антон' }
+    ],
+    // МГ-B4.2: два курса у зачисления → прогресс усредняется; черновая попытка не считается.
+    courseProgress: [
+      { tenantId: T, enrollmentId: 'enr_1', progressPercent: 80 },
+      { tenantId: T, enrollmentId: 'enr_1', progressPercent: 40 }
+    ],
+    examResults: [
+      { tenantId: T, enrollmentId: 'enr_1', bestScore: 17, maxScore: 20, passed: true }
     ],
     materialProgress: [
       { tenantId: T, enrollmentId: 'enr_1', studiedSeconds: 40 * HOUR },
@@ -145,10 +155,17 @@ function makeState(): InMemoryMvpState {
         enrollmentId: 'enr_1',
         startedAt: '2026-07-28T10:00:00Z',
         finishedAt: '2026-07-28T10:45:00Z'
-      }
+      },
+      { tenantId: T, enrollmentId: 'enr_1', status: 'draft', startedAt: '2026-07-29T10:00:00Z' }
     ]
   } as unknown as InMemoryMvpState;
 }
+
+/** МГ-B4.2: заглушка базы — одна сессия у usr_1. */
+const dbStub = (): DatabaseService =>
+  ({
+    query: async () => [{ user_id: 'usr_1', last_login_at: new Date('2026-09-20T10:00:00Z') }]
+  }) as unknown as DatabaseService;
 
 /** ФТ-F4: заглушка посещений вебинаров; по умолчанию никто не отмечался. */
 const webinarsStub = (map: Map<string, number> = new Map()): WebinarsService =>
@@ -227,6 +244,50 @@ describe('LearningHoursService.getGroupJournal', () => {
     // Материалов было 10 ак. ч, покрытие видео — 20: берём большее, не сумму.
     expect(entry.videoSeconds).toBe(20 * HOUR);
     expect(entry.factHours).toBe(20);
+  });
+
+  it('МГ-B4.2: прогресс усредняется по курсам, черновая попытка не считается, лучший балл и «сдал» — из итога', async () => {
+    const { service } = makeService();
+    const journal = await service.getGroupJournal(T, 'grp_1');
+    const done = journal.entries.find((e) => e.enrollmentId === 'enr_1')!;
+    const other = journal.entries.find((e) => e.enrollmentId === 'enr_2')!;
+
+    expect(done).toMatchObject({
+      progressPercent: 60,
+      attemptsCount: 1,
+      bestScore: 17,
+      maxScore: 20,
+      examPassed: true
+    });
+    expect(done.lastLoginAt).toBeUndefined(); // без базы «последний вход» пуст
+    expect(other.attemptsCount).toBe(0);
+    expect(other.progressPercent).toBeUndefined();
+  });
+
+  it('МГ-B4.2 (РМ66): последний вход — из сессий связанного пользователя; без связки — пусто', async () => {
+    const service = new LearningHoursService(
+      makeState(),
+      new InMemoryVideoProgressRepository(),
+      webinarsStub(),
+      dbStub()
+    );
+    const journal = await service.getGroupJournal(T, 'grp_1');
+
+    expect(journal.entries.find((e) => e.enrollmentId === 'enr_1')!.lastLoginAt).toBe(
+      '2026-09-20T10:00:00.000Z'
+    );
+    expect(journal.entries.find((e) => e.enrollmentId === 'enr_2')!.lastLoginAt).toBeUndefined();
+  });
+
+  it('МГ-B4.2: книга Excel собирается (ZIP-подпись «PK») и содержит слушателей', async () => {
+    const { service } = makeService();
+    const journal = await service.getGroupJournal(T, 'grp_1');
+    const buffer = await renderLearningJournalXlsx(journal);
+    expect(buffer.subarray(0, 2).toString('latin1')).toBe('PK');
+    const csv = renderLearningJournalCsv(journal);
+    // Недобравшие идут первыми: строка Яковлева — вторая, и именно у него «сдал».
+    expect(csv.split('\r\n')[2]).toContain('Яковлев Ян');
+    expect(csv.split('\r\n')[2]).toContain(';сдал;');
   });
 
   it('несуществующая группа — 404, а не пустой отчёт', async () => {
