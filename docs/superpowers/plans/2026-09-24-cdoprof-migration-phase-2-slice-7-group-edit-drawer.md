@@ -36,12 +36,12 @@
 
 **Files:** Create `features/groups/group-edit-model.ts` (+ тест): `GroupEditForm`, `groupEditFormOf(group)`, `groupEditDiff(initial, form, locked): GroupPayload`, `GROUP_LOCKED_FIELDS`; Modify `features/groups/group-status.ts` (+ `isGroupLocked`, тест), `features/mvp/types.ts` (`GroupPayload`: `startDate/endDate/examDate/comment/learnerMessage?: string | null`).
 
-- [ ] Тесты → код → commit.
+- [x] Тесты → код → commit.
 
 ## Task 2: дровер и карточка
 
 **Files:** Create `features/groups/group-edit-drawer.tsx`; Modify `group-details-screen.tsx` («Редактировать группу» первым в «…» под `groups.write`; строки «Компания» и «Комментарий» в «Сводке»); e2e smoke (+ импорт дровера в `group-wizard.e2e` или новый `group-edit.e2e`).
 
-- [ ] Экран; сторожа `src/e2e`, `features/groups`; commit.
+- [x] Экран; сторожа `src/e2e`, `features/groups`; commit. Отклонение: заблокированные поля — одним `fieldset` под `blockedProps` (у `ClientSelect` нет `disabled`), smoke — в `group-wizard.e2e`.
 
-## Task 3: документация 8.9 — handoff §5.581, трекер (РМ68–РМ70, МГ-B4 ✅), README, CLAUDE, план — галочки. `pnpm ci:check`, PR, слияние.
+## Task 3: документация 8.9 — [x] сделано (§5.581) — handoff §5.581, трекер (РМ68–РМ70, МГ-B4 ✅), README, CLAUDE, план — галочки. `pnpm ci:check`, PR, слияние.
