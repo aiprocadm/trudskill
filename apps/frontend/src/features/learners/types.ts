@@ -1,6 +1,35 @@
 export type LearnerStatus = 'active' | 'archived';
 
-export interface LearnerListItem {
+/** Личное дело (ТЗ перехода §4, МГ-C1.1): паспорт с сервера приходит маской (строкой), объектом — только после раскрытия. */
+export interface LearnerPassport {
+  series?: string;
+  number?: string;
+  issuedAt?: string;
+  issuedBy?: string;
+}
+
+export interface LearnerDiploma {
+  series?: string;
+  number?: string;
+  institution?: string;
+  surnameInDiploma?: string;
+}
+
+export interface LearnerProfileFields {
+  phone?: string;
+  passport?: LearnerPassport | string;
+  gender?: 'm' | 'f';
+  birthPlace?: string;
+  citizenship?: string;
+  registrationAddress?: string;
+  educationLevel?: string;
+  diploma?: LearnerDiploma;
+  trackingNumber?: string;
+  deliveryMethod?: string;
+  counterpartyId?: string;
+}
+
+export interface LearnerListItem extends LearnerProfileFields {
   id: string;
   tenantId: string;
   learnerNo?: string;
@@ -18,6 +47,9 @@ export interface LearnerListItem {
   createdAt: string;
   updatedAt: string;
 }
+
+/** Карточка слушателя: то же, что строка списка (ручка одна, поля те же). */
+export type LearnerProfile = LearnerListItem;
 
 export interface LearnersListResponse {
   items: LearnerListItem[];
@@ -44,6 +76,24 @@ export interface LearnerEditFormState {
   organizationUnitId: string;
   learnerNo: string;
   status: LearnerStatus;
+  /* Личное дело (МГ-C1.1): паспорт и диплом — отдельными полями формы. */
+  phone: string;
+  gender: '' | 'm' | 'f';
+  citizenship: string;
+  birthPlace: string;
+  registrationAddress: string;
+  educationLevel: string;
+  passportSeries: string;
+  passportNumber: string;
+  passportIssuedAt: string;
+  passportIssuedBy: string;
+  diplomaSeries: string;
+  diplomaNumber: string;
+  diplomaInstitution: string;
+  diplomaSurname: string;
+  trackingNumber: string;
+  deliveryMethod: string;
+  counterpartyId: string;
 }
 
 /**
@@ -68,4 +118,16 @@ export interface UpdateLearnerProfilePayload {
   organizationUnitId?: string | null;
   learnerNo?: string | null;
   status?: LearnerStatus;
+  dateOfBirth?: string | null;
+  phone?: string | null;
+  passport?: LearnerPassport | null;
+  gender?: 'm' | 'f' | null;
+  citizenship?: string | null;
+  birthPlace?: string | null;
+  registrationAddress?: string | null;
+  educationLevel?: string | null;
+  diploma?: LearnerDiploma | null;
+  trackingNumber?: string | null;
+  deliveryMethod?: string | null;
+  counterpartyId?: string | null;
 }

@@ -148,6 +148,22 @@ describe('learnersApi envelope compatibility', () => {
 
   // === ФТ-G6 (Фаза 4 Task 12): права субъекта персональных данных ===
 
+  it('revealPii шлёт причину на /pii/reveal и читает раскрытое из конверта (МГ-C1.1)', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        envelope({ snils: '112-233-445 95', passport: { series: '4512', number: '123456' } }),
+        {
+          status: 201
+        }
+      )
+    );
+    const result = await learnersApi.revealPii(session, 'l1', 'заявка №12');
+    expect(result.snils).toBe('112-233-445 95');
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(String(url)).toContain('/learners/l1/pii/reveal');
+    expect(JSON.parse(String((init as RequestInit).body))).toEqual({ reason: 'заявка №12' });
+  });
+
   it('exportPersonalData ходит GET на /personal-data и разворачивает конверт', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(envelope({ subject: { learnerId: 'l_abc' } }), { status: 200 })

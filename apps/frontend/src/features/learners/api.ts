@@ -3,6 +3,7 @@ import { apiRequest } from '../../lib/api/client';
 import type {
   LearnerErasureReport,
   LearnerListItem,
+  LearnerPassport,
   LearnersListFilters,
   LearnersListResponse,
   UpdateLearnerProfilePayload
@@ -60,6 +61,18 @@ export const learnersApi = {
     apiRequest<LearnerListItem>(`/learners/${learnerId}/profile`, {
       method: 'PATCH',
       body: payload,
+      ...withAuth(session)
+    }),
+
+  /** МГ-C1.1: раскрытие СНИЛСа, паспорта и даты рождения по причине — право learners.pii.manage, каждое — в журнале. */
+  revealPii: (
+    session: UserSession,
+    learnerId: string,
+    reason: string
+  ): Promise<{ snils?: string; passport?: LearnerPassport | string; birthDate?: string }> =>
+    apiRequest(`/learners/${learnerId}/pii/reveal`, {
+      method: 'POST',
+      body: { reason },
       ...withAuth(session)
     }),
 

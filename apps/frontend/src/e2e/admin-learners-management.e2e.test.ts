@@ -11,7 +11,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { buildUpdatePayload, formatFullName, formatSnils } from '../features/learners/format';
+import {
+  EMPTY_LEARNER_FORM,
+  buildUpdatePayload,
+  formatFullName,
+  formatSnils
+} from '../features/learners/format';
 import { evaluateRouteAccess, getVisibleNavigation } from '../features/navigation/helpers';
 
 import type { UserSession } from '../entities/session/model';
@@ -80,6 +85,7 @@ describe('admin learners management E2E smoke', () => {
 
   it('pipeline: buildUpdatePayload maps empty strings to null for nullable fields', () => {
     const payload = buildUpdatePayload({
+      ...EMPTY_LEARNER_FORM,
       firstName: 'Иван',
       lastName: 'Иванов',
       middleName: '',

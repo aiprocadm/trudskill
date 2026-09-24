@@ -46,6 +46,6 @@
 
 **Files:** Modify `features/mvp/types.ts` (`Learner`), `features/learners/types.ts`, `format.ts`, `learner-edit-drawer.tsx` (вкладка «Личное дело»: пол, гражданство, место рождения, адрес регистрации, образование, паспорт, диплом, трек-номер/доставка, компания `ClientSelect`), `learner-detail-screen.tsx` (раздел «Личное дело» с масками и раскрытием), `features/learners/api.ts` (`revealPii`), тесты форматирования/контракта.
 
-- [ ] Экран; сторожа; commit.
+- [x] Экран; сторожа; commit. Отклонения: снимок MET-001 карточки слушателя обновлён (новое первичное действие); футер панели — `tab === 'profile' || tab === 'personal'` (сторож ищет буквальное условие).
 
-## Task 4: документация 8.12b — handoff §5.585, трекер (МГ-C1.1 ✅), README, CLAUDE. `pnpm ci:check`, PR, слияние.
+## Task 4: документация 8.12b — [x] сделано (§5.585) — handoff §5.585, трекер (МГ-C1.1 ✅), README, CLAUDE. `pnpm ci:check`, PR, слияние.
