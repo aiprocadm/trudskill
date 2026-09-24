@@ -973,13 +973,36 @@ export class IamService {
   async resolveActorScope(
     tenantId: string,
     userId: string
-  ): Promise<{ permissions: string[]; counterpartyId?: string }> {
+  ): Promise<{ permissions: string[]; counterpartyId?: string; unlinkedRepresentative?: true }> {
     const user = await this.getUser(tenantId, userId);
     const permissions = await this.resolvePermissionsForLoadedUser(tenantId, userId);
-    return {
-      permissions,
-      ...(user.counterpartyId ? { counterpartyId: user.counterpartyId } : {})
-    };
+    if (user.counterpartyId) return { permissions, counterpartyId: user.counterpartyId };
+    // Скоуп выборок портала строится по привязке: пустая привязка значит «персонал центра,
+    // видит всех». Представитель заказчика без привязки (роль выдали правкой ролей, или
+    // компанию удалили и внешний ключ обнулил привязку) иначе увидел бы весь центр —
+    // поэтому такой актор помечается, и гвард закрывает ему доступ (журнал 647).
+    return (await this.hasRepresentativeRole(tenantId, userId))
+      ? { permissions, unlinkedRepresentative: true }
+      : { permissions };
+  }
+
+  private async hasRepresentativeRole(tenantId: string, userId: string): Promise<boolean> {
+    if (!this.databaseService) return false;
+    const rows = await this.databaseService.query<{ found: number }>(
+      `
+        select 1 as found
+        from iam.user_roles ur
+        join iam.roles r
+          on r.tenant_id = ur.tenant_id
+         and r.id = ur.role_id
+        where ur.tenant_id = $1
+          and ur.user_id = $2
+          and r.code = 'counterparty_rep'
+        limit 1
+      `,
+      [tenantId, userId]
+    );
+    return rows.length > 0;
   }
 
   async resolvePermissions(tenantId: string, userId: string): Promise<string[]> {

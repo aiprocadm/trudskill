@@ -112,6 +112,36 @@ describe('PermissionGuard session checks', () => {
     await expect(guard.canActivate(context as unknown as ExecutionContext)).resolves.toBe(true);
   });
 
+  it('представитель заказчика без привязки к компании получает отказ, а не весь центр (журнал 647)', async () => {
+    const reflector = {
+      getAllAndOverride: vi
+        .fn()
+        .mockImplementation((key: string) => (key === REQUIRED_PERMISSIONS ? ['portal.read'] : []))
+    } as unknown as Reflector;
+    const iamService = {
+      resolveActorScope: vi
+        .fn()
+        .mockResolvedValue({ permissions: ['portal.read'], unlinkedRepresentative: true })
+    };
+    const authService = { isSessionActive: vi.fn().mockResolvedValue(true) };
+    const guard = new PermissionGuard(reflector, iamService as never, authService as never);
+
+    const context = buildContext({});
+    const request = context.switchToHttp().getRequest();
+    request.context = {
+      requestId: 'req_rep',
+      correlationId: 'corr_rep',
+      tenantId: 'tenant_demo',
+      userId: 'u_rep_unlinked',
+      sessionId: 's_active'
+    };
+
+    await expect(guard.canActivate(context as unknown as ExecutionContext)).rejects.toMatchObject({
+      response: { code: 'counterparty_link_missing' }
+    });
+    expect(request.context).not.toHaveProperty('counterpartyId');
+  });
+
   it('blocks unauthenticated request before permission checks', async () => {
     const reflector = {
       getAllAndOverride: vi.fn().mockReturnValue(['courses.read'])

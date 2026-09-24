@@ -61,6 +61,14 @@ export class PermissionGuard implements CanActivate {
       requestContext.tenantId,
       requestContext.userId
     );
+    if (scope.unlinkedRepresentative) {
+      // Закрыто по умолчанию: без привязки к компании скоуп представителя не построить,
+      // а «пусто» в скоупе значит «видит всех» (журнал 647).
+      throw new ForbiddenException({
+        code: 'counterparty_link_missing',
+        message: 'Representative account is not linked to a counterparty'
+      });
+    }
     const resolved = scope.permissions;
     requestContext.permissions = resolved;
     // ФТ-E5: привязка представителя к контрагенту — основание скоупа выборок портала.
