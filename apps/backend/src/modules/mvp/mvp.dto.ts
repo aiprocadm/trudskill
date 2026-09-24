@@ -374,6 +374,12 @@ export class CreateGroupCourseRequest {
   @IsOptional()
   @IsBoolean()
   requiresProctoring?: boolean;
+
+  /** МГ-E4.5: преподаватель курса в группе (пользователь с ролью «Преподаватель»). */
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  teacherUserId?: string;
 }
 
 export class UpdateGroupCourseRequest {
@@ -395,6 +401,13 @@ export class UpdateGroupCourseRequest {
   @IsOptional()
   @IsBoolean()
   requiresProctoring?: boolean;
+
+  /** МГ-E4.5: преподаватель; `null` — снять. */
+  @IsOptional()
+  @ValidateIf((_: unknown, value: unknown) => value !== null)
+  @IsString()
+  @MinLength(1)
+  teacherUserId?: string | null;
 }
 
 export class CreateEnrollmentRequest {

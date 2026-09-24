@@ -1036,6 +1036,60 @@ export class IamService {
     });
   }
 
+  /**
+   * МГ-E4.5 (срез 17.1): действующие пользователи центра с ролью — для выбора преподавателя
+   * курса группы. Только имя и идентификатор: почта и прочее выбору не нужны.
+   */
+  async searchUsersByRole(
+    tenantId: string,
+    roleCode: string,
+    query: string,
+    limit: number
+  ): Promise<Array<{ id: string; name: string }>> {
+    if (!this.databaseService) return [];
+    const rows = await this.databaseService.query<{ id: string; display_name: string }>(
+      `
+        select distinct u.id, u.display_name
+        from iam.users u
+        join iam.user_roles ur on ur.tenant_id = u.tenant_id and ur.user_id = u.id
+        join iam.roles r on r.tenant_id = ur.tenant_id and r.id = ur.role_id
+        where u.tenant_id = $1
+          and r.code = $2
+          and u.status = 'active'
+          and u.deleted_at is null
+          and ($3 = '' or u.display_name ilike $4)
+        order by u.display_name asc, u.id asc
+        limit $5
+      `,
+      [
+        tenantId,
+        roleCode,
+        query.trim(),
+        `%${query.trim().replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`,
+        limit
+      ]
+    );
+    return rows.map((row) => ({ id: row.id, name: row.display_name }));
+  }
+
+  /** Есть ли у пользователя центра роль (проверка выбора преподавателя). */
+  async userHasRole(tenantId: string, userId: string, roleCode: string): Promise<boolean> {
+    if (!this.databaseService) return true;
+    const rows = await this.databaseService.query<{ found: number }>(
+      `
+        select 1 as found
+        from iam.user_roles ur
+        join iam.roles r on r.tenant_id = ur.tenant_id and r.id = ur.role_id
+        join iam.users u on u.tenant_id = ur.tenant_id and u.id = ur.user_id
+        where ur.tenant_id = $1 and ur.user_id = $2 and r.code = $3
+          and u.status = 'active' and u.deleted_at is null
+        limit 1
+      `,
+      [tenantId, userId, roleCode]
+    );
+    return rows.length > 0;
+  }
+
   private async hasRepresentativeRole(tenantId: string, userId: string): Promise<boolean> {
     if (!this.databaseService) return false;
     const rows = await this.databaseService.query<{ found: number }>(

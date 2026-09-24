@@ -2445,6 +2445,7 @@ export class MvpService {
       updatedAt: this.now(),
       // МГ-E2.1: срок не задан — берётся срок курса по умолчанию.
       durationDays: this.normalizeDurationDays(request.durationDays ?? course.periodDaysDefault),
+      ...(request.teacherUserId ? { teacherUserId: request.teacherUserId } : {}),
       ...(request.requiresPreExamAuth !== undefined
         ? { requiresPreExamAuth: request.requiresPreExamAuth }
         : {}),
@@ -2495,6 +2496,10 @@ export class MvpService {
     }
     if (request.requiresProctoring !== undefined) {
       current.requiresProctoring = request.requiresProctoring;
+    }
+    if (request.teacherUserId !== undefined) {
+      if (request.teacherUserId === null) delete current.teacherUserId;
+      else current.teacherUserId = request.teacherUserId;
     }
     current.updatedAt = this.now();
     this.audit(

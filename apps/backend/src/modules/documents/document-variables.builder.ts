@@ -17,6 +17,7 @@ import {
   resolveProgramVariables
 } from './pillar-a-variables.js';
 import { allVariableCodes } from './variable-catalog.js';
+import { UserDisplayNamesService } from '../../common/iam/user-display-names.service.js';
 import { todayIn } from '../../common/utils/tenant-calendar.js';
 import { backendEnv } from '../../env.js';
 import { TenantTimezoneService } from '../../infrastructure/tenant/tenant-timezone.service.js';
@@ -51,6 +52,9 @@ import type { TrainingLicense } from '../org/licenses.types.js';
  * Данные, которых нет (нет заказчика у группы, нет комиссии у программы), дают пустые
  * строки: бланк печатается с прочерком, а не падает.
  */
+/** Служебный ключ между синхронным разбором снимка и подстановкой ФИО; в документ не попадает. */
+const TEACHER_ID_SLOT = '__teacherUserId';
+
 @Injectable()
 export class DocumentVariablesBuilder {
   private readonly logger = new Logger(DocumentVariablesBuilder.name);
@@ -62,7 +66,11 @@ export class DocumentVariablesBuilder {
     /* Пояс центра — последним и необязательным (журнал 301). */
     @Optional()
     @Inject(TenantTimezoneService)
-    private readonly timezones?: TenantTimezoneService
+    private readonly timezones?: TenantTimezoneService,
+    /* МГ-E4.5 (срез 17.1): ФИО преподавателя курса группы для протокола. */
+    @Optional()
+    @Inject(UserDisplayNamesService)
+    private readonly userNames?: UserDisplayNamesService
   ) {}
 
   /** Пояс центра, разрешённый на время сборки словаря. */
@@ -199,9 +207,20 @@ export class DocumentVariablesBuilder {
   ): Promise<Record<string, unknown>> {
     const pick = (prefix: string): string[] => codes.filter((code) => code.startsWith(prefix));
     try {
-      return await this.mvpRunner.runWithTenantState(tenantId, async (state) =>
-        this.resolveFromState(state, tenantId, task, pick, codes)
-      );
+      return await this.mvpRunner.runWithTenantState(tenantId, async (state) => {
+        const resolved = this.resolveFromState(state, tenantId, task, pick, codes);
+        // МГ-E4.5: снимок знает только идентификатор преподавателя — ФИО берётся из учётных
+        // записей здесь же; нет службы имён или учётки — пустое место, а не идентификатор.
+        const teacherId = resolved[TEACHER_ID_SLOT];
+        delete resolved[TEACHER_ID_SLOT];
+        if (codes.includes('course.teacher_name')) {
+          resolved['course.teacher_name'] =
+            typeof teacherId === 'string' && teacherId
+              ? ((await this.userNames?.nameOf(tenantId, teacherId)) ?? '')
+              : '';
+        }
+        return resolved;
+      });
     } catch (error) {
       this.logger.warn(
         `MVP variables unavailable for task ${task.id}: ${
@@ -270,6 +289,8 @@ export class DocumentVariablesBuilder {
         pick('group.')
       ),
       ...resolveCourseVariables({ ...(course ? { course } : {}) }, pick('course.')),
+      // МГ-E4.5: идентификатор преподавателя курса группы — ФИО подставит асинхронный шаг выше.
+      [TEACHER_ID_SLOT]: groupCourse?.teacherUserId ?? '',
       // МГ-E2.1 (срез 16.2): именованные поля курса — ключи задаёт сам курс.
       ...resolveCourseExtraVariables(course),
       ...resolveCounterpartyVariables(

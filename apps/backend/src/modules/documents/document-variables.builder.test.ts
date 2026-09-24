@@ -227,6 +227,32 @@ describe('DocumentVariablesBuilder (ФТ-A2.3)', () => {
     expect(vars['learner.full_name']).toBe('');
   });
 
+  // МГ-E4.5 (срез 17.1): преподаватель курса группы — ФИО из учётных записей, не идентификатор.
+  it('course.teacher_name — ФИО преподавателя курса группы; без службы имён — пусто, а не идентификатор', async () => {
+    const state = seedState();
+    const groupCourse = state.groupCourses[0] as { teacherUserId?: string };
+    groupCourse.teacherUserId = 'u_teacher';
+    const runner = {
+      runWithTenantState: vi.fn(async (_t: string, fn: (s: InMemoryMvpState) => Promise<unknown>) =>
+        fn(state)
+      )
+    } as unknown as MvpTenantRunner;
+    const userNames = { nameOf: vi.fn(async () => 'Андреев Андрей Андреевич') };
+    const named = await new DocumentVariablesBuilder(
+      runner,
+      undefined,
+      undefined,
+      undefined,
+      userNames as never
+    ).build({ tenantId: T, task });
+    expect(named['course.teacher_name']).toBe('Андреев Андрей Андреевич');
+    expect(userNames.nameOf).toHaveBeenCalledWith(T, 'u_teacher');
+    expect(named).not.toHaveProperty('__teacherUserId');
+
+    const unnamed = await new DocumentVariablesBuilder(runner).build({ tenantId: T, task });
+    expect(unnamed['course.teacher_name']).toBe('');
+  });
+
   // МГ-C1.3 (РМ86): именованные поля центра попадают в документы как `learner.extra.<ключ>`.
   it('resolves the tenant-defined learner fields and leaves an unset one blank', async () => {
     const state = seedState();

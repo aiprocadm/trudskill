@@ -90,6 +90,7 @@ export const VARIABLE_CATALOG: readonly VariableCatalogEntry[] = [
   entry('course', 'title', 'Название программы'),
   entry('course', 'description', 'Описание программы'),
   entry('course', 'presentation_title', 'Наименование программы для документов («представление»)'),
+  entry('course', 'teacher_name', 'Преподаватель курса в группе — ФИО (для протокола)'),
 
   // --- Программа обучения (метаданные версии курса) ---
   entry('program', 'academic_hours', 'Объём программы в академических часах'),
@@ -288,6 +289,7 @@ export function demoVariables(): Record<string, unknown> {
     'course.title': 'Программа-образец, 40 часов',
     'course.description': 'Демонстрационная программа для предпросмотра бланка',
     'course.presentation_title': 'Обучение по охране труда по программе «Пример»',
+    'course.teacher_name': 'Иванов Иван Иванович (пример)',
 
     'program.academic_hours': 40,
     'program.training_type': 'primary',
