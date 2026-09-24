@@ -96,6 +96,10 @@ const DECIDED: Record<string, string> = {
     'частичный успех: отказ по одному центру пишется в журнал, закрытие попыток идёт дальше',
   'modules/mvp/groups/group-status.scheduler.service.ts for (const tenantId of tenantIds)':
     'частичный успех: отказ по одному центру пишется в журнал, обход статусов групп идёт дальше',
+  'modules/mvp/groups/group-wizard.service.ts for (const course of request.courses)':
+    'уже назначенный курс пропускается, остальные назначаются; иной отказ — поломка, поднимается',
+  'modules/mvp/groups/group-wizard.service.ts for (const learnerId of request.learners)':
+    'всё или ничего не грозит: цикл только собирает id уже существующих слушателей в список, бросать в нём нечему',
   'modules/mvp/group-progress-summary.service.ts for (const gId of groupIds)':
     'всё или ничего не грозит: цикл только складывает числа для сводки, бросать в нём нечему',
   'modules/mvp/infrastructure/postgres-mvp-persistence.backend.ts for (const entityId of allIds)':
