@@ -5,6 +5,7 @@ import {
   Delete,
   Get,
   Inject,
+  Optional,
   Param,
   Patch,
   Post,
@@ -121,6 +122,7 @@ import { DocumentsRequestPersistenceInterceptor } from '../documents/infrastruct
 import { RequirePermissions } from '../iam/permission.decorator.js';
 import { PermissionGuard } from '../iam/permission.guard.js';
 import { IamService } from '../iam/services/iam.service.js';
+import { LookupService } from '../lookup/lookup.service.js';
 
 import type { LegacyConsentEvidence, PhotoConsentGate } from './consents/consent.js';
 import type { BaseFilterQuery } from './mvp.dto.js';
@@ -188,7 +190,11 @@ export class MvpController {
     private readonly groupSettings: GroupSettingsService,
     /* Фаза 2, срез 8.4: мастер создания группы. Параметр ПОСЛЕДНИЙ (журнал 526). */
     @Inject(GroupWizardService)
-    private readonly groupWizard: GroupWizardService
+    private readonly groupWizard: GroupWizardService,
+    /* МГ-C1.2 (срез 8.13): справочник должностей; необязательный — тесты собирают контроллер позиционно. */
+    @Optional()
+    @Inject(LookupService)
+    private readonly lookup?: LookupService
   ) {}
 
   @Get('counterparties')
@@ -615,7 +621,14 @@ export class MvpController {
     // ФТ-D4.2: гейт на входе пачки. Осознанно допускаем перелёт внутри одной пачки
     // (проверка ДО импорта): частичный отказ посреди Excel хуже небольшого перелёта.
     await this.tenantUsage.assertCanAddLearners(c.tenantId!);
-    return this.learnersBulkImport.bulkImportLearners(c.tenantId!, c.userId, b, c);
+    const outcome = this.learnersBulkImport.bulkImportLearners(c.tenantId!, c.userId, b, c);
+    /* МГ-C1.2: должности из файла пополняют справочник центра (нормализация — РМ80). */
+    await this.lookup?.rememberPositionsSafely(
+      c.tenantId!,
+      b.rows.map((row) => row.position),
+      c.userId
+    );
+    return outcome;
   }
   @Put('learners/:id')
   @UseGuards(PermissionGuard)
@@ -636,13 +649,16 @@ export class MvpController {
   @Patch('learners/:id/profile')
   @UseGuards(PermissionGuard)
   @RequirePermissions('learners.write')
-  updateLearnerExtended(
+  async updateLearnerExtended(
     @CurrentContext() c: RequestContext,
     @Param('id') id: string,
     @Body() raw: unknown
   ) {
     const b = assertValidDto(UpdateLearnerExtendedRequest, raw);
-    return this.mvpService.updateLearnerExtended(c.tenantId!, c.userId, id, b, c);
+    const updated = this.mvpService.updateLearnerExtended(c.tenantId!, c.userId, id, b, c);
+    /* МГ-C1.2: новая должность из карточки попадает в подсказки (РМ83 — без отдельного диалога). */
+    if (b.position) await this.lookup?.rememberPositionsSafely(c.tenantId!, [b.position], c.userId);
+    return updated;
   }
 
   @Get('directions')
@@ -908,7 +924,14 @@ export class MvpController {
     if ((b.learners?.rows?.length ?? 0) > 0)
       await this.tenantUsage.assertCanAddLearners(c.tenantId!);
     const settings = await this.groupSettings.forTenant(c.tenantId!);
-    return this.groupWizard.complete(c.tenantId!, c.userId, b, c, settings);
+    const outcome = this.groupWizard.complete(c.tenantId!, c.userId, b, c, settings);
+    /* МГ-C1.2: должности из строк мастера — в справочник центра. */
+    await this.lookup?.rememberPositionsSafely(
+      c.tenantId!,
+      (b.learners?.rows ?? []).map((row) => row.position),
+      c.userId
+    );
+    return outcome;
   }
   /** МГ-B3.1: ручной переход статуса — только на соседний по цепочке. */
   @Post('groups/:id/status')

@@ -54,10 +54,12 @@ const DOMAIN_LABELS: Record<string, string> = {
   crm: 'Компании',
   identity: 'Проверка личности',
   learner: 'Персональные данные',
-  storage: 'Файлы'
+  storage: 'Файлы',
+  lookup: 'Справочники'
 };
 
 const OBJECTS: Record<string, Noun> = {
+  position: { label: 'должность', gender: 'f' },
   learner: { label: 'слушатель', gender: 'm' },
   group: { label: 'учебная группа', gender: 'f' },
   group_course: { label: 'курс группы', gender: 'm' },
@@ -224,6 +226,7 @@ const PHRASES: Record<string, string> = {
   'auth.totp_enabled': 'Двухфакторный вход включён',
   'auth.totp_disabled': 'Двухфакторный вход выключен',
   'iam.user_roles_updated': 'Роли пользователя изменены',
+  'lookup.positions_added': 'Справочник должностей пополнен',
   'iam.password_rehashed': 'Пароль перешифрован',
   'learner.personal_data_accessed': 'Персональные данные слушателя просмотрены',
   'learner.personal_data_exported': 'Персональные данные слушателя выгружены',

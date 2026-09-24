@@ -21,6 +21,7 @@ export * from './components/dialogs/use-confirm.js';
 export * from './components/pagination/index.js';
 export * from './components/search/index.js';
 export * from './components/select/index.js';
+export * from './components/combo-input/index.js';
 export * from './components/date-range/index.js';
 export * from './components/async-status/index.js';
 export * from './components/permission/index.js';

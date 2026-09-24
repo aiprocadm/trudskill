@@ -1,6 +1,13 @@
 'use client';
 
-import { DetailDrawer, DrawerCancelButton, PageTabs, TabPanel } from '@trudskill/ui';
+import {
+  ComboInput,
+  DetailDrawer,
+  DrawerCancelButton,
+  LookupSelect,
+  PageTabs,
+  TabPanel
+} from '@trudskill/ui';
 import { useState } from 'react';
 
 import { STATUS_LABEL, buildUpdatePayload, passportFormHint, toEditFormState } from './format';
@@ -9,6 +16,7 @@ import { LearnerPiiPanel } from './learner-pii-panel';
 import { isFormDirty } from '../../lib/forms/dirty';
 import { snilsInputHint } from '../../lib/snils';
 import { ClientSelect } from '../groups/group-picker';
+import { useCountries, useEducationLevels, usePositionSuggestions } from '../lookup/hooks';
 
 import type { LearnerEditFormState, LearnerListItem, LearnerStatus } from './types';
 
@@ -46,6 +54,11 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
   // CMP-010 (порция 28): панель обязана предупредить, что закрытие потеряет правки.
   const [initialForm] = useState<LearnerEditFormState>(() => toFormState(learner));
   const mutation = useUpdateLearnerProfile();
+  /* МГ-C1.2 (срез 8.13): подсказки справочников — должность и гражданство с вводом, образование списком. */
+  const [positionQuery, setPositionQuery] = useState('');
+  const positionOptions = usePositionSuggestions(positionQuery);
+  const countryOptions = useCountries();
+  const educationLevels = useEducationLevels();
 
   function setField<K extends keyof LearnerEditFormState>(key: K, value: LearnerEditFormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -200,14 +213,16 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
             </span>
           </label>
 
-          <label className="ui-field">
-            <span className="ui-field-label">Должность</span>
-            <input
-              className="ui-input"
-              value={form.position}
-              onChange={(e) => setField('position', e.target.value)}
-            />
-          </label>
+          {/* Справочник должностей центра (МГ-C1.2, РМ83): подсказки + свободный ввод, новое значение попадёт в справочник при сохранении. */}
+          <ComboInput
+            id="learner-position"
+            label="Должность"
+            value={form.position}
+            onChange={(value) => setField('position', value)}
+            options={positionOptions}
+            onQueryChange={setPositionQuery}
+            hint="Начните печатать — подскажем из должностей центра; новая запомнится при сохранении."
+          />
 
           <label className="ui-field">
             <span className="ui-field-label">Подразделение</span>
@@ -279,16 +294,15 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
               onChange={(e) => setField('phone', e.target.value)}
             />
           </label>
-          <label className="ui-field">
-            <span className="ui-field-label">Гражданство</span>
-            <input
-              className="ui-input"
-              form={FORM_ID}
-              value={form.citizenship}
-              onChange={(e) => setField('citizenship', e.target.value)}
-              placeholder="Россия"
-            />
-          </label>
+          <ComboInput
+            id="learner-citizenship"
+            label="Гражданство"
+            value={form.citizenship}
+            onChange={(value) => setField('citizenship', value)}
+            options={countryOptions}
+            form={FORM_ID}
+            placeholder="Россия"
+          />
           <label className="ui-field">
             <span className="ui-field-label">Место рождения</span>
             <input
@@ -351,16 +365,19 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
               </span>
             ) : null}
           </fieldset>
-          <label className="ui-field">
+          <div className="ui-field">
             <span className="ui-field-label">Образование</span>
-            <input
-              className="ui-input"
-              form={FORM_ID}
+            {/* Фиксированный список ФРДО (РМ81): значение — код уровня, на экране — подпись. */}
+            <LookupSelect
+              label="Уровень образования"
               value={form.educationLevel}
-              onChange={(e) => setField('educationLevel', e.target.value)}
-              placeholder="Например: высшее"
+              onChange={(value) => setField('educationLevel', value)}
+              items={[
+                { value: '', label: 'не указано' },
+                ...educationLevels.map((level) => ({ value: level.code, label: level.name }))
+              ]}
             />
-          </label>
+          </div>
           <fieldset className="ui-field">
             <legend className="ui-field-label">Диплом об образовании</legend>
             <div className="ui-inline">
