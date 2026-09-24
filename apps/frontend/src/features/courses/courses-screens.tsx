@@ -38,6 +38,13 @@ import { useUnsavedForm } from '../../components/use-unsaved-form';
 import { ApiClientError } from '../../lib/api/client';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
+import {
+  defaultKindFor,
+  documentKindLabel,
+  kindsForTemplateType,
+  useDocumentKinds
+} from '../documents/document-kinds';
+import { templateTypeLabel } from '../documents/document-types';
 import { useOtTrainingPrograms } from '../gov-export/hooks';
 import {
   useCommissions,
@@ -582,6 +589,11 @@ const ProgramMetaSection = ({
   );
 };
 
+/*
+ * МГ-F1.1 (срез 18.2): у строки набора — «вид документа» (приказ о зачислении, удостоверение…).
+ * В список попадают только виды, подходящие типу бланка; если вид один (удостоверение, диплом),
+ * он подставляется сам. Вид необязателен: пустой — «любой вид этого типа», как было до среза.
+ */
 const DocumentSetSection = ({
   courseVersion,
   onUpdated
@@ -591,6 +603,8 @@ const DocumentSetSection = ({
 }) => {
   const { data: existing, refetch: refetchSet } = useCourseDocumentSet(courseVersion.id);
   const { data: templates } = useDocumentTemplates();
+  const { data: kindsData } = useDocumentKinds();
+  const kinds = kindsData?.items ?? [];
   const { setCourseDocumentSet } = useDomainMutations();
 
   const [draft, setDraft] = useState<CourseDocumentSetEntryDraft[]>([]);
@@ -608,17 +622,24 @@ const DocumentSetSection = ({
             templateId: e.templateId,
             position: e.position,
             isRequired: e.isRequired,
-            autoIssueOnCompletion: e.autoIssueOnCompletion
+            autoIssueOnCompletion: e.autoIssueOnCompletion,
+            ...(e.kindCode ? { kindCode: e.kindCode } : {})
           }))
       );
     }
   }, [existing]);
+
+  const templateNameById: Record<string, { name: string; templateType: string }> = {};
+  templates?.items.forEach((t) => {
+    templateNameById[t.id] = { name: t.name, templateType: t.templateType };
+  });
 
   const renumber = (arr: CourseDocumentSetEntryDraft[]): CourseDocumentSetEntryDraft[] =>
     arr.map((e, i) => ({ ...e, position: i }));
 
   const addEntry = (templateId: string) => {
     if (!templateId) return;
+    const kindCode = defaultKindFor(kinds, templateNameById[templateId]?.templateType);
     setDraft((prev) =>
       renumber([
         ...prev,
@@ -626,7 +647,8 @@ const DocumentSetSection = ({
           templateId,
           position: prev.length,
           isRequired: true,
-          autoIssueOnCompletion: true
+          autoIssueOnCompletion: true,
+          ...(kindCode ? { kindCode } : {})
         }
       ])
     );
@@ -654,6 +676,17 @@ const DocumentSetSection = ({
     setDraft((prev) => prev.map((e, i) => (i === idx ? { ...e, [field]: !e[field] } : e)));
   };
 
+  const setKind = (idx: number, kindCode: string) => {
+    setDraft((prev) =>
+      prev.map((e, i) => {
+        if (i !== idx) return e;
+        const next: CourseDocumentSetEntryDraft = { ...e };
+        delete next.kindCode;
+        return kindCode ? { ...next, kindCode } : next;
+      })
+    );
+  };
+
   const onSave = async () => {
     setBusy(true);
     setError(null);
@@ -662,22 +695,18 @@ const DocumentSetSection = ({
       await refetchSet();
       await onUpdated();
     } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : 'Не удалось сохранить пакет');
+      setError(readApiMessage(err));
     } finally {
       setBusy(false);
     }
   };
 
-  const templateNameById: Record<string, { name: string; templateType: string }> = {};
-  templates?.items.forEach((t) => {
-    templateNameById[t.id] = { name: t.name, templateType: t.templateType };
-  });
-
   return (
     <SectionCard title="Документы по окончании курса">
       <p className="ui-text-muted" style={{ marginBottom: 8 }}>
         Документы выпускаются по порядку при завершении зачисления. Шаблоны — из документов вашего
-        учебного центра.
+        учебного центра. Вид документа подсказывает системе, что это за бумага: приказ о зачислении,
+        протокол, удостоверение.
       </p>
       {draft.length === 0 ? (
         <SectionEmpty
@@ -687,6 +716,7 @@ const DocumentSetSection = ({
       ) : null}
       {draft.map((entry, idx) => {
         const info = templateNameById[entry.templateId];
+        const fitting = kindsForTemplateType(kinds, info?.templateType);
         return (
           <div
             key={`${entry.templateId}_${idx}`}
@@ -694,8 +724,27 @@ const DocumentSetSection = ({
             style={{ gap: 8, padding: '6px 0', borderBottom: '1px solid var(--ui-border)' }}
           >
             <strong>{idx + 1}.</strong>
-            <span>{info?.name ?? `(${entry.templateId} — не найден)`}</span>
-            <span className="ui-text-muted">{info?.templateType}</span>
+            <span>{info?.name ?? 'Шаблон удалён или недоступен'}</span>
+            <span className="ui-text-muted">
+              {info ? templateTypeLabel(info.templateType) : ''}
+            </span>
+            {fitting.length > 0 ? (
+              <label className="ui-field" style={{ minWidth: 0, maxWidth: '100%' }}>
+                <span className="ui-field-label">Вид документа</span>
+                <select
+                  value={entry.kindCode ?? ''}
+                  style={{ maxWidth: '100%' }}
+                  onChange={(e) => setKind(idx, e.target.value)}
+                >
+                  <option value="">{documentKindLabel(kinds, undefined)}</option>
+                  {fitting.map((k) => (
+                    <option key={k.code} value={k.code}>
+                      {k.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <label>
               <input
                 type="checkbox"
@@ -722,8 +771,8 @@ const DocumentSetSection = ({
               className="ui-button-link"
               onClick={() => move(idx, -1)}
               disabled={idx === 0}
-              aria-label="Поднять выше в программе"
-              title="Поднять выше в программе"
+              aria-label="Поднять выше в пакете"
+              title="Поднять выше в пакете"
             >
               <span aria-hidden="true">↑</span>
             </button>
@@ -732,13 +781,13 @@ const DocumentSetSection = ({
               className="ui-button-link"
               onClick={() => move(idx, 1)}
               disabled={idx === draft.length - 1}
-              aria-label="Опустить ниже в программе"
-              title="Опустить ниже в программе"
+              aria-label="Опустить ниже в пакете"
+              title="Опустить ниже в пакете"
             >
               <span aria-hidden="true">↓</span>
             </button>
             <button type="button" className="ui-button-link" onClick={() => removeEntry(idx)}>
-              Удалить из программы
+              Убрать из пакета
             </button>
           </div>
         );
@@ -749,7 +798,7 @@ const DocumentSetSection = ({
           <option value="">— выберите шаблон —</option>
           {templates?.items.map((t) => (
             <option key={t.id} value={t.id}>
-              {t.name} ({t.templateType})
+              {t.name} ({templateTypeLabel(t.templateType)})
             </option>
           ))}
         </select>
