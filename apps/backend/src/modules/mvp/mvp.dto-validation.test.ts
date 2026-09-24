@@ -5,6 +5,11 @@ import { describe, expect, it } from 'vitest';
 
 import { AddTestQuestionRequest, ReorderTestQuestionRequest } from './add-test-question.dto.js';
 import { CreateCounterpartyExtendedRequest } from './create-counterparty-extended.dto.js';
+import {
+  CreateGroupRequest,
+  SetGroupStatusRequest,
+  UpdateGroupRequest
+} from './groups/group.dto.js';
 import { BulkImportLearnersRequest } from './learners-bulk-import.dto.js';
 import {
   AddCommissionMemberRequest,
@@ -1186,5 +1191,38 @@ describe('Phase 9 — RegisterScormPackageRequest', () => {
     const dto = plainToInstance(RegisterScormPackageRequest, { zipFileId: '' });
     const errs = validateSync(dto, { whitelist: true, forbidNonWhitelisted: true });
     expect(errs.find((e) => e.property === 'zipFileId')).toBeTruthy();
+  });
+});
+
+describe('DTO группы (Фаза 2, срез 8.1)', () => {
+  const errorsOf = (cls: new () => object, body: unknown) =>
+    validateSync(plainToInstance(cls, body), { whitelist: true, forbidNonWhitelisted: true });
+
+  it('старое тело и пустое тело проходят; даты — только ГГГГ-ММ-ДД; перечисления — из списка', () => {
+    expect(
+      errorsOf(CreateGroupRequest, { code: 'G-1', name: 'Группа', status: 'draft' })
+    ).toHaveLength(0);
+    expect(errorsOf(CreateGroupRequest, {})).toHaveLength(0);
+    expect(errorsOf(CreateGroupRequest, { startDate: '05.11.2026' })).not.toHaveLength(0);
+    expect(errorsOf(CreateGroupRequest, { studyForm: 'заочно' })).not.toHaveLength(0);
+    expect(errorsOf(CreateGroupRequest, { examAccessFrom: 'вчера' })).not.toHaveLength(0);
+    expect(
+      errorsOf(CreateGroupRequest, {
+        startDate: '2026-11-05',
+        examAccessFrom: '2026-11-18T00:00:00.000Z',
+        studyForm: 'distance',
+        isDot: true,
+        notifyOnPass: { email: false }
+      })
+    ).toHaveLength(0);
+  });
+
+  it('правка: null очищает дату и комментарий; статус в смене — обязателен', () => {
+    expect(errorsOf(UpdateGroupRequest, { startDate: null, comment: null })).toHaveLength(0);
+    expect(errorsOf(UpdateGroupRequest, { code: '' })).not.toHaveLength(0);
+    expect(errorsOf(SetGroupStatusRequest, { status: 'exam', reason: 'по графику' })).toHaveLength(
+      0
+    );
+    expect(errorsOf(SetGroupStatusRequest, {})).not.toHaveLength(0);
   });
 });

@@ -117,7 +117,29 @@ export const TABLE_SPECS: Record<HotCollection, TableSpec> = {
       counterparty_id: 'text',
       external_id: 'text',
       source_system: 'text',
-      legacy_number: 'text'
+      legacy_number: 'text',
+      // Фаза 2, срез 8.1 (МГ-B1.1): поля CDOPROF из 0013/0104.
+      starts_at: 'ts',
+      ends_at: 'ts',
+      exam_date: 'date',
+      exam_access_from: 'ts',
+      exam_access_to: 'ts',
+      materials_access_until: 'ts',
+      practice_from: 'date',
+      practice_to: 'date',
+      study_form: 'text',
+      is_dot: 'bool',
+      education_form_at_ppo: 'text',
+      access_mode: 'text',
+      enrollment_mode: 'text',
+      remote_signature: 'bool',
+      require_identity: 'bool',
+      responsible_user_id: 'text',
+      comment: 'text',
+      learner_message: 'text',
+      notify_on_pass: 'json',
+      closed_at: 'ts',
+      archived_at: 'ts'
     }
   },
   groupCourses: {
@@ -435,6 +457,8 @@ const projectGroup = (entity: Entity, tenantId: string, ctx: ProjectionContext):
   const { status, extra } = safeStatus(entity.status, GROUP_STATUSES, 'draft');
   const counterpartyId = str(entity.counterpartyId);
   const known = counterpartyId !== null && ctx.counterparties.has(counterpartyId);
+  // Флаги NOT NULL (0104): отсутствующие в снимке подставляются и помечаются выдуманными.
+  const synthesized = synthesizedOf(entity, ['isDot', 'remoteSignature', 'requireIdentity']);
   return assemble(
     entity,
     tenantId,
@@ -445,10 +469,62 @@ const projectGroup = (entity: Entity, tenantId: string, ctx: ProjectionContext):
       counterparty_id: known ? counterpartyId : null,
       external_id: str(entity.externalId),
       source_system: str(entity.sourceSystem),
-      legacy_number: str(entity.legacyNumber)
+      legacy_number: str(entity.legacyNumber),
+      // Даты `YYYY-MM-DD` снимка в колонках-моментах: пишутся, обратно не читаются (скрытые колонки).
+      starts_at: str(entity.startDate),
+      ends_at: str(entity.endDate),
+      materials_access_until: str(entity.materialsAccessUntil),
+      exam_date: str(entity.examDate),
+      exam_access_from: str(entity.examAccessFrom),
+      exam_access_to: str(entity.examAccessTo),
+      practice_from: str(entity.practiceFrom),
+      practice_to: str(entity.practiceTo),
+      study_form: str(entity.studyForm),
+      is_dot: bool(entity.isDot),
+      education_form_at_ppo: str(entity.educationFormAtPpo),
+      access_mode: str(entity.accessMode),
+      enrollment_mode: str(entity.enrollmentMode),
+      remote_signature: bool(entity.remoteSignature),
+      require_identity: bool(entity.requireIdentity),
+      responsible_user_id: str(entity.responsibleUserId),
+      comment: str(entity.comment),
+      learner_message: str(entity.learnerMessage),
+      notify_on_pass: entity.notifyOnPass ?? null,
+      closed_at: str(entity.closedAt),
+      archived_at: str(entity.archivedAt)
     },
-    ['code', 'name', 'status', 'counterpartyId', 'externalId', 'sourceSystem', 'legacyNumber'],
-    { ...extra, ...(counterpartyId !== null && !known ? { counterpartyId } : {}) }
+    [
+      'code',
+      'name',
+      'status',
+      'counterpartyId',
+      'externalId',
+      'sourceSystem',
+      'legacyNumber',
+      'examDate',
+      'examAccessFrom',
+      'examAccessTo',
+      'practiceFrom',
+      'practiceTo',
+      'studyForm',
+      'isDot',
+      'educationFormAtPpo',
+      'accessMode',
+      'enrollmentMode',
+      'remoteSignature',
+      'requireIdentity',
+      'responsibleUserId',
+      'comment',
+      'learnerMessage',
+      'notifyOnPass',
+      'closedAt',
+      'archivedAt'
+    ],
+    {
+      ...extra,
+      ...(counterpartyId !== null && !known ? { counterpartyId } : {}),
+      ...(synthesized.length > 0 ? { [SYNTHESIZED_KEY]: synthesized } : {})
+    }
   );
 };
 
@@ -806,6 +882,8 @@ export const SYNTHESIZED_KEY = '__synthesized';
 /** Колонки, которых у сущности снимка нет: обратная проекция их не отдаёт. */
 const HIDDEN_COLUMNS: Partial<Record<HotCollection, ReadonlyArray<string>>> = {
   enrollmentStatusHistory: ['created_at'],
+  // Даты группы `YYYY-MM-DD` живут в payload; колонки-моменты — только для фильтров и индексов.
+  groups: ['starts_at', 'ends_at', 'materials_access_until'],
   // Связи документа считаются из контекста (зачисление → слушатель и группа → контрагент),
   // у сущности снимка таких полей нет.
   generatedDocuments: ['learner_id', 'group_id', 'counterparty_id', 'enrollment_id']

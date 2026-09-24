@@ -1,5 +1,6 @@
 import { Module, Scope } from '@nestjs/common';
 
+import { GroupSettingsService } from './groups/group-settings.service.js';
 import { MvpNormalizedReadsService } from './infrastructure/mvp-normalized-reads.service.js';
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
 import { MVP_STATE } from './infrastructure/mvp-state.token.js';
@@ -53,6 +54,7 @@ import { GROUP_COURSES_REPOSITORY } from './infrastructure/repositories/group-co
 import { InMemoryEnrollmentsRepository } from './infrastructure/repositories/in-memory-enrollments.repository.js';
 import { InMemoryExamResultsRepository } from './infrastructure/repositories/in-memory-exam-results.repository.js';
 import { InMemoryGroupCoursesRepository } from './infrastructure/repositories/in-memory-group-courses.repository.js';
+import { InMemoryGroupsRepository } from './infrastructure/repositories/in-memory-groups.repository.js';
 import { InMemoryLearnersRepository } from './infrastructure/repositories/in-memory-learners.repository.js';
 import { InMemoryRegistryRepository } from './infrastructure/repositories/in-memory-registry.repository.js';
 import { LEARNERS_REPOSITORY } from './infrastructure/repositories/learners.repository.js';
@@ -372,10 +374,12 @@ import { PostgresLearnersRepository } from './infrastructure/repositories/postgr
       provide: GROUPS_REPOSITORY,
       useFactory: (db: DatabaseService) =>
         backendEnv.ALLOW_IN_MEMORY_STATE
-          ? new InMemoryRegistryRepository([], 'counterpartyId')
+          ? new InMemoryGroupsRepository([])
           : new PostgresGroupsRepository(db),
       inject: [DatabaseService]
     },
+    /* Фаза 2, срез 8.1: шаблон кода и значения по умолчанию группы из настроек центра. */
+    GroupSettingsService,
     {
       provide: LEARNERS_REPOSITORY,
       useFactory: (db: DatabaseService) =>

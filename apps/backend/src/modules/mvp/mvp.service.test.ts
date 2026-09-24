@@ -1830,6 +1830,159 @@ function makeService(): MvpService {
   );
 }
 
+describe('MvpService — группа CDOPROF: автономер, умолчания, статусы (Фаза 2, срез 8.1)', () => {
+  const settings = {
+    codePattern: '{YY}{WW}{NN}',
+    defaults: {
+      studyForm: 'in_person' as const,
+      isDot: false,
+      accessMode: 'normal' as const,
+      enrollmentMode: 'manual' as const,
+      remoteSignature: true,
+      requireIdentity: false,
+      examAccessWindow: 'exam_day' as const,
+      notifyOnPass: { email: true, inApp: false },
+      periodDays: 10
+    }
+  };
+
+  it('без кода — код по шаблону центра, название = код, значения по умолчанию из настроек', () => {
+    const service = makeService();
+    const first = service.createGroup('tenant_demo', ctx.userId, {}, ctx, settings);
+    const second = service.createGroup('tenant_demo', ctx.userId, {}, ctx, settings);
+    expect(first.code).toMatch(/^\d{6}$/);
+    expect(first.name).toBe(first.code);
+    expect(Number(second.code)).toBe(Number(first.code) + 1);
+    expect(first.status).toBe('draft');
+    expect(first).toMatchObject({
+      studyForm: 'in_person',
+      isDot: false,
+      enrollmentMode: 'manual',
+      remoteSignature: true,
+      notifyOnPass: { email: true, inApp: false }
+    });
+    expect(first.endDate).toBeUndefined();
+  });
+
+  it('даты: окончание = начало + срок по умолчанию, экзамен = окончание, окно доступа — день экзамена', () => {
+    const service = makeService();
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G-D', name: 'Даты', startDate: '2026-11-05' },
+      ctx,
+      settings
+    );
+    expect(group.endDate).toBe('2026-11-15');
+    expect(group.examDate).toBe('2026-11-15');
+    expect(group.examAccessFrom).toBe('2026-11-15T00:00:00.000Z');
+    expect(group.examAccessTo).toBe('2026-11-15T23:59:59.000Z');
+  });
+
+  it('проверки §4: окончание раньше начала и экзамен позже окончания + 30 дней — 400', () => {
+    const service = makeService();
+    expect(() =>
+      service.createGroup(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'G-1', startDate: '2026-11-05', endDate: '2026-11-01' },
+        ctx
+      )
+    ).toThrow(BadRequestException);
+    expect(() =>
+      service.createGroup(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'G-2', startDate: '2026-11-05', endDate: '2026-11-10', examDate: '2026-12-25' },
+        ctx
+      )
+    ).toThrow(/позже окончания обучения более чем на 30 дней/);
+    expect(() =>
+      service.createGroup('tenant_demo', ctx.userId, { code: 'G-3', status: 'nonsense' }, ctx)
+    ).toThrow(ConflictException);
+  });
+
+  it('старое тело { code, name, status: active } принимается; новая запись получает канонический статус (РМ45)', () => {
+    const service = makeService();
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G-OLD', name: 'Старая', status: 'active' },
+      ctx
+    );
+    expect(group.status).toBe('in_progress');
+    // Из active (= in_progress) в exam — соседний переход, разрешён через правку.
+    expect(
+      service.updateGroup('tenant_demo', ctx.userId, group.id, { status: 'exam' }, ctx).status
+    ).toBe('exam');
+  });
+
+  it('переход статуса — только соседний; отмена до закрытия; закрытая блокирует даты, но не комментарий', () => {
+    const service = makeService();
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G-S', name: 'Статусы' },
+      ctx
+    );
+    expect(() =>
+      service.setGroupStatus('tenant_demo', ctx.userId, group.id, { status: 'documents' }, ctx)
+    ).toThrow(/Из «Черновик» нельзя перевести в «Ждут документов»/);
+    expect(
+      service.setGroupStatus('tenant_demo', ctx.userId, group.id, { status: 'recruiting' }, ctx)
+        .status
+    ).toBe('recruiting');
+    service.setGroupStatus('tenant_demo', ctx.userId, group.id, { status: 'in_progress' }, ctx);
+    service.setGroupStatus('tenant_demo', ctx.userId, group.id, { status: 'exam' }, ctx);
+    service.setGroupStatus('tenant_demo', ctx.userId, group.id, { status: 'documents' }, ctx);
+    const closed = service.setGroupStatus(
+      'tenant_demo',
+      ctx.userId,
+      group.id,
+      { status: 'closed', reason: 'все документы выданы' },
+      ctx
+    );
+    expect(closed.closedAt).toBeDefined();
+    expect(() =>
+      service.setGroupStatus('tenant_demo', ctx.userId, group.id, { status: 'cancelled' }, ctx)
+    ).toThrow(ConflictException);
+    expect(() =>
+      service.updateGroup('tenant_demo', ctx.userId, group.id, { startDate: '2026-01-01' }, ctx)
+    ).toThrow(/Группа закрыта/);
+    expect(
+      service.updateGroup('tenant_demo', ctx.userId, group.id, { comment: 'итог' }, ctx).comment
+    ).toBe('итог');
+  });
+
+  it('архив — только из закрытой или отменённой; архив скрыт из реестра по умолчанию', () => {
+    const service = makeService();
+    const live = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G-A', name: 'Живая' },
+      ctx
+    );
+    expect(() => service.archiveGroup('tenant_demo', ctx.userId, live.id, ctx)).toThrow(
+      ConflictException
+    );
+    const cancelled = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G-C', name: 'Отменённая' },
+      ctx
+    );
+    service.setGroupStatus('tenant_demo', ctx.userId, cancelled.id, { status: 'cancelled' }, ctx);
+    const archived = service.archiveGroup('tenant_demo', ctx.userId, cancelled.id, ctx);
+    expect(archived.status).toBe('archived');
+    expect(archived.archivedAt).toBeDefined();
+    expect(service.listGroups('tenant_demo', {}).items.map((g) => g.id)).toEqual([live.id]);
+    expect(service.listGroups('tenant_demo', { quick: 'archive' }).items.map((g) => g.id)).toEqual([
+      cancelled.id
+    ]);
+    expect(service.listGroups('tenant_demo', { status: 'draft,archived' }).total).toBe(2);
+  });
+});
+
 describe('MvpService — commissions (Plan A §5.2)', () => {
   /* Фаза 1, срез 6.0 (журнал 625): код группы и контрагента уникален в центре — как в таблицах. */
   describe('уникальность кода группы и контрагента (срез 6.0)', () => {

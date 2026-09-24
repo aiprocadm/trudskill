@@ -1,4 +1,10 @@
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional
+} from '@nestjs/common';
 
 import { decryptLearnerPiiAtRest } from '../../../infrastructure/crypto/pii-crypto.js';
 import { resolveCounterpartyScope, scopeAllows } from '../counterparty-scope.js';
@@ -12,9 +18,11 @@ import { COUNTERPARTY_SORT_COLUMNS } from './repositories/postgres-counterpartie
 import { parseEnrollmentListQuery } from './repositories/postgres-enrollments.repository.js';
 import { parseExamResultListQuery } from './repositories/postgres-exam-results.repository.js';
 import { parseGroupCourseListQuery } from './repositories/postgres-group-courses.repository.js';
-import { GROUP_SORT_COLUMNS } from './repositories/postgres-groups.repository.js';
+import { parseGroupListQuery } from './repositories/postgres-groups.repository.js';
 import { LEARNER_SORT_COLUMNS } from './repositories/postgres-learners.repository.js';
 import { parseRegistryListQuery } from './repositories/registry-list-query.js';
+import { todayIn } from '../../../common/utils/tenant-calendar.js';
+import { TenantTimezoneService } from '../../../infrastructure/tenant/tenant-timezone.service.js';
 
 import type { BaseFilterQuery } from '../mvp.dto.js';
 import type {
@@ -66,7 +74,9 @@ export class MvpNormalizedReadsService {
     @Inject(ENROLLMENTS_REPOSITORY) private readonly enrollments: EnrollmentsRepository,
     /* Срез 4b: курсы группы и результаты экзаменов. */
     @Inject(GROUP_COURSES_REPOSITORY) private readonly groupCourses: GroupCoursesRepository,
-    @Inject(EXAM_RESULTS_REPOSITORY) private readonly examResults: ExamResultsRepository
+    @Inject(EXAM_RESULTS_REPOSITORY) private readonly examResults: ExamResultsRepository,
+    /* Фаза 2, срез 8.1: пояс центра для «сегодня» в отборах групп. Последний, необязательный. */
+    @Optional() @Inject(TenantTimezoneService) private readonly timezones?: TenantTimezoneService
   ) {}
 
   listCounterparties(
@@ -105,7 +115,7 @@ export class MvpNormalizedReadsService {
     );
   }
 
-  listGroups(
+  async listGroups(
     tenantId: string,
     query: BaseFilterQuery,
     actor?: { counterpartyId?: string }
@@ -113,8 +123,18 @@ export class MvpNormalizedReadsService {
     const scope = resolveCounterpartyScope(actor ?? {});
     return this.groups.list(
       tenantId,
-      parseRegistryListQuery(query, GROUP_SORT_COLUMNS, scope.restricted ? scope : undefined)
+      parseGroupListQuery(
+        query,
+        await this.todayFor(tenantId),
+        scope.restricted ? scope : undefined
+      )
     );
+  }
+
+  /** «Сегодня» в поясе центра — для быстрых отборов групп (МГ-B3.2). */
+  private async todayFor(tenantId: string): Promise<string> {
+    const timezone = this.timezones ? await this.timezones.resolve(tenantId) : undefined;
+    return todayIn(timezone);
   }
 
   async getGroup(tenantId: string, id: string): Promise<GroupEntity> {
@@ -123,8 +143,11 @@ export class MvpNormalizedReadsService {
     return found;
   }
 
-  lookupGroups(tenantId: string, query: BaseFilterQuery): Promise<RegistryListPage<LookupItem>> {
-    return this.groups.lookup(tenantId, parseRegistryListQuery(query, GROUP_SORT_COLUMNS));
+  async lookupGroups(
+    tenantId: string,
+    query: BaseFilterQuery
+  ): Promise<RegistryListPage<LookupItem>> {
+    return this.groups.lookup(tenantId, parseGroupListQuery(query, await this.todayFor(tenantId)));
   }
 
   /**

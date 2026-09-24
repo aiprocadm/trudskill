@@ -57,6 +57,16 @@ export interface BaseFilterQuery {
   course_version_id?: string;
   /** Phase 9 Plan B — фильтр по компании-заказчику (group.counterpartyId). */
   client_id?: string;
+  /** Реестр групп (МГ-B3.2): быстрый отбор, ответственный, периоды дат, показ архива. */
+  quick?: string;
+  responsible_id?: string;
+  start_from?: string;
+  start_to?: string;
+  end_from?: string;
+  end_to?: string;
+  exam_from?: string;
+  exam_to?: string;
+  include_archived?: string;
   module_id?: string;
   test_id?: string;
   enrollment_id?: string;
