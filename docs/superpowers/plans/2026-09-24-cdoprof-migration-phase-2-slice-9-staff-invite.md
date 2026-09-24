@@ -37,12 +37,12 @@
 
 **Files:** Create `migrations/0112_iam_users_position.sql`; Modify `packages/api-contracts/src/auth/contracts.ts` (+ `position?`), `iam/iam.types.ts`, `iam/services/iam.service.ts` (`position` в выборках, `toUser`, `createUser`, `updateUser`; `findByEmail` для 409), `iam/iam-response.mapper.ts`, `iam/dto/login.dto.ts` (`InviteUserDto`, `position?` в create/update), `iam/auth.controller.ts` (`POST users/invite`), тесты `auth.controller.contract.test.ts` (+2), `iam.dto-validation.test.ts` (+1); фронт `audit/labels.ts` (`iam.user_invited`).
 
-- [ ] Тесты → код → lint/typecheck → commit.
+- [x] Тесты → код → lint/typecheck → commit. Отклонение: аудит — существующие `iam.user_created`/`iam.user_roles_updated`, отдельный код `iam.user_invited` не заводился.
 
 ## Task 2: фронт
 
 **Files:** Create `features/users/user-invite-drawer.tsx`; Modify `features/users/users-screens.tsx` (первичное действие, дровер, должность в карточке), `features/mvp/{types,api,hooks}.ts` (`inviteUser`), `api.contract.test.ts` (+1), `roles.ru.ts` не меняется.
 
-- [ ] Экран; сторожа `src/e2e`, `features/users`, `features/mvp`; commit.
+- [x] Экран; сторожа `src/e2e`, `features/users`, `features/mvp`; commit (поле почты: `inputMode`, `autoComplete`, подсказка без латиницы — по сторожам).
 
-## Task 3: документация 8.11 — handoff §5.583, трекер (РМ72–РМ75, МГ-J3.2 ✅), README, CLAUDE, план — галочки. `pnpm ci:check`, PR, слияние.
+## Task 3: документация 8.11 — [x] сделано (§5.583) — handoff §5.583, трекер (РМ72–РМ75, МГ-J3.2 ✅), README, CLAUDE, план — галочки. `pnpm ci:check`, PR, слияние.
