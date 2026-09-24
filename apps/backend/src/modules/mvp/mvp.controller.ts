@@ -479,7 +479,9 @@ export class MvpController {
    * администратор платформы. Преподавателю выдан `groups.read`, но не компании — панель про
    * заказчиков ему бы и нечего было показать; методисту наоборот не выдан `groups.read`.
    */
+  /* Журнал 621: панель считает выданные документы — без интерцептора документов их список пуст. */
   @Get('dashboards/manager')
+  @UseInterceptors(DocumentsRequestPersistenceInterceptor)
   @UseGuards(PermissionGuard)
   @RequirePermissions('groups.read', 'counterparties.read')
   getManagerDashboard(@CurrentContext() c: RequestContext) {

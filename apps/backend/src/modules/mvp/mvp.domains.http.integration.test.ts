@@ -2755,6 +2755,104 @@ describe('MVP HTTP integration (domain invariants)', () => {
    * всегда видел пустоту, а скачивание отвечало 404 на существующий документ.
    * Эти тесты падают, если с маршрута снять DocumentsRequestPersistenceInterceptor.
    */
+  /*
+   * Журнал 621 (Фаза 1, срез 5a): панель руководителя считает выданные документы через
+   * DocumentsService, но на маршруте не было интерцептора документов — при драйвере postgres
+   * состояние документов оставалось пустым, и блок «выдано документов» всегда показывал ноль.
+   * Тест падает, если с маршрута снять DocumentsRequestPersistenceInterceptor.
+   */
+  describe('панель руководителя видит документы (журнал 621)', () => {
+    beforeAll(async () => {
+      const now = new Date().toISOString();
+      const snapshots = (
+        memoryMvpPersistenceRef as unknown as {
+          snapshots: Map<string, Record<MvpCollection, unknown[]>>;
+        }
+      ).snapshots;
+      const snap =
+        snapshots.get('tenant_demo') ??
+        (() => {
+          const empty = {} as Record<MvpCollection, unknown[]>;
+          for (const col of MVP_COLLECTIONS) empty[col] = [];
+          snapshots.set('tenant_demo', empty);
+          return empty;
+        })();
+      snap.counterparties.push({
+        id: 'cp_621',
+        tenantId: 'tenant_demo',
+        code: 'CP-621',
+        name: 'Ромашка 621',
+        status: 'active',
+        createdAt: now,
+        updatedAt: now
+      });
+      snap.groups.push({
+        id: 'grp_621',
+        tenantId: 'tenant_demo',
+        code: 'G-621',
+        name: 'Группа 621',
+        status: 'active',
+        counterpartyId: 'cp_621',
+        createdAt: now,
+        updatedAt: now
+      });
+      snap.learners.push({
+        id: 'lrn_621',
+        tenantId: 'tenant_demo',
+        firstName: 'Ирина',
+        lastName: 'Панельная',
+        status: 'active',
+        createdAt: now,
+        updatedAt: now
+      });
+      snap.enrollments.push({
+        id: 'enr_621',
+        tenantId: 'tenant_demo',
+        learnerId: 'lrn_621',
+        groupId: 'grp_621',
+        status: 'completed',
+        enrolledAt: now,
+        createdAt: now,
+        updatedAt: now
+      });
+      await seedDocuments('tenant_demo', (s) => {
+        s.generatedDocuments.push({
+          id: 'gdoc_621',
+          tenantId: 'tenant_demo',
+          templateId: 'tpl_621',
+          templateVersionId: 'tplv_621',
+          documentType: 'certificate',
+          name: 'Удостоверение 621',
+          sourceEntityType: 'enrollment',
+          sourceEntityId: 'enr_621',
+          fileId: 'file_621',
+          status: 'final',
+          documentNumber: 'П621-001',
+          documentDate: '2026-09-24',
+          isFinal: true,
+          generatedAt: now
+        });
+      });
+    });
+
+    it('HTTP GET /dashboards/manager: выданный документ посчитан у компании', async () => {
+      const res = await fetch(`${apiBaseUrl}/dashboards/manager`, {
+        headers: hdr(tokenFor('sess_621_manager_dashboard'))
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        data: {
+          totals: { documentsIssued: number };
+          companies: Array<{ counterpartyId: string; documentsIssued: number }>;
+        };
+      };
+      const company = body.data.companies.find((c) => c.counterpartyId === 'cp_621');
+      expect(company, 'компания с завершённым обучением обязана быть на панели').toBeDefined();
+      expect(company!.documentsIssued).toBe(1);
+      expect(body.data.totals.documentsIssued).toBeGreaterThanOrEqual(1);
+    });
+  });
+
   describe('documents state wiring (порция 21)', () => {
     const LEARNER_ID = 'lrn_p21_docs';
     const ENROLLMENT_ID = 'enr_p21_docs';
