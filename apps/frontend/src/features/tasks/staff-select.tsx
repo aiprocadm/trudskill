@@ -18,9 +18,12 @@ export const StaffSelect = ({
   value,
   onChange,
   label = 'Сотрудник',
-  emptyLabel = '— не выбран —'
+  emptyLabel = '— не выбран —',
+  selectedLabel
 }: {
   value: string;
+  /** ФИО уже выбранного, если его нет среди первых найденных (карточка знает имя). */
+  selectedLabel?: string;
   /** Вызывается с идентификатором и ФИО выбранного: имя нужно экрану, id — запросу. */
   onChange: (userId: string, name: string) => void;
   label?: string;
@@ -39,6 +42,7 @@ export const StaffSelect = ({
       onQueryChange={setQuery}
       isLoading={isLoading}
       emptyLabel={emptyLabel}
+      {...(selectedLabel ? { selectedLabel } : {})}
       emptyHint="Сотрудников с такими ФИО не нашлось — проверьте написание."
       searchLabel="Поиск сотрудника"
       searchPlaceholder="Фамилия или имя"

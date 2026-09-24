@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 import { ClientEditDrawer } from './client-edit-drawer';
-import { CLIENT_STATUS_LABEL, formatInn, formatPhone } from './format';
+import { CLIENT_STATUS_LABEL, clientRequisiteRows, formatInn, formatPhone } from './format';
 import { GroupProgressSection } from './group-progress-section';
 import { useClient } from './hooks';
 import {
@@ -62,6 +62,7 @@ export function ClientDetailScreen({ clientId }: ClientDetailScreenProps) {
   }
 
   const c = client.data;
+  const requisites = clientRequisiteRows(c);
 
   return (
     <PageContainer>
@@ -86,6 +87,16 @@ export function ClientDetailScreen({ clientId }: ClientDetailScreenProps) {
                 { label: 'Статус', value: CLIENT_STATUS_LABEL[c.status] }
               ]}
             />
+            {/* МГ-D1.1: реквизиты, руководитель, договор и менеджер — только заполненные. */}
+            <h3 className="ui-section-title">Реквизиты и договор</h3>
+            {requisites.length > 0 ? (
+              <KeyValueList items={requisites} />
+            ) : (
+              <p className="ui-muted">
+                Реквизиты не заполнены. Нажмите «Редактировать» и «Заполнить по ИНН» — пустые поля
+                заполнятся из реестра.
+              </p>
+            )}
           </SectionCard>
         }
       >

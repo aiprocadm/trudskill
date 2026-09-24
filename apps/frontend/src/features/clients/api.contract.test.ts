@@ -253,4 +253,28 @@ describe('clientsApi envelope compatibility (Phase 2 Plan C Task 8)', () => {
     expect(calledUrl).toContain('/groups/g_1/progress-summary');
     expect(init.method).toBe('GET');
   });
+
+  it('suggestByInn (МГ-D1.2) спрашивает /counterparties/suggest?inn= и разворачивает конверт', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        envelope({
+          inn: '7707083893',
+          name: 'ООО «Ромашка»',
+          ogrn: '1027700132195',
+          liquidated: false
+        }),
+        { status: 200 }
+      )
+    );
+    const result = await clientsApi.suggestByInn(session, '7707083893');
+    expect(result).toEqual({
+      inn: '7707083893',
+      name: 'ООО «Ромашка»',
+      ogrn: '1027700132195',
+      liquidated: false
+    });
+    const [calledUrl, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(calledUrl).toContain('/counterparties/suggest?inn=7707083893');
+    expect(init.method).toBe('GET');
+  });
 });

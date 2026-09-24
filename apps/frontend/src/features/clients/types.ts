@@ -1,6 +1,33 @@
 export type ClientStatus = 'active' | 'archived';
 
-export interface ClientListItem {
+/**
+ * МГ-D1.1 (срез 13.2): реквизиты контрагента как в CDOPROF. Имена совпадают с сущностью
+ * бэкенда и с ответом подсказки по ИНН, поэтому подсказка кладётся в форму без перевода.
+ */
+export type ClientRequisiteKey =
+  | 'shortName'
+  | 'ogrn'
+  | 'okpo'
+  | 'okato'
+  | 'oktmo'
+  | 'okogu'
+  | 'okopf'
+  | 'okved'
+  | 'postalAddress'
+  | 'actualAddress'
+  | 'region'
+  | 'city'
+  | 'postalCode'
+  | 'fax'
+  | 'directorName'
+  | 'directorPosition'
+  | 'managerUserId'
+  | 'contractNumber'
+  | 'contractDate';
+
+export type ClientRequisites = Partial<Record<ClientRequisiteKey, string>>;
+
+export interface ClientListItem extends ClientRequisites {
   id: string;
   tenantId: string;
   code: string;
@@ -15,6 +42,8 @@ export interface ClientListItem {
   status: ClientStatus;
   createdAt: string;
   updatedAt: string;
+  /** ФИО менеджера — карточка подставляет его сама (`GET /counterparties/:id`). */
+  managerName?: string | null;
 }
 
 export interface ClientsListResponse {
@@ -31,7 +60,7 @@ export interface ClientsListFilters {
   pageSize?: number;
 }
 
-export interface CreateClientPayload {
+export interface CreateClientPayload extends ClientRequisites {
   code: string;
   name: string;
   legalName?: string;
@@ -43,7 +72,7 @@ export interface CreateClientPayload {
   note?: string;
 }
 
-export interface UpdateClientPayload {
+export interface UpdateClientPayload extends Partial<Record<ClientRequisiteKey, string | null>> {
   code?: string;
   name?: string;
   legalName?: string | null;
@@ -54,6 +83,30 @@ export interface UpdateClientPayload {
   legalAddress?: string | null;
   note?: string | null;
   status?: ClientStatus;
+}
+
+/** Ответ «Заполнить по ИНН» (`GET /counterparties/suggest?inn=`). */
+export interface InnSuggestion {
+  inn: string;
+  /** Полное наименование с формой собственности. */
+  name: string;
+  shortName?: string;
+  kpp?: string;
+  ogrn?: string;
+  okpo?: string;
+  okato?: string;
+  oktmo?: string;
+  okogu?: string;
+  okopf?: string;
+  okved?: string;
+  legalAddress?: string;
+  postalCode?: string;
+  city?: string;
+  region?: string;
+  directorName?: string;
+  directorPosition?: string;
+  /** Организация ликвидирована или ликвидируется. */
+  liquidated: boolean;
 }
 
 export interface PerCourseProgress {
@@ -82,7 +135,7 @@ export interface GroupProgressSummary extends ProgressSummaryBase {
   groupId: string;
 }
 
-export interface ClientEditFormState {
+export interface ClientEditFormState extends Record<ClientRequisiteKey, string> {
   code: string;
   name: string;
   legalName: string;

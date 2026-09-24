@@ -17,6 +17,7 @@ import {
   CLIENT_STATUS_LABEL,
   buildClientCreatePayload,
   buildClientUpdatePayload,
+  emptyClientForm,
   formatInn,
   formatPhone,
   formatProgressLabel
@@ -84,6 +85,7 @@ describe('admin clients management — formatters pipeline integration', () => {
 
   it('buildClientUpdatePayload nullifies empty fields, preserves filled, normalizes status', () => {
     const payload = buildClientUpdatePayload({
+      ...emptyClientForm(),
       code: 'X',
       name: 'X',
       legalName: '',
@@ -104,6 +106,7 @@ describe('admin clients management — formatters pipeline integration', () => {
 
   it('buildClientCreatePayload omits empty fields (no nulls in POST)', () => {
     const payload = buildClientCreatePayload({
+      ...emptyClientForm(),
       code: 'C',
       name: 'N',
       legalName: '',
