@@ -17,6 +17,7 @@ import {
 import { TenantService } from '../../tenant/tenant.service.js';
 import { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from '../infrastructure/mvp-state.token.js';
+import { MvpService } from '../mvp.service.js';
 
 import type { TestAttempt } from '../mvp.types.js';
 
@@ -38,6 +39,12 @@ import type { TestAttempt } from '../mvp.types.js';
 export class ExamOutcomeService {
   constructor(
     @Inject(MVP_STATE) private readonly state: InMemoryMvpState,
+    /*
+     * Обычное чтение результата (`getExamResult`) — единственное место, где решается, чей
+     * результат кому можно показать (anti-IDOR по привязке слушателя, обход по правам).
+     * Экран результата берёт запись только через него, чтобы отборы не разошлись.
+     */
+    @Inject(MvpService) private readonly mvp: MvpService,
     /*
      * Настройки центра — необязательная зависимость: правила работают и там, где база
      * настроек не поднята (внутренние прогоны, память). Метка `@Inject` обязательна —
@@ -142,17 +149,16 @@ export class ExamOutcomeService {
     examResultId: string,
     access: { actorId?: string | undefined; permissions?: readonly string[] | undefined }
   ): Promise<ExamResultView> {
-    const result = this.state.examResults.find(
-      (item) => item.tenantId === tenantId && item.id === examResultId
-    );
-    if (!result) throw new NotFoundException({ code: 'not_found', message: 'Результат не найден' });
-
     /*
      * Отбор по правам делает тот же метод, что и обычное чтение результата: второй, свой
      * отбор неизбежно разошёлся бы с первым, и представление показывало бы то, чего запись
-     * не показывает. Здесь достаточно позвать его и выбросить ответ — он бросит отказ сам.
+     * не показывает. Он же отвечает 404, если результата нет, и 403, если он чужой
+     * (журнал расхождений 616: до 23.09.2026 здесь стояло `void access` — проверки не было).
      */
-    void access;
+    const result = this.mvp.getExamResult(tenantId, examResultId, {
+      ...(access.actorId !== undefined ? { actorId: access.actorId } : {}),
+      ...(access.permissions !== undefined ? { permissions: [...access.permissions] } : {})
+    });
 
     const test = this.state.tests.find(
       (item) => item.tenantId === tenantId && item.id === result.testId

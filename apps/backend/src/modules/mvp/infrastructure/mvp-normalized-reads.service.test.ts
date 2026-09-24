@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 
 import { MvpNormalizedReadsService } from './mvp-normalized-reads.service.js';
 import { InMemoryEnrollmentsRepository } from './repositories/in-memory-enrollments.repository.js';
+import { InMemoryExamResultsRepository } from './repositories/in-memory-exam-results.repository.js';
+import { InMemoryGroupCoursesRepository } from './repositories/in-memory-group-courses.repository.js';
 import { InMemoryLearnersRepository } from './repositories/in-memory-learners.repository.js';
 import { InMemoryRegistryRepository } from './repositories/in-memory-registry.repository.js';
 import { encryptLearnerPiiAtRest } from '../../../infrastructure/crypto/pii-crypto.js';
@@ -105,6 +107,61 @@ const history = [
     changedAt: '2026-08-02T00:00:00.000Z'
   }
 ] as never[];
+const groupCourses = [
+  { id: 'gc1', tenantId: T, ...AT, groupId: 'g1', courseId: 'c1', sortOrder: 0, status: 'active' },
+  { id: 'gc2', tenantId: T, ...AT, groupId: 'g2', courseId: 'c1', sortOrder: 1, status: 'active' },
+  {
+    id: 'gc9',
+    tenantId: 't2',
+    ...AT,
+    groupId: 'g9',
+    courseId: 'c1',
+    sortOrder: 0,
+    status: 'active'
+  }
+] as never[];
+const examResults = [
+  {
+    id: 'r1',
+    tenantId: T,
+    ...AT,
+    enrollmentId: 'e1',
+    learnerId: 'l1',
+    testId: 't_final',
+    attemptsCount: 1,
+    maxScore: 10,
+    bestScore: 9,
+    finalScore: 9,
+    passed: true,
+    status: 'active'
+  },
+  {
+    id: 'r2',
+    tenantId: T,
+    ...AT,
+    enrollmentId: 'e2',
+    learnerId: 'l2',
+    testId: 't_final',
+    attemptsCount: 2,
+    maxScore: 10,
+    bestScore: 5,
+    finalScore: 5,
+    passed: false,
+    status: 'needs_review'
+  },
+  {
+    id: 'r9',
+    tenantId: 't2',
+    ...AT,
+    enrollmentId: 'e9',
+    learnerId: 'l9',
+    testId: 't_final',
+    attemptsCount: 1,
+    maxScore: 10,
+    passed: true,
+    status: 'active'
+  }
+] as never[];
 
 const makeService = () =>
   new MvpNormalizedReadsService(
@@ -125,7 +182,9 @@ const makeService = () =>
         ['g2', 'cp2'],
         ['g3', undefined]
       ])
-    )
+    ),
+    new InMemoryGroupCoursesRepository(groupCourses),
+    new InMemoryExamResultsRepository(examResults)
   );
 
 describe('MvpNormalizedReadsService', () => {
@@ -244,6 +303,78 @@ describe('MvpNormalizedReadsService', () => {
       actor: { counterpartyId: 'cp1' }
     };
     expect((await service.listEnrollments(T, {}, rep)).items.map((e) => e.id)).toEqual(['e1']);
+  });
+
+  it('курсы группы (срез 4b): изоляция центра, фильтр по группе и курсу, 404 для чужого и несуществующего', async () => {
+    const service = makeService();
+    expect((await service.listGroupCourses(T, {})).items.map((g) => g.id)).toEqual(['gc1', 'gc2']);
+    expect(
+      (await service.listGroupCourses(T, { group_id: 'g2' } as never)).items.map((g) => g.id)
+    ).toEqual(['gc2']);
+    expect((await service.listGroupCourses(T, { course_id: 'c1' } as never)).total).toBe(2);
+    expect((await service.getGroupCourse(T, 'gc1')).groupId).toBe('g1');
+    await expect(service.getGroupCourse(T, 'gc9')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.getGroupCourse(T, 'gc_missing')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('результаты экзаменов (срез 4b): персонал с обходом видит всё, слушатель — только свои, без привязки — пусто', async () => {
+    const service = makeService();
+    const staff = {
+      actorId: 'u_staff',
+      permissions: ['assessment.results.read', 'assessment.read.cross_learner']
+    };
+    expect((await service.listExamResults(T, {}, staff)).items.map((r) => r.id)).toEqual([
+      'r1',
+      'r2'
+    ]);
+    expect(
+      (await service.listExamResults(T, { status: 'needs_review' }, staff)).items.map((r) => r.id)
+    ).toEqual(['r2']);
+    expect(
+      (await service.listExamResults(T, { enrollment_id: 'e1' } as never, staff)).items.map(
+        (r) => r.id
+      )
+    ).toEqual(['r1']);
+    // Слушатель Иван — только свои; пользователь без привязки — пусто (закрыто по умолчанию).
+    expect(
+      (
+        await service.listExamResults(
+          T,
+          {},
+          { actorId: 'u_ivan', permissions: ['assessment.results.read'] }
+        )
+      ).items.map((r) => r.id)
+    ).toEqual(['r1']);
+    expect(
+      (
+        await service.listExamResults(
+          T,
+          {},
+          { actorId: 'u_nobody', permissions: ['assessment.results.read'] }
+        )
+      ).total
+    ).toBe(0);
+  });
+
+  it('карточка результата и результаты по зачислению: 404 чужой/несуществующий, 403 — чужой привязанный слушатель', async () => {
+    const service = makeService();
+    const ivan = { actorId: 'u_ivan', permissions: ['assessment.results.read'] };
+    const other = { actorId: 'u_other', permissions: ['assessment.results.read'] };
+    expect((await service.getExamResult(T, 'r1', ivan)).passed).toBe(true);
+    await expect(service.getExamResult(T, 'r1', other)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.getExamResult(T, 'r9')).rejects.toBeInstanceOf(NotFoundException);
+    // По зачислению: сначала 404 по зачислению, потом 403 по его слушателю.
+    expect((await service.getExamResultByEnrollment(T, 'e1', ivan)).map((r) => r.id)).toEqual([
+      'r1'
+    ]);
+    await expect(service.getExamResultByEnrollment(T, 'e1', other)).rejects.toBeInstanceOf(
+      ForbiddenException
+    );
+    await expect(service.getExamResultByEnrollment(T, 'e_missing', other)).rejects.toBeInstanceOf(
+      NotFoundException
+    );
+    // Зачисление без результатов — пустой список, не ошибка (как в снимке).
+    expect(await service.getExamResultByEnrollment(T, 'e3', ivan)).toEqual([]);
   });
 
   it('карточка и история зачисления: 404 для чужого центра, 403 — чужой привязанный слушатель, история по порядку', async () => {

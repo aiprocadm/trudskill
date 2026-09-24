@@ -48,7 +48,11 @@ import { MVP_PERSISTENCE_BACKEND } from './infrastructure/mvp-persistence.token.
 import { PostgresMvpPersistenceBackend } from './infrastructure/postgres-mvp-persistence.backend.js';
 import { COUNTERPARTIES_REPOSITORY } from './infrastructure/repositories/counterparties.repository.js';
 import { ENROLLMENTS_REPOSITORY } from './infrastructure/repositories/enrollments.repository.js';
+import { EXAM_RESULTS_REPOSITORY } from './infrastructure/repositories/exam-results.repository.js';
+import { GROUP_COURSES_REPOSITORY } from './infrastructure/repositories/group-courses.repository.js';
 import { InMemoryEnrollmentsRepository } from './infrastructure/repositories/in-memory-enrollments.repository.js';
+import { InMemoryExamResultsRepository } from './infrastructure/repositories/in-memory-exam-results.repository.js';
+import { InMemoryGroupCoursesRepository } from './infrastructure/repositories/in-memory-group-courses.repository.js';
 import { InMemoryLearnersRepository } from './infrastructure/repositories/in-memory-learners.repository.js';
 import { InMemoryRegistryRepository } from './infrastructure/repositories/in-memory-registry.repository.js';
 import { LEARNERS_REPOSITORY } from './infrastructure/repositories/learners.repository.js';
@@ -154,6 +158,8 @@ import {
 import { BackgroundTasksModule } from '../background-tasks/background-tasks.module.js';
 import { GROUPS_REPOSITORY } from './infrastructure/repositories/groups.repository.js';
 import { PostgresEnrollmentsRepository } from './infrastructure/repositories/postgres-enrollments.repository.js';
+import { PostgresExamResultsRepository } from './infrastructure/repositories/postgres-exam-results.repository.js';
+import { PostgresGroupCoursesRepository } from './infrastructure/repositories/postgres-group-courses.repository.js';
 import { PostgresGroupsRepository } from './infrastructure/repositories/postgres-groups.repository.js';
 import { PostgresLearnersRepository } from './infrastructure/repositories/postgres-learners.repository.js';
 
@@ -384,6 +390,22 @@ import { PostgresLearnersRepository } from './infrastructure/repositories/postgr
         backendEnv.ALLOW_IN_MEMORY_STATE
           ? new InMemoryEnrollmentsRepository([])
           : new PostgresEnrollmentsRepository(db),
+      inject: [DatabaseService]
+    },
+    {
+      provide: GROUP_COURSES_REPOSITORY,
+      useFactory: (db: DatabaseService) =>
+        backendEnv.ALLOW_IN_MEMORY_STATE
+          ? new InMemoryGroupCoursesRepository([])
+          : new PostgresGroupCoursesRepository(db),
+      inject: [DatabaseService]
+    },
+    {
+      provide: EXAM_RESULTS_REPOSITORY,
+      useFactory: (db: DatabaseService) =>
+        backendEnv.ALLOW_IN_MEMORY_STATE
+          ? new InMemoryExamResultsRepository([])
+          : new PostgresExamResultsRepository(db),
       inject: [DatabaseService]
     },
     MvpNormalizedReadsService,

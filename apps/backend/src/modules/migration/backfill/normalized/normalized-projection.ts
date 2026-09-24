@@ -452,8 +452,22 @@ const projectGroup = (entity: Entity, tenantId: string, ctx: ProjectionContext):
   );
 };
 
-const projectGroupCourse = (entity: Entity, tenantId: string): ProjectedRow =>
-  assemble(
+/**
+ * Поля, которых у сущности снимка может не быть, а колонка базы — NOT NULL: значение подставляется,
+ * и поле попадает в `__synthesized`, чтобы обратная проекция его не выдумала (форма ответа — как у снимка).
+ */
+const synthesizedOf = (entity: Entity, fields: ReadonlyArray<string>): string[] =>
+  fields.filter((field) => entity[field] === undefined || entity[field] === null);
+
+const projectGroupCourse = (entity: Entity, tenantId: string): ProjectedRow => {
+  const synthesized = synthesizedOf(entity, [
+    'sortOrder',
+    'requiresPreExamAuth',
+    'requiresIdentityVerification',
+    'requiresProctoring',
+    'status'
+  ]);
+  return assemble(
     entity,
     tenantId,
     {
@@ -477,8 +491,10 @@ const projectGroupCourse = (entity: Entity, tenantId: string): ProjectedRow =>
       'requiresIdentityVerification',
       'requiresProctoring',
       'status'
-    ]
+    ],
+    synthesized.length > 0 ? { [SYNTHESIZED_KEY]: synthesized } : {}
   );
+};
 
 const projectEnrollment = (entity: Entity, tenantId: string): ProjectedRow => {
   const { status, extra } = safeStatus(entity.status, ENROLLMENT_STATUSES, 'pending');
@@ -540,6 +556,9 @@ const projectStatusHistory = (entity: Entity, tenantId: string): ProjectedRow =>
 
 const projectExamResult = (entity: Entity, tenantId: string): ProjectedRow => {
   const { status, extra } = safeStatus(entity.status, EXAM_RESULT_STATUSES, 'draft');
+  // `finalized_at` NOT NULL в базе, а в снимке результата такого поля нет — берётся момент
+  // последней записи и помечается выдуманным; `attemptsCount` — то же для записей бэкфилла.
+  const synthesized = synthesizedOf(entity, ['finalizedAt', 'attemptsCount']);
   return assemble(
     entity,
     tenantId,
@@ -571,7 +590,7 @@ const projectExamResult = (entity: Entity, tenantId: string): ProjectedRow => {
       'maxScore',
       'passingScore'
     ],
-    extra
+    { ...extra, ...(synthesized.length > 0 ? { [SYNTHESIZED_KEY]: synthesized } : {}) }
   );
 };
 

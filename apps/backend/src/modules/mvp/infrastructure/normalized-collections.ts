@@ -19,7 +19,9 @@ export const NORMALIZABLE_COLLECTIONS = [
   'counterparties',
   'groups',
   'learners',
-  'enrollments'
+  'enrollments',
+  'groupCourses',
+  'examResults'
 ] as const;
 export type NormalizableCollection = (typeof NORMALIZABLE_COLLECTIONS)[number];
 

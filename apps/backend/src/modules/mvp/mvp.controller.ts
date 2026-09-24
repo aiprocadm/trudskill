@@ -894,14 +894,20 @@ export class MvpController {
   @Get('group-courses')
   @UseGuards(PermissionGuard)
   @RequirePermissions('groups.read')
+  @ReadsNormalized('groupCourses')
   listGroupCourses(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    return this.mvpService.listGroupCourses(c.tenantId!, q);
+    return isNormalizedRead('groupCourses')
+      ? this.normalizedReads.listGroupCourses(c.tenantId!, q)
+      : this.mvpService.listGroupCourses(c.tenantId!, q);
   }
   @Get('group-courses/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('groups.read')
+  @ReadsNormalized('groupCourses')
   getGroupCourse(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.mvpService.getGroupCourse(c.tenantId!, id);
+    return isNormalizedRead('groupCourses')
+      ? this.normalizedReads.getGroupCourse(c.tenantId!, id)
+      : this.mvpService.getGroupCourse(c.tenantId!, id);
   }
   @Post('group-courses')
   @UseGuards(PermissionGuard)
@@ -1757,11 +1763,12 @@ export class MvpController {
   @Get('exam-results')
   @UseGuards(PermissionGuard)
   @RequirePermissions('assessment.results.read')
+  @ReadsNormalized('examResults')
   listExamResults(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    return this.mvpService.listExamResults(c.tenantId!, q, {
-      actorId: c.userId,
-      permissions: c.permissions
-    });
+    const access = { actorId: c.userId, permissions: c.permissions };
+    return isNormalizedRead('examResults')
+      ? this.normalizedReads.listExamResults(c.tenantId!, q, access)
+      : this.mvpService.listExamResults(c.tenantId!, q, access);
   }
   /**
    * Что слушатель видит на экране результата (ТЗ 10.4, пункт 5).
@@ -1797,23 +1804,26 @@ export class MvpController {
   @Get('exam-results/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('assessment.results.read')
+  @ReadsNormalized('examResults')
   getExamResult(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.mvpService.getExamResult(c.tenantId!, id, {
-      actorId: c.userId,
-      permissions: c.permissions
-    });
+    const access = { actorId: c.userId, permissions: c.permissions };
+    return isNormalizedRead('examResults')
+      ? this.normalizedReads.getExamResult(c.tenantId!, id, access)
+      : this.mvpService.getExamResult(c.tenantId!, id, access);
   }
+  /* Срез 4b: 404 по зачислению идёт из таблицы зачислений — нужны обе коллекции. */
   @Get('exam-results/by-enrollment/:enrollmentId')
   @UseGuards(PermissionGuard)
   @RequirePermissions('assessment.results.read')
+  @ReadsNormalized('examResults', 'enrollments')
   getExamResultByEnrollment(
     @CurrentContext() c: RequestContext,
     @Param('enrollmentId') enrollmentId: string
   ) {
-    return this.mvpService.getExamResultByEnrollment(c.tenantId!, enrollmentId, {
-      actorId: c.userId,
-      permissions: c.permissions
-    });
+    const access = { actorId: c.userId, permissions: c.permissions };
+    return isNormalizedRead('examResults') && isNormalizedRead('enrollments')
+      ? this.normalizedReads.getExamResultByEnrollment(c.tenantId!, enrollmentId, access)
+      : this.mvpService.getExamResultByEnrollment(c.tenantId!, enrollmentId, access);
   }
   // Журнал 340: пересобирает результаты экзаменов ВСЕГО центра. Результат выводится из правил
   // теста, поэтому пересчитывает тот, кто ведёт тесты, — не каждый, кто смотрит результаты

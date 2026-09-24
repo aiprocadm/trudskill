@@ -54,13 +54,18 @@ import type {
   TestQuestion
 } from '../mvp.types.js';
 
-/** Коллекции, которые проецируются в нормализованные таблицы при сохранении (Фаза 1, срез 1). */
+/**
+ * Коллекции, которые проецируются в нормализованные таблицы при сохранении (Фаза 1, срезы 1–4).
+ * Порядок — порядок внешних ключей: курсы группы после групп, результаты после зачислений.
+ */
 export const PROJECTED_COLLECTIONS = [
   'counterparties',
   'learners',
   'groups',
+  'groupCourses',
   'enrollments',
-  'enrollmentStatusHistory'
+  'enrollmentStatusHistory',
+  'examResults'
 ] as const;
 export type ProjectedCollection = (typeof PROJECTED_COLLECTIONS)[number];
 export type ChangedEntities = { upserted: unknown[]; deletedIds: string[] } | 'all';
