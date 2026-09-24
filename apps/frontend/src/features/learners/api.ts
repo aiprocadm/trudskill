@@ -24,14 +24,50 @@ const withAuth = (session: UserSession) => ({
   }
 });
 
+/** Параметры реестра под именами, которые читает сервер (сторож «фильтры доходят до сервера»). */
+export const learnersListParams = (filters: LearnersListFilters): URLSearchParams => {
+  const params = new URLSearchParams();
+  if (filters.q) params.set('q', filters.q);
+  if (filters.status) params.set('status', filters.status);
+  /* МГ-C3.2 (срез 11.2): компания, группа, без почты, не входил. */
+  if (filters.companyId) params.set('client_id', filters.companyId);
+  if (filters.groupId) params.set('group_id', filters.groupId);
+  if (filters.noEmail) params.set('no_email', '1');
+  if (filters.neverLoggedIn) params.set('never_logged_in', '1');
+  if (filters.page !== undefined) params.set('page', String(filters.page));
+  if (filters.pageSize !== undefined) params.set('page_size', String(filters.pageSize));
+  return params;
+};
+
+/**
+ * Выгрузка реестра в XLSX (МГ-C3.2, РМ105): сервер отдаёт файл, а не конверт API — мимо
+ * `apiRequest`, object-URL для скачивания; фильтры те же, что у списка, без страницы.
+ */
+export async function fetchLearnersXlsxUrl(
+  session: UserSession,
+  filters: LearnersListFilters
+): Promise<string> {
+  const rest: LearnersListFilters = { ...filters };
+  delete rest.page;
+  delete rest.pageSize;
+  const params = learnersListParams(rest);
+  const qs = params.toString();
+  const res = await fetch(
+    `${frontendEnv.NEXT_PUBLIC_API_BASE_URL}/learners/export.xlsx${qs ? `?${qs}` : ''}`,
+    {
+      headers: {
+        authorization: `Bearer ${session.tokens.accessToken}`,
+        'x-tenant-id': session.user.tenantId
+      }
+    }
+  );
+  if (!res.ok) throw new Error(`Не удалось выгрузить реестр (HTTP ${res.status})`);
+  return URL.createObjectURL(await res.blob());
+}
+
 export const learnersApi = {
   list: (session: UserSession, filters: LearnersListFilters): Promise<LearnersListResponse> => {
-    const params = new URLSearchParams();
-    if (filters.q) params.set('q', filters.q);
-    if (filters.status) params.set('status', filters.status);
-    if (filters.page !== undefined) params.set('page', String(filters.page));
-    if (filters.pageSize !== undefined) params.set('page_size', String(filters.pageSize));
-    const qs = params.toString();
+    const qs = learnersListParams(filters).toString();
     return apiRequest<LearnersListResponse>(qs ? `/learners?${qs}` : '/learners', {
       method: 'GET',
       ...withAuth(session)

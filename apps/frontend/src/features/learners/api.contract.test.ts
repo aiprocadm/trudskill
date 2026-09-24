@@ -202,4 +202,27 @@ describe('learnersApi envelope compatibility', () => {
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual({ reason: 'заявление №7' });
   });
+
+  // МГ-C3.2 (срез 11.2): фильтры реестра уходят под именами, которые читает сервер.
+  it('list: компания, группа, без почты и не входил — client_id/group_id/no_email/never_logged_in', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(envelope({ items: [], total: 0, page: 1, pageSize: 50 }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      })
+    );
+    await learnersApi.list(session, {
+      companyId: 'c1',
+      groupId: 'g1',
+      noEmail: true,
+      neverLoggedIn: true,
+      page: 1,
+      pageSize: 50
+    });
+    const url = String(fetchMock.mock.calls[0]?.[0]);
+    expect(url).toContain('client_id=c1');
+    expect(url).toContain('group_id=g1');
+    expect(url).toContain('no_email=1');
+    expect(url).toContain('never_logged_in=1');
+  });
 });
