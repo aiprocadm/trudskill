@@ -12,7 +12,9 @@ import type {
   CommissionMemberRole,
   CommissionStatus,
   CourseDocumentSetEntryDraft,
+  Enrollment,
   EnrollmentCertificateRow,
+  EnrollmentResultCode,
   GroupPayload,
   GroupWizardRequest,
   GroupsListQuery,
@@ -223,6 +225,13 @@ export const useDomainMutations = () => {
       wrap((authSession) => mvpApi.createGroupCourse(authSession, payload)),
     createEnrollment: (payload: { groupId: string; learnerId: string }) =>
       wrap((authSession) => mvpApi.createEnrollment(authSession, payload)),
+    /* МГ-B7.1: состав группы — отчисление с причиной, пауза/возобновление, неявка. */
+    updateEnrollmentStatus: (id: string, status: Enrollment['status'], reason?: string) =>
+      wrap((authSession) => mvpApi.updateEnrollmentStatus(authSession, id, status, reason)),
+    markEnrollmentResult: (
+      id: string,
+      payload: { resultCode: EnrollmentResultCode | null; reason?: string }
+    ) => wrap((authSession) => mvpApi.markEnrollmentResult(authSession, id, payload)),
     createBulkEnrollments: (payload: {
       idempotencyKey: string;
       groupId: string;

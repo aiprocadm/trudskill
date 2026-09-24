@@ -191,7 +191,11 @@ export interface Enrollment extends BaseEntity {
   enrolledAt: string;
   /** Phase 4 Plan B: per-student proctoring override; absent = inherit from group-course. */
   proctoringOverride?: 'require' | 'exempt';
+  /** МГ-B7.1: итог по зачислению; `absent` — «не явился» (куратор), остальное проставит экзамен. */
+  resultCode?: EnrollmentResultCode;
 }
+
+export type EnrollmentResultCode = 'passed' | 'failed' | 'absent';
 
 export interface Progress extends BaseEntity {
   enrollmentId: string;
