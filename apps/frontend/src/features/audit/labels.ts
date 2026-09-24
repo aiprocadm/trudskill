@@ -236,6 +236,7 @@ const PHRASES: Record<string, string> = {
   /* МГ-C2.1 (срез 9.2): файлы личного дела. */
   'learning.learner_file_attached': 'Файл добавлен в личное дело',
   'learning.learner_file_removed': 'Файл удалён из личного дела',
+  'learning.learner_access_sent': 'Слушателю выслана ссылка для входа',
   'assessment.test_rules_updated': 'Правила теста изменены',
   'learning.enrollments_bulk': 'Массовое зачисление выполнено',
   'learning.enrollment_status_changed': 'Статус зачисления изменён',

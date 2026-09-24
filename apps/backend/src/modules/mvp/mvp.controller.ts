@@ -44,6 +44,7 @@ import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-p
 import { isNormalizedRead } from './infrastructure/normalized-collections.js';
 import { ReadsNormalized } from './infrastructure/reads-normalized.decorator.js';
 import { LearnerPdfCardService } from './learner-pdf-card.service.js';
+import { LearnerAccessService } from './learners/learner-access.service.js';
 import { validateLearnerExtraFields } from './learners/learner-extra-fields.js';
 import { LearnerFieldsSettingsService } from './learners/learner-fields-settings.service.js';
 import { AttachLearnerFileRequest } from './learners/learner-files.dto.js';
@@ -212,7 +213,11 @@ export class MvpController {
     /* МГ-C2.1 (срез 9.2): файлы личного дела — согласия и сканы до N файлов. */
     @Optional()
     @Inject(LearnerFilesService)
-    private readonly learnerFiles?: LearnerFilesService
+    private readonly learnerFiles?: LearnerFilesService,
+    /* МГ-C2.1 (срез 9.3): «Выслать доступ» — письмо входа слушателю. */
+    @Optional()
+    @Inject(LearnerAccessService)
+    private readonly learnerAccess?: LearnerAccessService
   ) {}
 
   private requireLearnerFiles(): LearnerFilesService {
@@ -472,6 +477,23 @@ export class MvpController {
       });
     }
     return this.learnerHistory.compose(c.tenantId!, id);
+  }
+
+  /**
+   * МГ-C2.1 (срез 9.3, РМ97–РМ99): «Выслать доступ» — учётка по почте слушателя, привязка,
+   * роль `learner`, письмо со ссылкой для входа (предел запросов — настройка центра).
+   */
+  @Post('learners/:id/access/send')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learners.write')
+  sendLearnerAccess(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    if (!this.learnerAccess) {
+      throw new ServiceUnavailableException({
+        code: 'learner_access_unavailable',
+        message: 'Отправка доступа временно недоступна'
+      });
+    }
+    return this.learnerAccess.send(c.tenantId!, id, c.userId, c);
   }
 
   /** МГ-C2.1 (срез 9.2): файлы личного дела — список с пределом центра. */

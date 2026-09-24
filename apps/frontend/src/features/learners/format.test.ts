@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   EMPTY_LEARNER_FORM,
   STATUS_LABEL,
+  accessOutcomeText,
   buildUpdatePayload,
   formatFullName,
   formatSnils,
@@ -184,5 +185,20 @@ describe('buildUpdatePayload — именованные поля центра', 
     expect(
       buildUpdatePayload({ ...EMPTY_LEARNER_FORM, firstName: 'И', lastName: 'И' }).extraFields
     ).toBeUndefined();
+  });
+});
+
+// МГ-C2.1 (срез 9.3): исход «Выслать доступ» — по-русски, три случая и признак открытого входа.
+describe('accessOutcomeText', () => {
+  it('называет адрес, предел запросов и выключенную почту стенда', () => {
+    expect(accessOutcomeText({ status: 'sent', userId: 'u', linked: true }, 'i@x.ru')).toBe(
+      'Письмо со ссылкой для входа отправлено на i@x.ru — ссылка действует 15 минут. Вход в кабинет открыт.'
+    );
+    expect(
+      accessOutcomeText({ status: 'throttled', userId: 'u', linked: false }, 'i@x.ru')
+    ).toContain('через 15 минут');
+    expect(
+      accessOutcomeText({ status: 'logged', userId: 'u', linked: false }, undefined)
+    ).toContain('журнал сервера');
   });
 });

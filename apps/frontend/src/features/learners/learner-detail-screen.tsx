@@ -12,7 +12,8 @@ import {
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { fetchLearnerDossierPdfUrl } from './api';
+import { fetchLearnerDossierPdfUrl, learnersApi } from './api';
+import { accessOutcomeText } from './format';
 import { useLearnerHistory } from './hooks';
 import { LearnerEditDrawer } from './learner-edit-drawer';
 import { LearnerFilesSection } from './learner-files-section';
@@ -51,7 +52,7 @@ import type { LearnerProfile } from './types';
  * 2. Блок «Личные данные (для PDF)» печатал полный СНИЛС под `learners.read` (журнал 638) и
  *    мёртвую кнопку «Экспорт PDF» — убран; СНИЛС раскрывается по причине в «Личном деле».
  * 3. Дело слушателя одним PDF (ФТ-C2) существовало только как ручка (журнал 641) — теперь в
- *    меню «Ещё» вместе с обезличиванием; «Выслать доступ» — срез 9.3, лист доступов — МГ-C4.
+ *    меню «Ещё» вместе с обезличиванием и «Выслать доступ» (срез 9.3); лист доступов — МГ-C4.
  * 4. Названия курса и группы приходят в агрегате карточки: три запроса справочников по 100
  *    строк с карточки ушли (РМ92).
  */
@@ -78,6 +79,8 @@ export const LearnerDetailsScreen = ({ id }: { id: string }) => {
   const history = useLearnerHistory(id, tab === 'history');
   const [actionError, setActionError] = useState<unknown>(null);
   const [dossierBusy, setDossierBusy] = useState(false);
+  const [accessBusy, setAccessBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const fullName = learner ? `${learner.lastName} ${learner.firstName}`.trim() : '';
   useObjectCrumb(fullName || undefined, { notFound, failed: Boolean(error) });
@@ -104,16 +107,36 @@ export const LearnerDetailsScreen = ({ id }: { id: string }) => {
       .finally(() => setDossierBusy(false));
   };
 
+  /* «Выслать доступ» (срез 9.3): письмо со ссылкой для входа; исход — строкой на карточке. */
+  const sendAccess = () => {
+    if (!session || !learner) return;
+    setAccessBusy(true);
+    setActionError(null);
+    setNotice(null);
+    learnersApi
+      .sendAccess(session, id)
+      .then((outcome) => {
+        setNotice(accessOutcomeText(outcome, learner.email));
+        if (outcome.linked) void refetch();
+      })
+      .catch((err: unknown) => setActionError(err))
+      .finally(() => setAccessBusy(false));
+  };
+
   /*
-   * Меню «Ещё» (ТЗ: «…»): дело PDF и обезличивание — только с правом на ПДн (РМ90).
-   * Два действия и больше компонент сам складывает в меню; опасное — в его низ.
+   * Меню «Ещё» (ТЗ: «…»): доступ — с правом на правку; дело PDF и обезличивание — только с
+   * правом на ПДн (РМ90). Два действия и больше компонент сам складывает в меню; опасное — в
+   * его низ.
    */
-  const secondaryActions = canManagePii
-    ? [
-        { label: 'Скачать личное дело (PDF)', onSelect: openDossier, busy: dossierBusy },
-        { label: 'Обезличить данные', danger: true, onSelect: () => setDrawer('erase') }
-      ]
-    : [];
+  const secondaryActions = [
+    ...(canEdit ? [{ label: 'Выслать доступ', onSelect: sendAccess, busy: accessBusy }] : []),
+    ...(canManagePii
+      ? [
+          { label: 'Скачать личное дело (PDF)', onSelect: openDossier, busy: dossierBusy },
+          { label: 'Обезличить данные', danger: true, onSelect: () => setDrawer('erase') }
+        ]
+      : [])
+  ];
 
   const enrollments = card.data?.enrollments ?? [];
   const documents = card.data?.documents ?? [];
@@ -148,6 +171,11 @@ export const LearnerDetailsScreen = ({ id }: { id: string }) => {
       {loading ? <LoadingState message="Загружаем карточку…" /> : null}
       {error ? <SectionError message={error} onRetry={() => void refetch()} /> : null}
       {actionError !== null ? <SectionError error={actionError} /> : null}
+      {notice ? (
+        <p className="ui-callout" role="status">
+          {notice}
+        </p>
+      ) : null}
       {learner ? (
         <DetailLayout
           aside={

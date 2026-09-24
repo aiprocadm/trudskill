@@ -1,4 +1,5 @@
 import type {
+  LearnerAccessOutcome,
   LearnerEditFormState,
   LearnerListItem,
   LearnerStatus,
@@ -196,4 +197,25 @@ export function passportFormHint(form: LearnerEditFormState): string | undefined
     return 'Паспорт: укажите и серию, и номер — или оставьте оба поля пустыми.';
   }
   return undefined;
+}
+
+/**
+ * Что сказать человеку после «Выслать доступ» (МГ-C2.1, срез 9.3) — тремя исходами, как у
+ * приглашения сотрудника: письмо ушло / предел запросов / почта стенда выключена.
+ */
+export function accessOutcomeText(
+  outcome: LearnerAccessOutcome,
+  email: string | undefined
+): string {
+  const opened = outcome.linked ? ' Вход в кабинет открыт.' : '';
+  switch (outcome.status) {
+    case 'sent':
+      return `Письмо со ссылкой для входа отправлено на ${email ?? 'почту слушателя'} — ссылка действует 15 минут.${opened}`;
+    case 'throttled':
+      return `Письмо не ушло: слишком много запросов ссылки на этот адрес. Повторить можно через 15 минут.${opened}`;
+    case 'logged':
+      return `Почта на этом стенде выключена — ссылка для входа записана в журнал сервера.${opened}`;
+    default:
+      return `Доступ выслан.${opened}`;
+  }
 }
