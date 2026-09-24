@@ -119,6 +119,20 @@ describe('group wizard E2E smoke', () => {
     expect(request.group.code).toBeUndefined();
   });
 
+  it('smoke: дровер правки группы (МГ-B4.1) загружается, модель считает разницу', async () => {
+    const drawer = await import('../features/groups/group-edit-drawer');
+    expect(typeof drawer.GroupEditDrawer).toBe('function');
+    const model = await import('../features/groups/group-edit-model');
+    const initial = {
+      ...model.groupEditFormOf({ id: 'g', code: 'C', name: 'Группа', status: 'closed' } as never)
+    };
+    expect(
+      model.groupEditDiff(initial, { ...initial, comment: 'итог', startDate: '2026-10-01' }, true)
+    ).toEqual({
+      comment: 'итог'
+    });
+  });
+
   it('smoke: модули экрана и шагов загружаются (нет сломанных импортов)', async () => {
     const screen = await import('../features/groups/group-wizard/group-wizard-screen');
     expect(typeof screen.GroupWizardScreen).toBe('function');

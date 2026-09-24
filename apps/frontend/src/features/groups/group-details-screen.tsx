@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
+import { GroupEditDrawer } from './group-edit-drawer';
 import {
   GROUP_STATUS_LABEL,
   STUDY_FORM_LABEL,
@@ -39,6 +40,7 @@ import { IssueOrderModal } from '../group-orders/issue-order-modal';
 import { LearnerSelect, learnerNameCell, useLearnerNames } from '../learners/learner-picker';
 import { LearningJournalSection } from '../learning-journal/screens';
 import {
+  useCounterpartiesList,
   useCoursesList,
   useDomainMutations,
   useEnrollments,
@@ -234,6 +236,12 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
   const [closeOpen, setCloseOpen] = useState(false);
   /* Э4: первичное действие обязано куда-то вести — форма зачисления открывается панелью. */
   const [enrollOpen, setEnrollOpen] = useState(false);
+  /* МГ-B4.1 (срез 8.9): правка полей группы — дровер из «…», первым пунктом (ТЗ §6.3). */
+  const [editOpen, setEditOpen] = useState(false);
+  const { data: counterparties } = useCounterpartiesList({ page: 1, page_size: 200 });
+  const counterpartyName = group?.counterpartyId
+    ? (counterparties?.items.find((item) => item.id === group.counterpartyId)?.name ?? 'компания')
+    : 'без компании (физлица)';
 
   // Pillar A Plan B §5.7: caller отвечает за фильтрацию только completed-enrollment'ов.
   const completedEnrollmentIds = useMemo(
@@ -279,6 +287,9 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
           ? { primaryAction: { label: 'Зачислить слушателя', onSelect: () => setEnrollOpen(true) } }
           : {})}
         secondaryActions={[
+          ...(canAssignCourse && group
+            ? [{ label: 'Редактировать группу', onSelect: () => setEditOpen(true) }]
+            : []),
           ...(canWriteDocuments
             ? [{ label: 'Сгенерировать приказ', onSelect: () => setIssueOrderOpen(true) }]
             : []),
@@ -374,6 +385,7 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
             <KeyValueList
               items={[
                 { label: 'Код', value: group?.code ?? '—' },
+                { label: 'Компания', value: counterpartyName },
                 {
                   label: 'Статус',
                   value: (
@@ -541,6 +553,17 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
         {/* ФТ-B3.4: доказательная база на проверке ГИТ/Минтруда. */}
         <LearningJournalSection groupId={id} />
       </DetailLayout>
+
+      {editOpen && group ? (
+        <GroupEditDrawer
+          group={group}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => {
+            setEditOpen(false);
+            void refetchGroup();
+          }}
+        />
+      ) : null}
 
       {/* Э4: первичное действие карточки — зачисление; форма открывается панелью рядом. */}
       <DetailDrawer

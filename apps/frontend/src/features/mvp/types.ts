@@ -163,12 +163,14 @@ export interface GroupPayload {
   code?: string;
   name?: string;
   status?: string;
-  startDate?: string;
-  endDate?: string;
-  examDate?: string;
+  /** `null` при правке — очистить поле (сервер это принимает; МГ-B4.1). */
+  startDate?: string | null;
+  endDate?: string | null;
+  examDate?: string | null;
   studyForm?: string;
   isDot?: boolean;
-  comment?: string;
+  comment?: string | null;
+  learnerMessage?: string | null;
   counterpartyId?: string | null;
   responsibleUserId?: string | null;
 }
