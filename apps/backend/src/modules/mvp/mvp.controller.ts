@@ -12,6 +12,7 @@ import {
   Put,
   Query,
   Res,
+  ServiceUnavailableException,
   StreamableFile,
   UseGuards,
   UseInterceptors
@@ -45,6 +46,7 @@ import { ReadsNormalized } from './infrastructure/reads-normalized.decorator.js'
 import { LearnerPdfCardService } from './learner-pdf-card.service.js';
 import { validateLearnerExtraFields } from './learners/learner-extra-fields.js';
 import { LearnerFieldsSettingsService } from './learners/learner-fields-settings.service.js';
+import { LearnerHistoryService } from './learners/learner-history.service.js';
 import { BulkImportLearnersRequest } from './learners-bulk-import.dto.js';
 import { LearnersBulkImportService } from './learners-bulk-import.service.js';
 import { MvpBulkEnqueueService } from './mvp-bulk-enqueue.service.js';
@@ -200,7 +202,11 @@ export class MvpController {
     /* МГ-C1.3 (срез 8.14): описание именованных полей — проверка значений при правке карточки. */
     @Optional()
     @Inject(LearnerFieldsSettingsService)
-    private readonly learnerFields?: LearnerFieldsSettingsService
+    private readonly learnerFields?: LearnerFieldsSettingsService,
+    /* МГ-C2.1 (срез 9.1): история слушателя для вкладки карточки. */
+    @Optional()
+    @Inject(LearnerHistoryService)
+    private readonly learnerHistory?: LearnerHistoryService
   ) {}
 
   @Get('counterparties')
@@ -435,6 +441,23 @@ export class MvpController {
   getLearnerPdfCard(@CurrentContext() c: RequestContext, @Param('id') id: string) {
     return this.learnerPdfCardService.composeData(c.tenantId!, c.userId, id, c);
   }
+  /**
+   * МГ-C2.1 (срез 9.1, РМ91) — история слушателя для вкладки карточки: «когда / кто / что»
+   * по слушателю и его зачислениям, без значений полей. Право то же, что у карточки.
+   */
+  @Get('learners/:id/history')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learners.read')
+  async getLearnerHistory(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    if (!this.learnerHistory) {
+      throw new ServiceUnavailableException({
+        code: 'learner_history_unavailable',
+        message: 'История слушателя временно недоступна'
+      });
+    }
+    return this.learnerHistory.compose(c.tenantId!, id);
+  }
+
   /**
    * ФТ-C2 (Фаза 3 Task 9) — «личное дело слушателя»: один документ для проверяющего.
    *

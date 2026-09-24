@@ -169,6 +169,7 @@ import { PostgresGroupCoursesRepository } from './infrastructure/repositories/po
 import { PostgresGroupsRepository } from './infrastructure/repositories/postgres-groups.repository.js';
 import { PostgresLearnersRepository } from './infrastructure/repositories/postgres-learners.repository.js';
 import { LearnerFieldsSettingsService } from './learners/learner-fields-settings.service.js';
+import { LearnerHistoryService } from './learners/learner-history.service.js';
 
 @Module({
   imports: [
@@ -452,6 +453,8 @@ import { LearnerFieldsSettingsService } from './learners/learner-fields-settings
     NmoXlsxWriter,
     { provide: NmoRegistryService, scope: Scope.REQUEST, useClass: NmoRegistryService },
     { provide: LearnerPdfCardService, scope: Scope.REQUEST, useClass: LearnerPdfCardService },
+    /* МГ-C2.1: история слушателя читает состояние запроса — та же область, что у PDF-карточки. */
+    { provide: LearnerHistoryService, scope: Scope.REQUEST, useClass: LearnerHistoryService },
     {
       provide: LearnersBulkImportService,
       scope: Scope.REQUEST,
