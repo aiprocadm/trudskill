@@ -32,6 +32,7 @@ import { PostgresConsentRepository } from './consents/postgres-consent.repositor
 import { CounterpartySuggestService } from './counterparties/counterparty-suggest.service.js';
 import { COUNTERPARTY_PEOPLE_REPOSITORY } from './counterparty-people/counterparty-people.repository.js';
 import { CounterpartyPeopleService } from './counterparty-people/counterparty-people.service.js';
+import { CounterpartyRepresentativeService } from './counterparty-people/counterparty-representative.service.js';
 import { InMemoryCounterpartyPeopleRepository } from './counterparty-people/in-memory-counterparty-people.repository.js';
 import { PostgresCounterpartyPeopleRepository } from './counterparty-people/postgres-counterparty-people.repository.js';
 import { ManagerDashboardService } from './dashboards/manager-dashboard.service.js';
@@ -501,6 +502,11 @@ import { LearnersRegistryExportService } from './learners/learners-registry-expo
       provide: CounterpartyPeopleService,
       scope: Scope.REQUEST,
       useClass: CounterpartyPeopleService
+    },
+    {
+      provide: CounterpartyRepresentativeService,
+      scope: Scope.REQUEST,
+      useClass: CounterpartyRepresentativeService
     },
     /* МГ-C3.2 (срез 11.1): выгрузка реестра слушателей — без состояния, синглтон. */
     LearnersRegistryExportService,

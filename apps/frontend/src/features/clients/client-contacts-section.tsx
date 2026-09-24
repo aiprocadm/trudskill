@@ -1,10 +1,16 @@
 'use client';
 
-import { DataTable, DetailDrawer, DrawerCancelButton, LoadingState } from '@trudskill/ui';
+import {
+  DataTable,
+  DetailDrawer,
+  DrawerCancelButton,
+  LoadingState,
+  useConfirmDialog
+} from '@trudskill/ui';
 import { useState } from 'react';
 
 import { clientPeopleApi } from './people-api';
-import { CONTACT_STATUS_LABEL, contactName } from './people-format';
+import { CONTACT_STATUS_LABEL, contactName, inviteOutcomeText } from './people-format';
 import { useClientContacts } from './people-hooks';
 import { SectionCard, SectionEmpty, SectionError } from '../../components/state-wrappers';
 import { hasPermission } from '../../lib/rbac/permissions';
@@ -178,6 +184,7 @@ export function ClientContactsSection({
   const canWrite = hasPermission(session?.permissions ?? [], 'counterparties.write');
   const contacts = useClientContacts(counterpartyId, active);
   const [editing, setEditing] = useState<ClientContact | 'new' | null>(null);
+  const { ask, dialog } = useConfirmDialog();
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -199,10 +206,37 @@ export function ClientContactsSection({
       .finally(() => setBusy(false));
   };
 
+  /* МГ-D2.1 (срез 14.3): письмо уходит реальному человеку — сначала подтверждение. */
+  const invite = (row: ClientContact) =>
+    ask(
+      {
+        title: `Пригласить в портал: ${contactName(row)}`,
+        message: `На почту ${row.email ?? ''} придёт ссылка для входа в портал заказчика. Там видны сотрудники этой компании, их группы и документы — и только они.`,
+        confirmLabel: 'Пригласить в портал'
+      },
+      () => {
+        if (!session) return;
+        setBusy(true);
+        setActionError(null);
+        setNotice(null);
+        clientPeopleApi
+          .inviteContact(session, counterpartyId, row.id)
+          .then(async (outcome) => {
+            await contacts.refetch();
+            setNotice(inviteOutcomeText(contactName(row), outcome.status));
+          })
+          .catch((err: unknown) => setActionError(err))
+          .finally(() => setBusy(false));
+      }
+    );
+
   const rowActions = (row: ClientContact) =>
     canWrite
       ? [
           { label: 'Изменить контакт', disabled: busy, onSelect: () => setEditing(row) },
+          ...(row.status === 'active' && row.email
+            ? [{ label: 'Пригласить в портал', disabled: busy, onSelect: () => invite(row) }]
+            : []),
           ...(row.status === 'active' && !row.isPrimary
             ? [
                 {
@@ -231,6 +265,7 @@ export function ClientContactsSection({
 
   return (
     <SectionCard title="Контакты">
+      {dialog}
       <p className="ui-text-muted">
         Люди компании, с которыми центр согласует обучение и которым отправляет документы.
       </p>
@@ -271,7 +306,10 @@ export function ClientContactsSection({
             position: row.position ?? '—',
             email: row.email ?? '—',
             phone: row.phone ?? '—',
-            state: row.isPrimary ? 'основной' : CONTACT_STATUS_LABEL[row.status]
+            state: [
+              row.isPrimary ? 'основной' : CONTACT_STATUS_LABEL[row.status],
+              ...(row.userId ? ['в портале'] : [])
+            ].join(', ')
           }))}
           rowActions={(row) => rowActions(row)}
         />

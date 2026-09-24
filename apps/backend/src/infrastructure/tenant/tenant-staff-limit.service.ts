@@ -18,6 +18,15 @@ import { DatabaseService } from '../database/database.service.js';
  * ролью; лимит — из действующей подписки центра. Без базы (память, тесты) молчит: гейт,
  * который не может посчитать, не имеет права запрещать.
  */
+/**
+ * Роли, которые НЕ занимают места сотрудников тарифа (РМ119): слушатель и представитель
+ * заказчика — люди компаний-клиентов, а не центра. Так же их не считает выбор исполнителя задач.
+ */
+export const NON_STAFF_ROLE_CODES: readonly string[] = ['learner', 'counterparty_rep'];
+
+/** Роль сотрудника центра — занимает место тарифа. */
+export const isStaffRoleCode = (code: string): boolean => !NON_STAFF_ROLE_CODES.includes(code);
+
 @Injectable()
 export class TenantStaffLimitService {
   constructor(@Optional() @Inject(DatabaseService) private readonly db?: DatabaseService) {}
@@ -45,7 +54,7 @@ export class TenantStaffLimitService {
          from iam.users u
          join iam.user_roles ur on ur.tenant_id = u.tenant_id and ur.user_id = u.id
          join iam.roles r on r.tenant_id = ur.tenant_id and r.id = ur.role_id
-        where u.tenant_id = $1 and u.status = 'active' and r.code <> 'learner'`,
+        where u.tenant_id = $1 and u.status = 'active' and r.code not in ('learner', 'counterparty_rep')`,
       [tenantId]
     );
     const used = usedRows[0]?.count ?? 0;

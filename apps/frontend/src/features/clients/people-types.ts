@@ -72,6 +72,13 @@ export interface EmployeePayload {
   status?: EmployeeStatus;
 }
 
+/** Итог «Пригласить в портал»: письмо ушло / почта стенда выключена / недавно уже слали. */
+export interface RepresentativeInviteOutcome {
+  status: 'sent' | 'throttled' | 'logged';
+  userId: string;
+  contact: ClientContact;
+}
+
 export interface EmployeesBulkRowInput {
   lastName?: string;
   firstName?: string;

@@ -141,7 +141,7 @@ export class PostgresCounterpartyPeopleRepository implements CounterpartyPeopleR
     contact: CounterpartyContact
   ): Promise<void> {
     await this.db.withTransaction(async (client) => {
-      await this.ensureCounterparty(client, tenantId, counterparty);
+      await this.ensureCounterpartyRow(client, tenantId, counterparty);
       if (contact.isPrimary) {
         // Основной у компании один (индекс 0002): прежний снимается раньше, чем ставится новый.
         await this.db.query(
@@ -297,7 +297,7 @@ export class PostgresCounterpartyPeopleRepository implements CounterpartyPeopleR
   ): Promise<void> {
     if (employees.length === 0) return;
     await this.db.withTransaction(async (client) => {
-      await this.ensureCounterparty(client, tenantId, counterparty);
+      await this.ensureCounterpartyRow(client, tenantId, counterparty);
       for (let start = 0; start < employees.length; start += EMPLOYEES_CHUNK) {
         const chunk = employees.slice(start, start + EMPLOYEES_CHUNK);
         const params: unknown[] = [];
@@ -348,12 +348,18 @@ export class PostgresCounterpartyPeopleRepository implements CounterpartyPeopleR
     });
   }
 
+  async ensureCounterparty(tenantId: string, counterparty: Counterparty): Promise<void> {
+    await this.db.withTransaction((client) =>
+      this.ensureCounterpartyRow(client, tenantId, counterparty)
+    );
+  }
+
   /**
    * Строка компании в `crm.counterparties` обязана быть до записи человека (внешний ключ 0003),
    * а проекция снимка её не гарантирует: пишет только изменённые, сбой глотает (РМ116). Если
    * строки нет — кладётся та же проекция, что пишет снимок, в этой же транзакции.
    */
-  private async ensureCounterparty(
+  private async ensureCounterpartyRow(
     client: PoolClient,
     tenantId: string,
     counterparty: Counterparty

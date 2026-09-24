@@ -202,7 +202,7 @@ export class TenantUsageService {
        from iam.users u
        join iam.user_roles ur on ur.tenant_id = u.tenant_id and ur.user_id = u.id
        join iam.roles r on r.tenant_id = ur.tenant_id and r.id = ur.role_id
-       where u.tenant_id = $1 and u.status = 'active' and r.code <> 'learner'`,
+       where u.tenant_id = $1 and u.status = 'active' and r.code not in ('learner', 'counterparty_rep')`,
       [tenantId]
     );
     return rows[0]?.count ?? 0;

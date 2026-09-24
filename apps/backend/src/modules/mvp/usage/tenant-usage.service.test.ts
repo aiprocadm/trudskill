@@ -118,7 +118,7 @@ describe('TenantUsageService (ФТ-D4)', () => {
     const staffSql = db.query.mock.calls.find((call) =>
       (call[0] as string).includes('iam.users')
     )![0] as string;
-    expect(staffSql).toContain("r.code <> 'learner'");
+    expect(staffSql).toContain("r.code not in ('learner', 'counterparty_rep')");
     expect(staffSql).toContain("u.status = 'active'");
   });
 });

@@ -65,7 +65,10 @@ import { assertValidDto } from '../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { RedisService } from '../../infrastructure/cache/redis.service.js';
-import { TenantStaffLimitService } from '../../infrastructure/tenant/tenant-staff-limit.service.js';
+import {
+  TenantStaffLimitService,
+  isStaffRoleCode
+} from '../../infrastructure/tenant/tenant-staff-limit.service.js';
 import { TenantService } from '../tenant/tenant.service.js';
 
 import type { RealtimeTicketPayload } from './realtime-ticket.js';
@@ -615,9 +618,9 @@ export class AuthController {
      * ошибку в правах.
      */
     const becomesStaff =
-      payload.roleCodes.some((code) => code !== 'learner') &&
-      !(await this.iamService.getUserRoles(context.tenantId!, id)).some(
-        (role) => role.code !== 'learner'
+      payload.roleCodes.some(isStaffRoleCode) &&
+      !(await this.iamService.getUserRoles(context.tenantId!, id)).some((role) =>
+        isStaffRoleCode(role.code)
       );
     if (becomesStaff) {
       await this.staffLimit.assertCanAddStaff(context.tenantId!);
@@ -652,7 +655,7 @@ export class AuthController {
       });
     }
     /* Лимит сотрудников (ФТ-D4.2) — до создания учётки: не оставлять учётку без ролей. */
-    if (payload.roleCodes.some((code) => code !== 'learner')) {
+    if (payload.roleCodes.some(isStaffRoleCode)) {
       await this.staffLimit.assertCanAddStaff(tenantId);
     }
     const auditMeta = {

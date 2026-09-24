@@ -5553,6 +5553,26 @@ PR #493 построил `LearnersListScreen`, но его не импортир
 сверена после правок: вид не изменился (surface-muted и neutral-100 в светлой палитре
 совпадают побитово).
 
+### 5.603 ТЗ перехода с CDOPROF, позиция 8 (Фаза 2, срез 14.3): «Пригласить в портал» — контакт компании становится представителем заказчика (МГ-D2.1)
+
+**Зачем.** ТЗ §16 `POST /counterparties/:id/contacts/:contactId/invite`, Таблица 2 P20: в CDOPROF у контрагента был ЛК с паролем, который высылал менеджер; у нас портал заказчика есть, но **ни один код не писал `iam.users.counterparty_id`** — представителя можно было завести только ручной правкой базы (§5.600, журнал 647). План — `docs/superpowers/plans/2026-09-24-cdoprof-migration-phase-2-slice-18-counterparty-people.md`, Task 3.
+
+**Что сделано.**
+
+- `IamService.linkRepresentative`: привязка к компании и роль `counterparty_rep` **одной транзакцией** (прочие роли не трогаются; роли в центре нет — 503 `representative_role_missing`).
+- `CounterpartyRepresentativeService.invite`: контакт действующий и с почтой (иначе `contact_archived` / `contact_no_email`); учётка по почте — одна на человека; **сотрудника центра представителем не сделать** (`contact_user_is_staff` — привязка ограничила бы ему весь центр одной компанией), человек другой компании — `contact_user_other_company`, слушатель той же почты — можно; строка компании досоздаётся до привязки (внешний ключ 0071); контакт помнит учётку; письмо входа тем же механизмом, что «Выслать доступ» слушателю (частота из настроек центра, исходы `sent / logged / throttled`); аудит `crm.counterparty_contact_invited` без почты.
+- Ручка `POST counterparties/:id/contacts/:contactId/invite` под `counterparties.write`.
+- **Места тарифа (РМ119):** представители заказчика не считаются сотрудниками центра — `NON_STAFF_ROLE_CODES` / `isStaffRoleCode` в `TenantStaffLimitService`, тот же подсчёт в отчёте использования и в проверках выдачи ролей и приглашения сотрудника (`auth.controller`). Модуль задач так и считал; лимит и отчёт считали иначе (журнал 649).
+- Фронт: в контактах — «Пригласить в портал» у действующего контакта с почтой (подтверждение: что увидит человек), итог словами по исходу, в статусе «в портале»; фраза журнала и статьи пяти новых ошибок.
+
+**Файлы.** 20: `iam.service.ts`, `auth.controller.ts`, `tenant-staff-limit.service.ts` (+ тест), `tenant-usage.service.ts` (+ тест), `counterparty-people/{counterparty-representative.service.ts (+ тест), counterparty-people.repository.ts, postgres-…, in-memory-…, counterparty-people.service.ts}`, `mvp.controller.ts`, `mvp.module.ts`, `actor-scope.integration.test.ts`; фронт `clients/{people-types,people-api,people-format}.ts`, `client-contacts-section.tsx`, `audit/labels.ts`, `error-text.ts`.
+
+**Тесты.** Бэкенд: `counterparty-representative.service.test.ts` (5: приглашение — учётка, привязка, роль, письмо, аудит без почты; сотрудник центра и чужая компания — отказ без привязки; слушатель и представитель без привязки — можно; без почты, в архиве, «недавно слали»; чужая компания — 404), `actor-scope.integration.test.ts` на **живой базе** (`linkRepresentative` — компания и роль одной транзакцией), лимит тарифа и отчёт использования, `src/modules/iam`, `src/infrastructure`, сторожа `src/common`, домены HTTP — 151 файл, 1112 ✅. Фронт: сторожа `src/e2e`, `features/clients`, статьи ошибок — 153 файла, 962 ✅. `pnpm run typecheck` обоих, eslint ✅; `pnpm ci:check` — см. PR.
+
+**Журнал.** 649 (дрейф, исправлено): места тарифа и отчёт использования считали представителей заказчика сотрудниками центра, выбор исполнителя задач — нет.
+
+**Дальше.** 14.4 — «из сотрудников компании» в мастере группы (сотрудник становится слушателем, связь пишется) — закрывает МГ-D2.1.
+
 ### 5.602 ТЗ перехода с CDOPROF, позиция 8 (Фаза 2, срез 14.2): вкладки «Контакты» и «Сотрудники» на карточке компании (МГ-D2.1, фронт)
 
 **Зачем.** Вторая часть МГ-D2.1 (план `docs/superpowers/plans/2026-09-24-cdoprof-migration-phase-2-slice-18-counterparty-people.md`, Task 2): бэкенд 14.1 (§5.601) хранит людей компании, а карточка компании показывала только реквизиты и прогресс групп. В CDOPROF «сотрудников контрагента как справочника» не было вовсе (I.1.4), а список обученных заказчик вымаливал звонками (Таблица 2, P20).

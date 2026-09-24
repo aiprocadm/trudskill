@@ -33,6 +33,7 @@ import {
   UpdateCounterpartyEmployeeRequest
 } from './counterparty-people/counterparty-people.dto.js';
 import { CounterpartyPeopleService } from './counterparty-people/counterparty-people.service.js';
+import { CounterpartyRepresentativeService } from './counterparty-people/counterparty-representative.service.js';
 import { CreateCounterpartyExtendedRequest } from './create-counterparty-extended.dto.js';
 import { ManagerDashboardService } from './dashboards/manager-dashboard.service.js';
 import { MethodistDashboardService } from './dashboards/methodist-dashboard.service.js';
@@ -244,7 +245,11 @@ export class MvpController {
     /* МГ-D2.1 (срез 14.1): контакты и сотрудники компании. */
     @Optional()
     @Inject(CounterpartyPeopleService)
-    private readonly counterpartyPeople?: CounterpartyPeopleService
+    private readonly counterpartyPeople?: CounterpartyPeopleService,
+    /* МГ-D2.1 (срез 14.3): «Пригласить в портал» — представитель заказчика. */
+    @Optional()
+    @Inject(CounterpartyRepresentativeService)
+    private readonly counterpartyRepresentatives?: CounterpartyRepresentativeService
   ) {}
 
   private requireCounterpartyPeople(): CounterpartyPeopleService {
@@ -388,6 +393,24 @@ export class MvpController {
   ) {
     const b = assertValidDto(UpdateCounterpartyContactRequest, raw);
     return this.requireCounterpartyPeople().updateContact(c.tenantId!, id, contactId, b, c);
+  }
+
+  /* МГ-D2.1 (срез 14.3): учётная запись, привязка к компании и роль — одной транзакцией. */
+  @Post('counterparties/:id/contacts/:contactId/invite')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('counterparties.write')
+  inviteCounterpartyContact(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Param('contactId') contactId: string
+  ) {
+    if (!this.counterpartyRepresentatives) {
+      throw new ServiceUnavailableException({
+        code: 'counterparty_people_unavailable',
+        message: 'Приглашение в портал сейчас недоступно.'
+      });
+    }
+    return this.counterpartyRepresentatives.invite(c.tenantId!, id, contactId, c);
   }
 
   /* МГ-D2.1 (срез 14.1): сотрудники компании — те, кого учат. */
