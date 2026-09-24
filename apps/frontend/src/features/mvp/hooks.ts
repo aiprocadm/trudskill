@@ -13,6 +13,8 @@ import type {
   CommissionStatus,
   CourseDocumentSetEntryDraft,
   EnrollmentCertificateRow,
+  GroupPayload,
+  GroupsListQuery,
   KpiFilterQuery,
   ProgramMetaPatch,
   UsersListQuery
@@ -99,7 +101,7 @@ export const useModules = (courseVersionId?: string) =>
   useMvpQuery('modules', courseVersionId, (s) => mvpApi.listModules(s, courseVersionId));
 export const useMaterials = (moduleId?: string) =>
   useMvpQuery('materials', moduleId, (s) => mvpApi.listMaterials(s, moduleId));
-export const useGroupsList = (query: BaseFilterQuery) =>
+export const useGroupsList = (query: GroupsListQuery) =>
   useMvpQuery('groups', query, (s) => mvpApi.listGroups(s, query));
 export const useGroup = (id: string) => useMvpQuery('group', id, (s) => mvpApi.getGroup(s, id));
 export const useGroupCourses = (groupId: string) =>
@@ -202,8 +204,11 @@ export const useDomainMutations = () => {
         scormPackageId?: string;
       }
     ) => wrap((authSession) => mvpApi.saveMaterial(authSession, id, payload)),
-    saveGroup: (id: string | null, payload: { code: string; name: string; status: string }) =>
+    saveGroup: (id: string | null, payload: GroupPayload) =>
       wrap((authSession) => mvpApi.saveGroup(authSession, id, payload)),
+    setGroupStatus: (id: string, payload: { status: string; reason?: string }) =>
+      wrap((authSession) => mvpApi.setGroupStatus(authSession, id, payload)),
+    archiveGroup: (id: string) => wrap((authSession) => mvpApi.archiveGroup(authSession, id)),
     createGroupCourse: (payload: { groupId: string; courseId: string }) =>
       wrap((authSession) => mvpApi.createGroupCourse(authSession, payload)),
     createEnrollment: (payload: { groupId: string; learnerId: string }) =>
