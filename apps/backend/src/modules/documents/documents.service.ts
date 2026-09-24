@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
-import { assertDocumentKindFitsTemplate } from './document-kinds.js';
+import { assertDocumentKindFitsTemplate, assertDocumentKindFitsType } from './document-kinds.js';
 import { DOCUMENT_REVOKED_EVENT } from './document-revoked.event.js';
 import { DOCUMENTS_STATE } from './documents-state.token.js';
 import {
@@ -805,7 +805,7 @@ export class DocumentsService {
       });
     const reserved = task.numberReservationId
       ? this.getReservation(tenantId, task.numberReservationId)
-      : this.reserveNumber(tenantId, task.documentType);
+      : this.reserveNumber(tenantId, task.documentType, task.kindCode);
     task.numberReservationId = reserved.id;
     const generated: GeneratedDocumentEntity = {
       id: this.id('gdoc'),
@@ -887,7 +887,7 @@ export class DocumentsService {
       queue: 'documents_generation'
     });
     if (!task.numberReservationId) {
-      task.numberReservationId = this.reserveNumber(tenantId, task.documentType).id;
+      task.numberReservationId = this.reserveNumber(tenantId, task.documentType, task.kindCode).id;
     }
     this.writeTaskAudit(task, 'documents.task.started');
     return task;
@@ -1093,9 +1093,63 @@ export class DocumentsService {
       query
     );
   }
-  createNumberingRule(tenantId: string, req: CreateNumberingRuleRequest) {
+  /**
+   * Одна «область» правила — тип документа плюс вид (МГ-F3.1): новое или включённое правило
+   * вида выключает только прежнее правило того же вида, правило типа — только правило типа.
+   */
+  private sameNumberingScope(
+    rule: NumberingRuleEntity,
+    tenantId: string,
+    documentType: string,
+    kindCode: string | undefined
+  ) {
+    return (
+      rule.tenantId === tenantId &&
+      rule.documentType === documentType &&
+      (rule.kindCode ?? '') === (kindCode ?? '')
+    );
+  }
+
+  /** Правила нумерации — регулируемый реестр: каждое изменение видно в журнале действий. */
+  private writeNumberingRuleAudit(
+    action: string,
+    rule: NumberingRuleEntity,
+    oldValues: Record<string, unknown> | undefined,
+    actorId: string | undefined,
+    ctx: RequestContext | undefined
+  ) {
+    this.auditService.write({
+      tenantId: rule.tenantId,
+      actorId,
+      action,
+      entityType: 'documents.numbering_rule',
+      entityId: rule.id,
+      oldValues,
+      newValues: {
+        documentType: rule.documentType,
+        kindCode: rule.kindCode,
+        prefix: rule.prefix,
+        suffix: rule.suffix,
+        pattern: rule.pattern,
+        resetPeriod: rule.resetPeriod,
+        currentCounter: rule.currentCounter
+      },
+      requestId: ctx?.requestId,
+      correlationId: ctx?.correlationId,
+      ip: ctx?.ip,
+      userAgent: ctx?.userAgent
+    });
+  }
+
+  createNumberingRule(
+    tenantId: string,
+    req: CreateNumberingRuleRequest,
+    actorId?: string,
+    ctx?: RequestContext
+  ) {
+    if (req.kindCode) assertDocumentKindFitsType(req.kindCode, req.documentType);
     this.state.numberingRules
-      .filter((x) => x.tenantId === tenantId && x.documentType === req.documentType)
+      .filter((x) => this.sameNumberingScope(x, tenantId, req.documentType, req.kindCode))
       .forEach((x) => {
         x.isActive = false;
         x.updatedAt = this.now();
@@ -1104,6 +1158,7 @@ export class DocumentsService {
       id: this.id('nrule'),
       tenantId,
       documentType: req.documentType,
+      ...(req.kindCode ? { kindCode: req.kindCode } : {}),
       prefix: req.prefix ?? '',
       suffix: req.suffix ?? '',
       pattern: req.pattern ?? this.defaultNumberingPattern(req.resetPeriod ?? 'none'),
@@ -1115,13 +1170,33 @@ export class DocumentsService {
       updatedAt: this.now()
     };
     this.state.numberingRules.push(entity);
+    this.writeNumberingRuleAudit(
+      'documents.numbering_rule_created',
+      entity,
+      undefined,
+      actorId,
+      ctx
+    );
     return entity;
   }
   getNumberingRule(tenantId: string, id: string) {
     return this.must(this.state.numberingRules, tenantId, id);
   }
-  updateNumberingRule(tenantId: string, id: string, req: UpdateNumberingRuleRequest) {
+  updateNumberingRule(
+    tenantId: string,
+    id: string,
+    req: UpdateNumberingRuleRequest,
+    actorId?: string,
+    ctx?: RequestContext
+  ) {
     const row = this.getNumberingRule(tenantId, id);
+    const before = {
+      prefix: row.prefix,
+      suffix: row.suffix,
+      pattern: row.pattern,
+      resetPeriod: row.resetPeriod,
+      currentCounter: row.currentCounter
+    };
     // ФТ-A4.1: startCounter — это «следующий выдаваемый номер», а во внутреннем
     // счётчике хранится «последний выданный». Поле служебное: в сущность правила
     // оно попасть не должно (иначе Object.assign протащит его в персистенцию).
@@ -1139,6 +1214,7 @@ export class DocumentsService {
       }
       row.currentCounter = nextCounter;
     }
+    this.writeNumberingRuleAudit('documents.numbering_rule_updated', row, before, actorId, ctx);
     return row;
   }
   activateNumberingRule(
@@ -1149,7 +1225,7 @@ export class DocumentsService {
   ) {
     const row = this.getNumberingRule(tenantId, id);
     this.state.numberingRules
-      .filter((x) => x.tenantId === tenantId && x.documentType === row.documentType)
+      .filter((x) => this.sameNumberingScope(x, tenantId, row.documentType, row.kindCode))
       .forEach((x) => {
         x.isActive = x.id === id;
         x.updatedAt = this.now();
@@ -1192,10 +1268,21 @@ export class DocumentsService {
     return row;
   }
 
-  reserveNumber(tenantId: string, documentType: string) {
-    let rule = this.state.numberingRules.find(
-      (x) => x.tenantId === tenantId && x.documentType === documentType && x.isActive
-    );
+  /**
+   * МГ-F3.1 (срез 19.1): у документа с видом сначала ищется правило вида, затем — правило типа
+   * (общий счётчик, РМ124). Документ без вида правилом вида не нумеруется никогда.
+   */
+  reserveNumber(tenantId: string, documentType: string, kindCode?: string) {
+    let rule =
+      (kindCode
+        ? this.state.numberingRules.find(
+            (x) => x.tenantId === tenantId && x.kindCode === kindCode && x.isActive
+          )
+        : undefined) ??
+      this.state.numberingRules.find(
+        (x) =>
+          x.tenantId === tenantId && x.documentType === documentType && !x.kindCode && x.isActive
+      );
     if (!rule) {
       // Default-rule с documentType в префиксе — иначе разные типы документов
       // в рамках одного tenant'а коллидируют по reservedNumber ('000001').
@@ -1255,8 +1342,16 @@ export class DocumentsService {
       .replace('{period}', periodToken)
       .replace('{suffix}', rule.suffix)
       .replace('{counter}', counter);
+    // РМ125: номер уникален в пределах вида правила — «номер приказа = код группы» и
+    // «номер протокола = код группы» не мешают друг другу, дубль внутри вида запрещён.
+    const numberScope = rule.kindCode ?? '';
     if (
-      this.state.reservations.some((x) => x.tenantId === tenantId && x.reservedNumber === formatted)
+      this.state.reservations.some(
+        (x) =>
+          x.tenantId === tenantId &&
+          x.reservedNumber === formatted &&
+          (x.kindCode ?? '') === numberScope
+      )
     ) {
       throw new ConflictException({
         code: 'document_number_taken',
@@ -1273,7 +1368,8 @@ export class DocumentsService {
       reservedNumber: formatted,
       reservedAt: this.now(),
       status: 'reserved',
-      periodKey
+      periodKey,
+      ...(rule.kindCode ? { kindCode: rule.kindCode } : {})
     };
     this.state.reservations.push(reservation);
     return reservation;
@@ -1605,7 +1701,11 @@ export class DocumentsService {
       });
     }
     const now = this.now();
-    const newNumber = this.reserveNumber(tenantId, original.documentType).reservedNumber;
+    const newNumber = this.reserveNumber(
+      tenantId,
+      original.documentType,
+      original.kindCode
+    ).reservedNumber;
     const replacement: GeneratedDocumentEntity = {
       id: this.id('gdoc'),
       tenantId,

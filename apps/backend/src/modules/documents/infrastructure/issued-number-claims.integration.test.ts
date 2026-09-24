@@ -125,6 +125,33 @@ describe.skipIf(!dockerAvailable)('заявка на номер документ
     });
   });
 
+  it('МГ-F3.1: один номер у двух видов проходит, дубль внутри вида — нет (РМ125)', async () => {
+    await withTestDb(TEST_DB, async (db) => {
+      await seedTenant(db, 't_kinds');
+
+      await expect(
+        db.withTransaction((client) =>
+          claimIssuedNumbers(client, 't_kinds', [
+            { id: 'nres_order', reservedNumber: '264501', kindCode: 'order.enrollment' },
+            { id: 'nres_protocol', reservedNumber: '264501', kindCode: 'protocol.knowledge_check' }
+          ])
+        )
+      ).resolves.toBeUndefined();
+
+      await expect(
+        db.withTransaction((client) =>
+          claimIssuedNumbers(client, 't_kinds', [
+            {
+              id: 'nres_protocol_2',
+              reservedNumber: '264501',
+              kindCode: 'protocol.knowledge_check'
+            }
+          ])
+        )
+      ).rejects.toBeInstanceOf(DuplicateDocumentNumberError);
+    });
+  });
+
   it('ошибка называет номер и говорит, что делать', async () => {
     const error = new DuplicateDocumentNumberError('t1', 'CERT-000009');
     const body = error.getResponse() as { code: string; message: string };

@@ -428,6 +428,11 @@ export class CreateNumberingRuleDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(64)
+  kindCode?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(32)
   prefix?: string;
 

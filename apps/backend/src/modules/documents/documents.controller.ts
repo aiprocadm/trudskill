@@ -616,7 +616,7 @@ export class DocumentsController {
   @RequirePermissions('documents.write')
   createRule(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
     const b = assertValidDto(CreateNumberingRuleDto, raw);
-    return this.documentsService.createNumberingRule(c.tenantId!, b);
+    return this.documentsService.createNumberingRule(c.tenantId!, b, c.userId, c);
   }
   @Get('numbering-rules/:id')
   @UseGuards(PermissionGuard)
@@ -629,7 +629,7 @@ export class DocumentsController {
   @RequirePermissions('documents.write')
   patchRule(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() raw: unknown) {
     const b = assertValidDto(UpdateNumberingRuleDto, raw);
-    return this.documentsService.updateNumberingRule(c.tenantId!, id, b);
+    return this.documentsService.updateNumberingRule(c.tenantId!, id, b, c.userId, c);
   }
   @Post('numbering-rules/:id/activate')
   @UseGuards(PermissionGuard)
