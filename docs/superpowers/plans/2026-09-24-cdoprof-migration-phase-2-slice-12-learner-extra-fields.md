@@ -36,7 +36,7 @@
 
 **Files:** Create `mvp/learners/learner-extra-fields.ts` (+ тест), `mvp/learners/learner-fields-settings.service.ts`; Modify `mvp/mvp.controller.ts` (проверка `extraFields` в `PATCH learners/:id/profile`), `mvp/mvp.module.ts` (провайдер), `documents/variable-catalog.ts` (`classifyPlaceholders(placeholders, extraKnown?)`, `extraLearnerVariableEntries(defs)`), `documents/document-variables.builder.ts` (коды из настроек + разрешение `learner.extra.*`), `documents/template-inspection.service.ts` (известные из настроек), тесты сборщика/проверки.
 
-- [ ] Тесты → код → lint/typecheck → commit.
+- [x] Тесты → код → lint/typecheck → commit (PR 8.14a, §5.587).
 
 ## Task 2: документация 8.14a — handoff §5.587, трекер (РМ84–РМ86, МГ-C1.3 🔄), README, CLAUDE. `pnpm ci:check`, PR, слияние.
 
@@ -44,6 +44,6 @@
 
 **Files:** Create `features/learners/extra-fields.ts` (типы, разбор, хук `useLearnerExtraFields`), `features/settings/learner-fields-section.tsx`; Modify `settings/sections.ts` и `settings-screen.tsx` (раздел «Поля личного дела»), `learner-edit-drawer.tsx` и `learner-profile-section.tsx` (динамические поля), `format.ts` (`extraFields` в форме и разнице), тесты.
 
-- [ ] Экран; сторожа; commit.
+- [x] Экран; сторожа; commit (PR 8.14b, §5.588). Отклонение: добавлено слияние `extraFields` по ключам на сервере (РМ87, журнал 640) и транслитерация имени из подписи (РМ88).
 
 ## Task 4: документация 8.14b — handoff §5.588, трекер (МГ-C1 ✅ целиком), README, CLAUDE. `pnpm ci:check`, PR, слияние.
