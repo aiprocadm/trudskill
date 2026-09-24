@@ -11,8 +11,14 @@ import type { BulkOutcome } from '@trudskill/ui';
  */
 
 /** Человек ищет строку в своём файле по имени; номер строки — чтобы найти её глазами. */
-export const rowLabel = (row: { rowNumber: number; fullName?: string; email?: string }): string => {
-  const name = row.fullName?.trim();
+export const rowLabel = (row: {
+  rowNumber: number;
+  fullName?: string;
+  lastName?: string;
+  firstName?: string;
+  email?: string;
+}): string => {
+  const name = (row.fullName || [row.lastName, row.firstName].filter(Boolean).join(' '))?.trim();
   if (name) return `${name} (строка ${row.rowNumber})`;
   const email = row.email?.trim();
   if (email) return `${email} (строка ${row.rowNumber})`;
@@ -78,7 +84,11 @@ export const successfulRows = (
       const parsed = byRowNumber.get(row.rowNumber);
       return {
         label: rowLabel(parsed ?? { rowNumber: row.rowNumber }),
-        status: STATUS_LABEL[row.status],
+        /* Без группы «заведён и зачислен» было бы неправдой; предупреждение (ИНН не найден) — рядом. */
+        status:
+          (serverOutcome?.groupId || row.status !== 'created'
+            ? STATUS_LABEL[row.status]
+            : 'заведён') + (row.warnings?.length ? ` — ${row.warnings.join('; ')}` : ''),
         ...(row.learnerId ? { learnerId: row.learnerId } : {})
       };
     });

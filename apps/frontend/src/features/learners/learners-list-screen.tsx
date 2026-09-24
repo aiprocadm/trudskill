@@ -16,6 +16,7 @@ import { STATUS_LABEL, formatFullName, formatSnils } from './format';
 import { useArchiveLearners, useEnrollLearnersToGroup, useLearnersList } from './hooks';
 import { LearnerCreateDrawer } from './learner-create-drawer';
 import { LearnerEditDrawer } from './learner-edit-drawer';
+import { LearnerPasteDrawer } from './learner-paste-drawer';
 import { LEARNER_PRESET_VIEWS, matchesQuery, readSavedViews, writeSavedViews } from './saved-views';
 import { PageContainer, PageHeader } from '../../components/state-wrappers';
 import { buildCsv, downloadCsv } from '../../lib/export/csv';
@@ -71,6 +72,8 @@ export function LearnersListScreen() {
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<LearnerListItem | null>(null);
   const [creating, setCreating] = useState(false);
+  /* МГ-C3.1 (срез 10.2): вставка списком — тем же импортом, без группы. */
+  const [pasting, setPasting] = useState(false);
   /*
     CMP-012. Свои отборы читаются один раз при первом отрисовывании: хранилище браузера
     синхронное, и дёргать его на каждый ввод в поиске незачем.
@@ -97,6 +100,7 @@ export function LearnersListScreen() {
   const { session } = useAuth();
   /* Право то же, что требует ручка `POST /enrollments/bulk`; сверено по живой iam.role_permissions. */
   const canEnroll = hasPermission(session?.permissions ?? [], 'enrollments.write');
+  const canImport = canEnroll && hasPermission(session?.permissions ?? [], 'learners.write');
   const list = useLearnersList(filters);
   const archive = useArchiveLearners();
   const enroll = useEnrollLearnersToGroup();
@@ -178,6 +182,14 @@ export function LearnersListScreen() {
         {...(creating
           ? {}
           : { primaryAction: { label: 'Завести слушателя', onSelect: () => setCreating(true) } })}
+        {...(canImport && !creating
+          ? {
+              secondaryActions: [
+                { label: 'Добавить слушателей списком', onSelect: () => setPasting(true) },
+                { label: 'Загрузить из файла', href: '/admin/bulk-enrollments' }
+              ]
+            }
+          : {})}
       />
 
       {/*
@@ -340,6 +352,15 @@ export function LearnersListScreen() {
           tone="danger"
           onConfirm={() => void runArchive()}
           onCancel={() => setConfirmingArchive(false)}
+        />
+      ) : null}
+
+      {pasting ? (
+        <LearnerPasteDrawer
+          onClose={() => setPasting(false)}
+          onDone={() => {
+            void list.refetch();
+          }}
         />
       ) : null}
 

@@ -8,11 +8,28 @@
 /** Одна спарсенная строка Excel — то, что фронт шлёт backend'у. */
 export interface ParsedRow {
   rowNumber: number;
+  /** ФИО одной колонкой — или фамилия, имя, отчество отдельно (МГ-C3.1, срез 10.2). */
   fullName: string;
+  lastName?: string;
+  firstName?: string;
+  middleName?: string;
   email: string;
   snils?: string;
   position?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  phone?: string;
+  passportSeries?: string;
+  passportNumber?: string;
+  passportIssuedAt?: string;
+  passportIssuedBy?: string;
+  citizenship?: string;
+  educationLevel?: string;
+  companyInn?: string;
 }
+
+/** Колонки файла, которые узнаёт парсер (все, кроме номера строки). */
+export type ImportField = keyof Omit<ParsedRow, 'rowNumber'>;
 
 /** Ошибка парсинга файла (header missing, и т.п.). */
 export interface ParseError {
@@ -27,7 +44,18 @@ export interface ParseResult {
 
 /** Ошибка валидации поля (по строке). */
 export interface RowError {
-  field: 'fullName' | 'email' | 'snils' | 'position' | 'row';
+  field:
+    | 'fullName'
+    | 'email'
+    | 'snils'
+    | 'position'
+    | 'dateOfBirth'
+    | 'gender'
+    | 'phone'
+    | 'passport'
+    | 'educationLevel'
+    | 'companyInn'
+    | 'row';
   code: string;
   message: string;
 }
@@ -44,7 +72,8 @@ export interface ClassifiedParsedRow {
 /** Запрос на bulk-import (то, что улетает в POST /learners/bulk-import). */
 export interface BulkImportRequest {
   idempotencyKey: string;
-  groupId: string;
+  /** Без группы — только заведение (вставка списком в реестре, РМ102). */
+  groupId?: string;
   rows: ParsedRow[];
 }
 
@@ -55,11 +84,13 @@ export interface BulkImportOutcomeRow {
   enrollmentId?: string;
   errorCode?: string;
   errorMessage?: string;
+  /** Строка принята, но что-то не сделано (компания по ИНН не найдена) — поимённо. */
+  warnings?: string[];
 }
 
 export interface BulkImportOutcome {
   idempotencyKey: string;
-  groupId: string;
+  groupId?: string;
   total: number;
   created: number;
   reused: number;

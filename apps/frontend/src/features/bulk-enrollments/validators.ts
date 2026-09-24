@@ -1,3 +1,13 @@
+import {
+  composeFullName,
+  educationLevelNames,
+  parseImportDate,
+  parseImportEducationLevel,
+  parseImportGender,
+  parseImportInn,
+  parseImportPhone,
+  passportProblem
+} from './import-fields';
 import { isValidSnilsChecksum, normalizeSnils } from '../../lib/snils';
 
 import type { ClassifiedParsedRow, ParsedRow, RowError } from './types';
@@ -41,7 +51,7 @@ export function classifyParsedRows(rows: ParsedRow[]): ClassifiedParsedRow[] {
     const errors: RowError[] = [];
 
     // ФИО
-    const fullName = (row.fullName ?? '').trim();
+    const fullName = composeFullName(row);
     const parts = fullName.length > 0 ? fullName.split(/\s+/) : [];
     if (parts.length < 2 || parts.length > 4) {
       errors.push({
@@ -94,6 +104,46 @@ export function classifyParsedRows(rows: ParsedRow[]): ClassifiedParsedRow[] {
         field: 'snils',
         code: 'duplicate_in_file',
         message: 'СНИЛС повторяется в файле'
+      });
+    }
+
+    /* МГ-C3.1 (срез 10.2): колонки личного дела — те же правила, что на сервере, но до отправки. */
+    if (parseImportDate(row.dateOfBirth) === null) {
+      errors.push({
+        field: 'dateOfBirth',
+        code: 'invalid_format',
+        message: 'Дата рождения — в формате ДД.ММ.ГГГГ или ГГГГ-ММ-ДД'
+      });
+    }
+    if (parseImportGender(row.gender) === null) {
+      errors.push({ field: 'gender', code: 'invalid_format', message: 'Пол — «м» или «ж»' });
+    }
+    if (parseImportPhone(row.phone) === null) {
+      errors.push({
+        field: 'phone',
+        code: 'invalid_format',
+        message: 'Телефон — не меньше 10 цифр'
+      });
+    }
+    if (passportProblem(row)) {
+      errors.push({
+        field: 'passport',
+        code: 'invalid_format',
+        message: 'Паспорт — серия и номер вместе, дата выдачи ДД.ММ.ГГГГ'
+      });
+    }
+    if (parseImportEducationLevel(row.educationLevel) === null) {
+      errors.push({
+        field: 'educationLevel',
+        code: 'invalid_format',
+        message: `Образование — одно из: ${educationLevelNames()}`
+      });
+    }
+    if (parseImportInn(row.companyInn) === null) {
+      errors.push({
+        field: 'companyInn',
+        code: 'invalid_format',
+        message: 'ИНН компании — 10 или 12 цифр'
       });
     }
 

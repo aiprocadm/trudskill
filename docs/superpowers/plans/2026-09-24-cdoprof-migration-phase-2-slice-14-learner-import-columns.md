@@ -39,10 +39,10 @@
 
 **Files:** Create `mvp/learner-import-fields.ts` (+ тест); Modify `learners-bulk-import.{types,dto,service}.ts` (+ тест), `mvp.service.ts` (`createLearnerExtended`, `findCounterpartyByInn`).
 
-- [ ] Тесты → код → lint/typecheck → commit; документация §5.592; `pnpm ci:check`, PR, слияние.
+- [x] Тесты → код → lint/typecheck → commit; документация §5.592; `pnpm ci:check`, PR, слияние.
 
 ## Task 2: фронт (срез 10.2)
 
 **Files:** Modify `features/bulk-enrollments/{import-template,excel-parser,validators,types,outcome}.ts` (+ тесты), `bulk-import-screen.tsx` (группа необязательна, предупреждения), `features/learners/learners-list-screen.tsx` (вторичные действия), Create `features/learners/learner-paste-drawer.tsx`.
 
-- [ ] Экран; сторожа; commit; документация §5.593 (МГ-C3.1 ✅); `pnpm ci:check`, PR, слияние.
+- [x] Экран; сторожа; commit; документация §5.593 (МГ-C3.1 ✅); `pnpm ci:check`, PR, слияние.

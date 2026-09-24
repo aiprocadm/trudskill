@@ -127,3 +127,58 @@ describe('parseExcelBuffer', () => {
     expect(result.errors[0]!.code).toBe('empty_sheet');
   });
 });
+
+// МГ-C3.1 (срез 10.2): колонки личного дела и ФИО из трёх колонок.
+describe('расширенные колонки (МГ-C3.1)', () => {
+  it('узнаёт новые заголовки и ФИО из фамилии, имени и отчества; даты Excel — по-русски', () => {
+    const buffer = makeXlsxBuffer([
+      [
+        'Фамилия',
+        'Имя слушателя',
+        'Отчество',
+        'Почта',
+        'Пол',
+        'Дата рождения',
+        'Телефон',
+        'ИНН компании',
+        'Образование'
+      ],
+      [
+        'Иванов',
+        'Иван',
+        'Иванович',
+        'a@x.ru',
+        'м',
+        '01.03.1990',
+        '+7 900 123-45-67',
+        '7701234567',
+        'Среднее общее'
+      ]
+    ]);
+    const result = parseExcelBuffer(buffer);
+    expect(result.errors).toEqual([]);
+    expect(result.rows[0]).toMatchObject({
+      rowNumber: 2,
+      fullName: '',
+      lastName: 'Иванов',
+      firstName: 'Иван',
+      middleName: 'Иванович',
+      email: 'a@x.ru',
+      gender: 'м',
+      dateOfBirth: '01.03.1990',
+      phone: '+7 900 123-45-67',
+      companyInn: '7701234567',
+      educationLevel: 'Среднее общее'
+    });
+  });
+
+  it('без ФИО и без пары «Фамилия + Имя» — файл отклоняется', () => {
+    const result = parseExcelBuffer(
+      makeXlsxBuffer([
+        ['Фамилия', 'Почта'],
+        ['Иванов', 'a@x.ru']
+      ])
+    );
+    expect(result.errors[0]?.code).toBe('missing_required_columns');
+  });
+});
