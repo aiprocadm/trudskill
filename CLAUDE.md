@@ -16,7 +16,7 @@ When docs disagree, follow the order in [docs/DOCUMENTATION_MAP.md](docs/DOCUMEN
    - **Стабилизация** — [TZ_TRUDSKILL_STABILIZATION_UX.md](TZ_TRUDSKILL_STABILIZATION_UX.md) (стабилизация, блокеры, UX и развитие; фазы 1–18, решения Р1–Р19, чек-лист приёмки 1–26). Очередь закрыта по коду; **решения Р1–Р19 действуют для всех ТЗ**. Статус — [docs/TZ_STABILIZATION_UX_STATUS.md](docs/TZ_STABILIZATION_UX_STATUS.md).
    - **Как это должно себя вести** — [TZ_TRUDSKILL_ARENDNAYA_SDO.md](TZ_TRUDSKILL_ARENDNAYA_SDO.md) (эпики A–I, ФТ-\*, фазы 0–6; в рамках его эпиков при конфликте деталей приоритет у него). Требования закрыты, остаётся каноном. Статус — [docs/TZ_ARENDNAYA_SDO_STATUS.md](docs/TZ_ARENDNAYA_SDO_STATUS.md).
    - **Как это должно выглядеть** — [docs/TZ_UI_REDESIGN_TRUDSKILL.md](docs/TZ_UI_REDESIGN_TRUDSKILL.md) (ИА, визуальный язык, компоненты, тексты интерфейса, ребрендинг UI; требования `IA-*`/`UI-*`/`CMP-*`/`TPL-*`/`TXT-*`/`A11Y-*`/`BR-*`, фазы 0–8; по вопросам представления приоритет у него). Требования закрыты (94 из 94), остаётся каноном. Статус — [docs/TZ_UI_REDESIGN_STATUS.md](docs/TZ_UI_REDESIGN_STATUS.md).
-3. Code + tests; described in [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §5.\* (sequentially numbered, currently up to §5.589 — always take the next number from the file) and [docs/TZ_MVP_TRACEABILITY.md](docs/TZ_MVP_TRACEABILITY.md) (BL → file paths).
+3. Code + tests; described in [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §5.\* (sequentially numbered, currently up to §5.590 — always take the next number from the file) and [docs/TZ_MVP_TRACEABILITY.md](docs/TZ_MVP_TRACEABILITY.md) (BL → file paths).
 4. [README.md](README.md) §2 «AI Agent State» — operational snapshot.
 
 ### «Продолжай по ТЗ» — что делать

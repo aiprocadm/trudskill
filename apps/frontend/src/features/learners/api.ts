@@ -3,6 +3,9 @@ import { frontendEnv } from '../../lib/config/env';
 
 import type {
   LearnerErasureReport,
+  LearnerFile,
+  LearnerFileUploadIntent,
+  LearnerFilesList,
   LearnerHistory,
   LearnerListItem,
   LearnerPassport,
@@ -124,3 +127,43 @@ export async function fetchLearnerDossierPdfUrl(
   if (!res.ok) throw new Error(`Не удалось собрать личное дело (HTTP ${res.status})`);
   return URL.createObjectURL(await res.blob());
 }
+
+/** Файлы личного дела (МГ-C2.1, срез 9.2): два шага загрузки, как у всех файлов платформы. */
+export const learnerFilesApi = {
+  list: (session: UserSession, learnerId: string): Promise<LearnerFilesList> =>
+    apiRequest<LearnerFilesList>(`/learners/${learnerId}/files`, withAuth(session)),
+  uploadUrl: (
+    session: UserSession,
+    learnerId: string,
+    input: { originalName: string; contentType: string; sizeBytes: number }
+  ): Promise<LearnerFileUploadIntent> =>
+    apiRequest<LearnerFileUploadIntent>(`/learners/${learnerId}/files/upload-url`, {
+      method: 'POST',
+      body: input,
+      ...withAuth(session)
+    }),
+  attach: (session: UserSession, learnerId: string, fileId: string): Promise<LearnerFile> =>
+    apiRequest<LearnerFile>(`/learners/${learnerId}/files`, {
+      method: 'POST',
+      body: { fileId },
+      ...withAuth(session)
+    }),
+  downloadUrl: (
+    session: UserSession,
+    learnerId: string,
+    fileId: string
+  ): Promise<{ url: string }> =>
+    apiRequest<{ url: string }>(
+      `/learners/${learnerId}/files/${fileId}/download-url`,
+      withAuth(session)
+    ),
+  remove: (
+    session: UserSession,
+    learnerId: string,
+    fileId: string
+  ): Promise<{ removed: boolean }> =>
+    apiRequest<{ removed: boolean }>(`/learners/${learnerId}/files/${fileId}`, {
+      method: 'DELETE',
+      ...withAuth(session)
+    })
+};

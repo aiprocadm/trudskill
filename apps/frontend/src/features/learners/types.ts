@@ -152,3 +152,25 @@ export interface LearnerHistory {
   items: LearnerHistoryItem[];
   truncated: boolean;
 }
+
+/** Файл личного дела (МГ-C2.1, срез 9.2): согласие или скан; скачать можно только проверенный. */
+export interface LearnerFile {
+  fileId: string;
+  name: string;
+  mimeType: string;
+  sizeBytes: number;
+  antivirusStatus: string;
+  uploadedAt: string;
+}
+
+export interface LearnerFilesList {
+  items: LearnerFile[];
+  /** Предел центра — «3 из 10». */
+  limit: number;
+}
+
+export interface LearnerFileUploadIntent {
+  fileId: string;
+  uploadUrl: string;
+  expiresInSeconds: number;
+}

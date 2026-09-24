@@ -169,6 +169,12 @@ import { PostgresGroupCoursesRepository } from './infrastructure/repositories/po
 import { PostgresGroupsRepository } from './infrastructure/repositories/postgres-groups.repository.js';
 import { PostgresLearnersRepository } from './infrastructure/repositories/postgres-learners.repository.js';
 import { LearnerFieldsSettingsService } from './learners/learner-fields-settings.service.js';
+import { LearnerFilesSettingsService } from './learners/learner-files-settings.service.js';
+import {
+  LEARNER_FILES_REPOSITORY,
+  PostgresLearnerFilesRepository
+} from './learners/learner-files.repository.js';
+import { LearnerFilesService } from './learners/learner-files.service.js';
 import { LearnerHistoryService } from './learners/learner-history.service.js';
 
 @Module({
@@ -455,6 +461,10 @@ import { LearnerHistoryService } from './learners/learner-history.service.js';
     { provide: LearnerPdfCardService, scope: Scope.REQUEST, useClass: LearnerPdfCardService },
     /* МГ-C2.1: история слушателя читает состояние запроса — та же область, что у PDF-карточки. */
     { provide: LearnerHistoryService, scope: Scope.REQUEST, useClass: LearnerHistoryService },
+    /* МГ-C2.1 (срез 9.2): файлы личного дела — репозиторий над storage.file_links, служба по запросу. */
+    { provide: LEARNER_FILES_REPOSITORY, useClass: PostgresLearnerFilesRepository },
+    LearnerFilesSettingsService,
+    { provide: LearnerFilesService, scope: Scope.REQUEST, useClass: LearnerFilesService },
     {
       provide: LearnersBulkImportService,
       scope: Scope.REQUEST,

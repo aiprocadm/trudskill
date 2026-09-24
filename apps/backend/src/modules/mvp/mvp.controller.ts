@@ -46,6 +46,8 @@ import { ReadsNormalized } from './infrastructure/reads-normalized.decorator.js'
 import { LearnerPdfCardService } from './learner-pdf-card.service.js';
 import { validateLearnerExtraFields } from './learners/learner-extra-fields.js';
 import { LearnerFieldsSettingsService } from './learners/learner-fields-settings.service.js';
+import { AttachLearnerFileRequest } from './learners/learner-files.dto.js';
+import { LearnerFilesService } from './learners/learner-files.service.js';
 import { LearnerHistoryService } from './learners/learner-history.service.js';
 import { BulkImportLearnersRequest } from './learners-bulk-import.dto.js';
 import { LearnersBulkImportService } from './learners-bulk-import.service.js';
@@ -206,8 +208,22 @@ export class MvpController {
     /* МГ-C2.1 (срез 9.1): история слушателя для вкладки карточки. */
     @Optional()
     @Inject(LearnerHistoryService)
-    private readonly learnerHistory?: LearnerHistoryService
+    private readonly learnerHistory?: LearnerHistoryService,
+    /* МГ-C2.1 (срез 9.2): файлы личного дела — согласия и сканы до N файлов. */
+    @Optional()
+    @Inject(LearnerFilesService)
+    private readonly learnerFiles?: LearnerFilesService
   ) {}
+
+  private requireLearnerFiles(): LearnerFilesService {
+    if (!this.learnerFiles) {
+      throw new ServiceUnavailableException({
+        code: 'learner_files_unavailable',
+        message: 'Файлы личного дела временно недоступны'
+      });
+    }
+    return this.learnerFiles;
+  }
 
   @Get('counterparties')
   @UseGuards(PermissionGuard)
@@ -456,6 +472,64 @@ export class MvpController {
       });
     }
     return this.learnerHistory.compose(c.tenantId!, id);
+  }
+
+  /** МГ-C2.1 (срез 9.2): файлы личного дела — список с пределом центра. */
+  @Get('learners/:id/files')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learners.read')
+  listLearnerFiles(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.requireLearnerFiles().list(c.tenantId!, id);
+  }
+
+  /** Шаг 1 загрузки: подписанная ссылка; лимит и тип файла проверяются до отправки байтов. */
+  @Post('learners/:id/files/upload-url')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learners.write')
+  createLearnerFileUploadUrl(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(CreateUploadUrlRequest, raw);
+    return this.requireLearnerFiles().createUploadIntent(c.tenantId!, id, b);
+  }
+
+  /** Шаг 2: файл загружен — прикрепить к слушателю (проверка антивирусом стартует в фоне). */
+  @Post('learners/:id/files')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learners.write')
+  attachLearnerFile(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(AttachLearnerFileRequest, raw);
+    return this.requireLearnerFiles().attach(c.tenantId!, id, b.fileId, c.userId, c);
+  }
+
+  /** Ссылка на скачивание — через антивирусный гейт: непроверенный файл не отдаётся. */
+  @Get('learners/:id/files/:fileId/download-url')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learners.read')
+  getLearnerFileDownloadUrl(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Param('fileId') fileId: string
+  ) {
+    return this.requireLearnerFiles().downloadUrl(c.tenantId!, id, fileId);
+  }
+
+  @Delete('learners/:id/files/:fileId')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learners.write')
+  async removeLearnerFile(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Param('fileId') fileId: string
+  ) {
+    await this.requireLearnerFiles().remove(c.tenantId!, id, fileId, c.userId, c);
+    return { removed: true };
   }
 
   /**
