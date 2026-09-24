@@ -38,9 +38,14 @@ import {
   UpdateTemplateVariableDto,
   UpdateTemplateVersionDto
 } from './documents.request-dto.js';
-import { DocumentsService, type IssuedDocumentFilter } from './documents.service.js';
+import {
+  DocumentsService,
+  type IssuedDocumentFilter,
+  type IssuedDocumentsPage
+} from './documents.service.js';
 import { GroupPackageService } from './group-package.service.js';
 import { capHttpPageSize } from './http-page-cap.js';
+import { DocumentsNormalizedReadsService } from './infrastructure/documents-normalized-reads.service.js';
 import { DocumentsRequestPersistenceInterceptor } from './infrastructure/documents-request-persistence.interceptor.js';
 import { IssuanceReadinessService } from './issuance-readiness.service.js';
 import { JobQuarantineService } from './job-quarantine.service.js';
@@ -53,6 +58,8 @@ import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { FilesService } from '../files/files.service.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
 import { PermissionGuard } from '../iam/permission.guard.js';
+import { isNormalizedRead } from '../mvp/infrastructure/normalized-collections.js';
+import { ReadsNormalized } from '../mvp/infrastructure/reads-normalized.decorator.js';
 import {
   TENANT_DOCUMENT_IMAGES_KEY,
   TENANT_IMAGE_SLOTS,
@@ -95,7 +102,10 @@ export class DocumentsController {
      * новая зависимость в середине сдвигает позиционные вызовы (журнал 526).
      */
     @Inject(IssuanceReadinessService)
-    private readonly issuanceReadiness: IssuanceReadinessService
+    private readonly issuanceReadiness: IssuanceReadinessService,
+    /* Фаза 1, срез 5b: чтение документов из таблицы под флагом. Параметр ПОСЛЕДНИЙ (журнал 526). */
+    @Inject(DocumentsNormalizedReadsService)
+    private readonly normalizedReads: DocumentsNormalizedReadsService
   ) {}
 
   /**
@@ -433,14 +443,20 @@ export class DocumentsController {
   @Get('documents')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.read')
+  @ReadsNormalized('generatedDocuments')
   listDocuments(@CurrentContext() c: RequestContext, @Query() q: BaseFilter) {
-    return this.documentsService.listDocuments(c.tenantId!, capHttpPageSize(q));
+    return isNormalizedRead('generatedDocuments')
+      ? this.normalizedReads.listDocuments(c.tenantId!, capHttpPageSize(q))
+      : this.documentsService.listDocuments(c.tenantId!, capHttpPageSize(q));
   }
   @Get('documents/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.read')
+  @ReadsNormalized('generatedDocuments')
   getDocument(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.documentsService.getDocument(c.tenantId!, id);
+    return isNormalizedRead('generatedDocuments')
+      ? this.normalizedReads.getDocument(c.tenantId!, id)
+      : this.documentsService.getDocument(c.tenantId!, id);
   }
   @Post('documents/generate')
   @UseGuards(PermissionGuard)
@@ -626,28 +642,35 @@ export class DocumentsController {
   @Get('admin/documents/issuance-journal')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.read')
-  listIssuanceJournal(
+  @ReadsNormalized('generatedDocuments')
+  async listIssuanceJournal(
     @CurrentContext() c: RequestContext,
     @Query() q: Record<string, string | string[] | undefined>
-  ) {
-    return this.documentsService.listIssuedDocuments(c.tenantId!, parseIssuanceFilter(q));
+  ): Promise<IssuedDocumentsPage> {
+    const filter = parseIssuanceFilter(q);
+    return isNormalizedRead('generatedDocuments')
+      ? this.normalizedReads.listIssuedDocuments(c.tenantId!, filter)
+      : this.documentsService.listIssuedDocuments(c.tenantId!, filter);
   }
 
   @Get('admin/documents/issuance-journal.csv')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.read')
+  @ReadsNormalized('generatedDocuments')
   @Header('Content-Type', 'text/csv; charset=utf-8')
   @Header('Content-Disposition', 'attachment; filename="issuance-journal.csv"')
-  exportIssuanceJournalCsv(
+  async exportIssuanceJournalCsv(
     @CurrentContext() c: RequestContext,
     @Query() q: Record<string, string | string[] | undefined>
-  ): string {
-    const filter = parseIssuanceFilter(q);
-    const page = this.documentsService.listIssuedDocuments(c.tenantId!, {
-      ...filter,
+  ): Promise<string> {
+    const filter = {
+      ...parseIssuanceFilter(q),
       limit: ISSUANCE_JOURNAL_CSV_HARD_CAP,
       offset: 0
-    });
+    };
+    const page = isNormalizedRead('generatedDocuments')
+      ? await this.normalizedReads.listIssuedDocuments(c.tenantId!, filter)
+      : this.documentsService.listIssuedDocuments(c.tenantId!, filter);
     return renderIssuanceJournalCsv(page.items);
   }
 

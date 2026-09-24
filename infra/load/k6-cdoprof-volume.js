@@ -36,6 +36,9 @@ const groupsDuration = new Trend('groups_list_ms', true);
 const learnersDuration = new Trend('learners_list_ms', true);
 const enrollmentsDuration = new Trend('enrollments_list_ms', true);
 const searchDuration = new Trend('search_ms', true);
+// Срез 5b: результаты экзаменов и выданные документы — последние коллекции под флагом.
+const examResultsDuration = new Trend('exam_results_list_ms', true);
+const documentsDuration = new Trend('documents_list_ms', true);
 
 export const options = {
   scenarios: {
@@ -50,6 +53,8 @@ export const options = {
     learners_list_ms: [`p(95)<${LIST_P95_MS}`],
     enrollments_list_ms: [`p(95)<${LIST_P95_MS}`],
     search_ms: [`p(95)<${LIST_P95_MS}`],
+    exam_results_list_ms: [`p(95)<${LIST_P95_MS}`],
+    documents_list_ms: [`p(95)<${LIST_P95_MS}`],
     http_req_failed: ['rate<0.01']
   }
 };
@@ -82,6 +87,8 @@ export default function () {
     enrollmentsDuration,
     `/enrollments${ENROLLMENT_QUERIES[iteration % ENROLLMENT_QUERIES.length]}`
   );
+  timed(examResultsDuration, iteration % 2 === 0 ? '/exam-results' : '/exam-results?page=20');
+  timed(documentsDuration, iteration % 2 === 0 ? '/documents' : '/documents?page=20');
   if (iteration % 6 === 0) {
     timed(searchDuration, `/search?q=${SEARCH_QUERIES[(iteration / 6) % SEARCH_QUERIES.length]}`);
   }
@@ -102,6 +109,8 @@ export function handleSummary(data) {
     `  /groups   ${p('groups_list_ms')}`,
     `  /learners ${p('learners_list_ms')}`,
     `  /enrollments ${p('enrollments_list_ms')}`,
+    `  /exam-results ${p('exam_results_list_ms')}`,
+    `  /documents ${p('documents_list_ms')}`,
     `  /search   ${p('search_ms')}`,
     `  ошибок    ${(failed * 100).toFixed(2)} %`
   ];

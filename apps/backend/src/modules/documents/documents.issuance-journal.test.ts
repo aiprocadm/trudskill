@@ -10,6 +10,7 @@ import {
 import { DocumentsService } from './documents.service.js';
 import { type GroupPackageService } from './group-package.service.js';
 import { InMemoryDocumentsState } from './in-memory-documents.state.js';
+import { type DocumentsNormalizedReadsService } from './infrastructure/documents-normalized-reads.service.js';
 import { type IssuanceReadinessService } from './issuance-readiness.service.js';
 import { type JobQuarantineService } from './job-quarantine.service.js';
 import { type TemplateInspectionService } from './template-inspection.service.js';
@@ -37,7 +38,8 @@ function makeJournalController(service: DocumentsService): DocumentsController {
     unusedDependency<FilesService>('FilesService'),
     unusedDependency<TenantService>('TenantService'),
     unusedDependency<JobQuarantineService>('JobQuarantineService'),
-    unusedDependency<IssuanceReadinessService>('IssuanceReadinessService')
+    unusedDependency<IssuanceReadinessService>('IssuanceReadinessService'),
+    unusedDependency<DocumentsNormalizedReadsService>('DocumentsNormalizedReadsService')
   );
 }
 
@@ -135,42 +137,42 @@ describe('DocumentsController issuance journal endpoints', () => {
     return { state, service, controller };
   }
 
-  it('listIssuanceJournal returns service result for current tenant', () => {
+  it('listIssuanceJournal returns service result for current tenant', async () => {
     const { state, controller } = makeController();
     state.generatedDocuments.push(makeDoc({ id: 'g1' }));
-    const page = controller.listIssuanceJournal(ctx, {});
+    const page = await controller.listIssuanceJournal(ctx, {});
     expect(page.total).toBe(1);
     expect(page.items[0]?.id).toBe('g1');
   });
 
-  it('listIssuanceJournal parses comma-less query (single type as string)', () => {
+  it('listIssuanceJournal parses comma-less query (single type as string)', async () => {
     const { state, controller } = makeController();
     state.generatedDocuments.push(makeDoc({ documentType: 'certificate' }));
     state.generatedDocuments.push(makeDoc({ id: 'g2', documentType: 'order' }));
-    const page = controller.listIssuanceJournal(ctx, { types: 'order' });
+    const page = await controller.listIssuanceJournal(ctx, { types: 'order' });
     expect(page.total).toBe(1);
     expect(page.items[0]?.documentType).toBe('order');
   });
 
-  it('listIssuanceJournal supports multi types array (NestJS parses ?types=a&types=b)', () => {
+  it('listIssuanceJournal supports multi types array (NestJS parses ?types=a&types=b)', async () => {
     const { state, controller } = makeController();
     state.generatedDocuments.push(makeDoc({ documentType: 'certificate' }));
     state.generatedDocuments.push(makeDoc({ id: 'g2', documentType: 'order' }));
     state.generatedDocuments.push(makeDoc({ id: 'g3', documentType: 'protocol' }));
-    const page = controller.listIssuanceJournal(ctx, { types: ['order', 'protocol'] });
+    const page = await controller.listIssuanceJournal(ctx, { types: ['order', 'protocol'] });
     expect(page.total).toBe(2);
   });
 
-  it('exportIssuanceJournalCsv returns CSV string with BOM and header', () => {
+  it('exportIssuanceJournalCsv returns CSV string with BOM and header', async () => {
     const { state, controller } = makeController();
     state.generatedDocuments.push(makeDoc({ documentNumber: 'TEST-001' }));
-    const csv = controller.exportIssuanceJournalCsv(ctx, {});
+    const csv = await controller.exportIssuanceJournalCsv(ctx, {});
     expect(csv.charCodeAt(0)).toBe(0xfeff);
     expect(csv).toContain(ISSUANCE_JOURNAL_CSV_HEADER);
     expect(csv).toContain('TEST-001');
   });
 
-  it('exportIssuanceJournalCsv applies the configured hard cap', () => {
+  it('exportIssuanceJournalCsv applies the configured hard cap', async () => {
     expect(ISSUANCE_JOURNAL_CSV_HARD_CAP).toBeGreaterThanOrEqual(1000);
   });
 });

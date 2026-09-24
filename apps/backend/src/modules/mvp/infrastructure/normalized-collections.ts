@@ -21,7 +21,9 @@ export const NORMALIZABLE_COLLECTIONS = [
   'learners',
   'enrollments',
   'groupCourses',
-  'examResults'
+  'examResults',
+  /* Срез 5b: домен документов — та же переменная, свой интерцептор. */
+  'generatedDocuments'
 ] as const;
 export type NormalizableCollection = (typeof NORMALIZABLE_COLLECTIONS)[number];
 
