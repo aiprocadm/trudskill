@@ -5553,6 +5553,23 @@ PR #493 построил `LearnersListScreen`, но его не импортир
 сверена после правок: вид не изменился (surface-muted и neutral-100 в светлой палитре
 совпадают побитово).
 
+### 5.611 ТЗ перехода с CDOPROF, позиция 8 (Фаза 2, срез 17.1): преподаватель у курса группы — для протокола (МГ-E4.5, бэкенд)
+
+**Зачем.** ТЗ §7 МГ-E4.5 [P0-lite]: «до появления карточки преподавателя: список преподавателей = пользователи с ролью `teacher`, поле «преподаватель» у курса группы (`group_courses.teacher_user_id`) — для протокола» (в протоколе CDOPROF поле «преподаватель» есть). Разведка (§5.605): колонка `teacher_user_id` есть с 0105, но её не знали ни сущность, ни тела запросов, ни проекция; переменной для бланка не было; `POST group-courses` не писал аудит. План — `docs/superpowers/plans/2026-09-24-cdoprof-migration-phase-2-slice-19-courses-directions.md`, Task 4.
+
+**Что сделано.**
+
+- `GroupCourse.teacherUserId` в создании и правке (`null` — снять); сервер проверяет, что это действующий пользователь центра с ролью «Преподаватель» (`group_course_teacher_invalid` со статьёй); `POST group-courses` теперь пишет аудит (передаёт сотрудника и контекст).
+- `GET group-courses/teachers?q=` (под `groups.write`, выше `group-courses/:id`) — действующие пользователи с ролью «Преподаватель», поиск по ФИО, до 50; только имя и идентификатор. `IamService.searchUsersByRole` / `userHasRole` — с `tenant_id` в каждом запросе.
+- Проекция `learning.group_courses` пишет и читает `teacher_user_id`.
+- `{course.teacher_name}` — ФИО преподавателя курса группы в бланках: снимок знает идентификатор, сборщик документов подставляет ФИО через службу имён (подключена в модуль документов); нет службы или учётки — пусто, а не идентификатор. Сторож каталога переменных знает, что эту переменную, как «дату прописью», разрешает сборщик, а не чистый резолвер.
+
+**Файлы.** 14: `mvp.types.ts`, `mvp.dto.ts`, `mvp.service.ts`, `mvp.controller.ts`, `iam.service.ts` (+ `teachers.integration.test.ts`), `normalized-projection.ts`, `postgres-group-courses.repository.ts`, `documents/{document-variables.builder.ts (+ тест), variable-catalog.ts (+ тест), documents.module.ts}`, `groups/group-course-teacher.test.ts`, `error-text.ts`.
+
+**Тесты.** Бэкенд: `group-course-teacher.test.ts` (назначение, правка, снятие, аудит; проекция `teacher_user_id` и обратное чтение), `teachers.integration.test.ts` на **живой базе** (в списке только действующие с ролью «Преподаватель», поиск по ФИО, `%` не находит всех, проверка роли, изоляция центров), `document-variables.builder.test.ts` (ФИО преподавателя; без службы имён — пусто), сторож каталога переменных, модули `mvp`, `iam`, `migration`, `documents`, сторожа `src/common` — ✅ (326 + 52 файла). Фронт: `src/e2e` и статьи ошибок — 149 файлов, 924 ✅. `pnpm run typecheck` обоих, eslint ✅; `pnpm ci:check` — см. PR.
+
+**Дальше.** 17.2 — строка курса в карточке группы: срок и преподаватель (МГ-E4.5 фронт).
+
 ### 5.610 ТЗ перехода с CDOPROF, позиция 8 (Фаза 2, срез 16.4): история курса (МГ-E2.3) — P0-часть МГ-E2 закрыта по коду
 
 **Зачем.** ТЗ §8 МГ-E2.3 [P0]: «Версии, архивирование, копирование курса ✔, контроль изменений — версии ✔ + история». Версии и аудит новой версии (16.1) есть, а ленты «кто и когда менял курс» не было. План — `docs/superpowers/plans/2026-09-24-cdoprof-migration-phase-2-slice-19-courses-directions.md`, Task 3.
