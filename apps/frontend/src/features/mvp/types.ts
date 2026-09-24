@@ -226,6 +226,8 @@ export interface Group extends BaseEntity {
   /** Поля CDOPROF (ТЗ перехода §4; срез 8.1 на сервере, 8.3 на экране). Все — необязательные. */
   counterpartyId?: string;
   responsibleUserId?: string;
+  /** ФИО ответственного — подставляет сервер в `GET /groups/:id` (МГ-B1.2). */
+  responsibleName?: string | null;
   startDate?: string;
   endDate?: string;
   examDate?: string;
@@ -258,6 +260,10 @@ export interface GroupPayload {
 export type GroupsListQuery = BaseFilterQuery & { quick?: string; include_archived?: string };
 
 export interface GroupCourse extends BaseEntity {
+  /** Дней на курс в группе; нет — по сроку курса. */
+  durationDays?: number;
+  /** МГ-E4.5: преподаватель курса в группе (для протокола). */
+  teacherUserId?: string;
   groupId: string;
   courseId: string;
   courseVersionId?: string;

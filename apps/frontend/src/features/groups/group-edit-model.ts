@@ -12,6 +12,8 @@ export interface GroupEditForm {
   name: string;
   code: string;
   counterpartyId: string;
+  /** МГ-B1.2 (срез 17.2): ответственный за группу — сотрудник центра. */
+  responsibleUserId: string;
   comment: string;
   learnerMessage: string;
   startDate: string;
@@ -39,6 +41,7 @@ export const groupEditFormOf = (group: Group): GroupEditForm => ({
   name: group.name ?? '',
   code: group.code ?? '',
   counterpartyId: group.counterpartyId ?? '',
+  responsibleUserId: group.responsibleUserId ?? '',
   comment: group.comment ?? '',
   learnerMessage: group.learnerMessage ?? '',
   startDate: group.startDate ?? '',
@@ -83,6 +86,7 @@ export const groupEditDiff = (
   if (changed('name')) payload.name = form.name.trim();
   if (changed('code') && form.code.trim()) payload.code = form.code.trim();
   if (changed('counterpartyId')) payload.counterpartyId = form.counterpartyId || null;
+  if (changed('responsibleUserId')) payload.responsibleUserId = form.responsibleUserId || null;
   if (changed('comment')) payload.comment = nullableText(form.comment);
   if (changed('learnerMessage')) payload.learnerMessage = nullableText(form.learnerMessage);
   if (changed('startDate')) payload.startDate = form.startDate || null;

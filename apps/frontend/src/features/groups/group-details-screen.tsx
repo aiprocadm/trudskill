@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
+import { GroupCoursesList } from './group-courses-list';
 import { GroupEditDrawer } from './group-edit-drawer';
 import {
   GROUP_STATUS_LABEL,
@@ -398,6 +399,12 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
                 { label: 'Период обучения', value: formatPeriod(group?.startDate, group?.endDate) },
                 { label: 'Экзамен', value: formatDateRu(group?.examDate) },
                 {
+                  label: 'Ответственный',
+                  value: group?.responsibleUserId
+                    ? (group.responsibleName ?? 'сотрудник центра')
+                    : 'не назначен'
+                },
+                {
                   label: 'Форма обучения',
                   value: group?.studyForm
                     ? (STUDY_FORM_LABEL[group.studyForm] ?? group.studyForm)
@@ -463,13 +470,13 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
               <BlockedHint hintKey="assign-course" reason={assignCourseBlockedReason} />
             </>
           ) : null}
-          <ul className="ui-stack" style={{ gap: 0, listStyle: 'none', padding: 0, margin: 0 }}>
-            {groupCourses?.items.map((item) => (
-              <li key={item.id} className="ui-list-row">
-                {courseTitleById[item.courseId] ?? item.courseId}
-              </li>
-            ))}
-          </ul>
+          {/* МГ-E4.5 (срез 17.2): срок и преподаватель курса; без сырого идентификатора вместо названия. */}
+          <GroupCoursesList
+            items={groupCourses?.items ?? []}
+            courseTitleById={courseTitleById}
+            canEdit={canAssignCourse}
+            onChanged={() => void refetchCourses()}
+          />
         </SectionCard>
 
         <SectionCard title="Слушатели группы">

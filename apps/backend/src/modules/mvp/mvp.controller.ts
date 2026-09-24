@@ -1240,10 +1240,15 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('groups.read')
   @ReadsNormalized('groups')
-  getGroup(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return isNormalizedRead('groups')
-      ? this.normalizedReads.getGroup(c.tenantId!, id)
+  async getGroup(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    const group = isNormalizedRead('groups')
+      ? await this.normalizedReads.getGroup(c.tenantId!, id)
       : this.mvpService.getGroup(c.tenantId!, id);
+    // МГ-B1.2 (срез 17.2): ответственный на карточке — по ФИО, не идентификатором.
+    return {
+      ...group,
+      responsibleName: await this.userNames.nameOf(c.tenantId!, group.responsibleUserId)
+    };
   }
   /**
    * ТЗ 13.2, решение Р13: при превышении тарифа прекращается добавление новых слушателей
