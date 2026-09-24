@@ -69,6 +69,7 @@ const magicLinkProviders: Provider[] = [
     ...magicLinkProviders,
     SeedCredentialHygiene
   ],
-  exports: [IamService, AuthService, MagicLinkService]
+  /* МГ-C2.1 (срез 9.3): «Выслать доступ» слушателю шлёт то же письмо входа, что приглашение сотрудника. */
+  exports: [IamService, AuthService, MagicLinkService, MAGIC_LINK_EMAIL_SENDER]
 })
 export class IamModule {}

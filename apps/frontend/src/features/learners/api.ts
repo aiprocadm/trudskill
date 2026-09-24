@@ -2,6 +2,7 @@ import { apiRequest } from '../../lib/api/client';
 import { frontendEnv } from '../../lib/config/env';
 
 import type {
+  LearnerAccessOutcome,
   LearnerErasureReport,
   LearnerFile,
   LearnerFileUploadIntent,
@@ -89,6 +90,13 @@ export const learnersApi = {
     }),
 
   /** ФТ-G6: обезличивание по отзыву согласия. POST, а не DELETE — документы остаются. */
+  /** «Выслать доступ» (МГ-C2.1, срез 9.3): письмо со ссылкой для входа на почту слушателя. */
+  sendAccess: (session: UserSession, learnerId: string): Promise<LearnerAccessOutcome> =>
+    apiRequest<LearnerAccessOutcome>(`/learners/${learnerId}/access/send`, {
+      method: 'POST',
+      body: {},
+      ...withAuth(session)
+    }),
   erasePersonalData: (
     session: UserSession,
     learnerId: string,

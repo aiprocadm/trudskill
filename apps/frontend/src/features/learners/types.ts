@@ -174,3 +174,10 @@ export interface LearnerFileUploadIntent {
   uploadUrl: string;
   expiresInSeconds: number;
 }
+
+/** Исход «Выслать доступ» (МГ-C2.1, срез 9.3) — как у приглашения сотрудника. */
+export interface LearnerAccessOutcome {
+  status: 'sent' | 'throttled' | 'logged';
+  userId: string;
+  linked: boolean;
+}

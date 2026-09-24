@@ -168,6 +168,7 @@ import { PostgresExamResultsRepository } from './infrastructure/repositories/pos
 import { PostgresGroupCoursesRepository } from './infrastructure/repositories/postgres-group-courses.repository.js';
 import { PostgresGroupsRepository } from './infrastructure/repositories/postgres-groups.repository.js';
 import { PostgresLearnersRepository } from './infrastructure/repositories/postgres-learners.repository.js';
+import { LearnerAccessService } from './learners/learner-access.service.js';
 import { LearnerFieldsSettingsService } from './learners/learner-fields-settings.service.js';
 import { LearnerFilesSettingsService } from './learners/learner-files-settings.service.js';
 import {
@@ -465,6 +466,8 @@ import { LearnerHistoryService } from './learners/learner-history.service.js';
     { provide: LEARNER_FILES_REPOSITORY, useClass: PostgresLearnerFilesRepository },
     LearnerFilesSettingsService,
     { provide: LearnerFilesService, scope: Scope.REQUEST, useClass: LearnerFilesService },
+    /* МГ-C2.1 (срез 9.3): «Выслать доступ» читает слушателя из состояния запроса. */
+    { provide: LearnerAccessService, scope: Scope.REQUEST, useClass: LearnerAccessService },
     {
       provide: LearnersBulkImportService,
       scope: Scope.REQUEST,
