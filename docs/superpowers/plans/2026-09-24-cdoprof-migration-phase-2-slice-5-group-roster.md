@@ -41,9 +41,9 @@
 **Files:** Modify `mvp/mvp.types.ts` (`EnrollmentResultCode`, `Enrollment.resultCode?`), `mvp/mvp.dto.ts` (`MarkEnrollmentResultRequest`; `reason` `@MaxLength(1000)` у статуса), `mvp/mvp.service.ts` (`markEnrollmentResult(tenantId, actorId, id, request, ctx)`: 412 для `cancelled` и для `absent` у `completed`; аудит `learning.enrollment_result_marked`; русский текст ошибки перехода статуса + код `enrollment_status_transition_invalid`), `mvp/mvp.controller.ts` (`PATCH enrollments/:id/result`, `enrollments.change_status`), `migration/backfill/normalized/normalized-projection.ts` (колонка `result_code` + ключ `resultCode`), `eisot-testing-registry.service.ts` (`resultCode !== 'absent'`), `documents/pillar-a-variables.ts` (`result`/`result_code` в `GroupLearnerView`), фронт `features/audit/labels.ts` (фраза), `lib/errors/error-text.ts` (статья `enrollment_status_transition_invalid`), `mvp.http.integration.test.ts` (403/200 для `/result`).
 **Tests:** `mvp.service.test.ts` (+3), `eisot-testing-registry.service.test.ts` (+1), проекция (+1), HTTP (+2).
 
-- [ ] Тесты → код → lint/typecheck → commit.
+- [x] Тесты → код → lint/typecheck → commit (1354bdb). Отклонение: код ошибки перехода остался `domain_rule_violation` (новый код потребовал бы статьи и реестра), текст — русский словами статусов.
 
-### Task 2: документация 8.7a — handoff §5.578, трекер (РМ61–РМ64, МГ-B7.1 🔄), README, CLAUDE, журнал (ТЗ «статус absent» ↔ 0107), `pnpm ci:check`, PR, слияние.
+### Task 2: документация 8.7a — [x] сделано (§5.578) — handoff §5.578, трекер (РМ61–РМ64, МГ-B7.1 🔄), README, CLAUDE, журнал (ТЗ «статус absent» ↔ 0107), `pnpm ci:check`, PR, слияние.
 
 ## PR 8.7b — фронт
 
