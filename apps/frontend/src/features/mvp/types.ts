@@ -339,6 +339,8 @@ export interface GroupWizardLearnerRow {
 export interface GroupWizardRequest {
   idempotencyKey: string;
   group: GroupPayload & { draftId?: string };
+  /** МГ-B6.1: из какой группы скопировано — только для аудита. */
+  copyOfGroupId?: string;
   courses: Array<{ courseId: string; courseVersionId?: string; durationDays?: number }>;
   learners?: { existingIds?: string[]; rows?: GroupWizardLearnerRow[] };
   access: { mode: WizardAccessMode; message?: string };

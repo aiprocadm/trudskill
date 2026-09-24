@@ -3,10 +3,14 @@ import { describe, expect, it } from 'vitest';
 import {
   EMPTY_WIZARD_STATE,
   accessSummary,
+  addDaysIso,
   buildWizardRequest,
   canProceed,
+  copyStateFrom,
+  daysBetweenIso,
   parseLearnerLines,
   shouldRotateKey,
+  todayLocalIso,
   wizardOutcomeSummary
 } from './group-wizard-model';
 
@@ -115,6 +119,82 @@ describe('buildWizardRequest', () => {
     const first = buildWizardRequest(state, 'same', 'u');
     expect(first).not.toHaveProperty('learners');
     expect(buildWizardRequest(state, 'same', 'u')).toEqual(first);
+  });
+});
+
+describe('copyStateFrom (МГ-B6.1)', () => {
+  const group = {
+    id: 'g-src',
+    name: 'Охрана труда, сентябрь',
+    counterpartyId: 'cp-1',
+    comment: 'по договору 12',
+    startDate: '2026-08-20',
+    endDate: '2026-09-03',
+    examDate: '2026-09-03',
+    studyForm: 'distance'
+  };
+
+  it('даты сдвигаются на «сегодня − начало»: начало = сегодня, длительность сохраняется', () => {
+    const state = copyStateFrom(
+      { group, courseIds: ['c1', 'c1', 'c2'], enrollments: [] },
+      '2026-09-24'
+    );
+    expect(state).toMatchObject({
+      copyOfGroupId: 'g-src',
+      name: 'Охрана труда, сентябрь (копия)',
+      code: '',
+      counterpartyId: 'cp-1',
+      comment: 'по договору 12',
+      courseIds: ['c1', 'c2'],
+      startDate: '2026-09-24',
+      endDate: '2026-10-08',
+      examDate: '2026-10-08',
+      studyForm: 'distance',
+      accessMode: 'later',
+      draftId: null
+    });
+  });
+
+  it('без начала у исходной — даты копии пустые, не «Invalid Date»', () => {
+    const state = copyStateFrom(
+      {
+        group: { ...group, startDate: undefined, endDate: '2026-09-03' } as unknown as typeof group,
+        courseIds: [],
+        enrollments: []
+      },
+      '2026-09-24'
+    );
+    expect(state.startDate).toBe('');
+    expect(state.endDate).toBe('');
+    expect(state.examDate).toBe('');
+  });
+
+  it('слушатели: отменённые зачисления не копируются, повторы схлопываются', () => {
+    const state = copyStateFrom(
+      {
+        group,
+        courseIds: [],
+        enrollments: [
+          { learnerId: 'l1', status: 'active' },
+          { learnerId: 'l2', status: 'cancelled' },
+          { learnerId: 'l1', status: 'completed' },
+          { learnerId: 'l3', status: 'pending' }
+        ]
+      },
+      '2026-09-24'
+    );
+    expect(state.existingLearnerIds).toEqual(['l1', 'l3']);
+    const request = buildWizardRequest({ ...state, courseIds: ['c1'] }, 'k', 'u');
+    expect(request.copyOfGroupId).toBe('g-src');
+    expect(request.learners).toEqual({ existingIds: ['l1', 'l3'] });
+  });
+
+  it('арифметика дат: високосный февраль и переход через год', () => {
+    expect(addDaysIso('2028-02-28', 1)).toBe('2028-02-29');
+    expect(addDaysIso('2026-12-31', 1)).toBe('2027-01-01');
+    expect(daysBetweenIso('2026-08-20', '2026-09-24')).toBe(35);
+    expect(daysBetweenIso('2026-09-24', '2026-08-20')).toBe(-35);
+    expect(todayLocalIso(new Date(2026, 8, 24, 23, 30))).toBe('2026-09-24');
   });
 });
 

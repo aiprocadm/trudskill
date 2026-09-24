@@ -50,6 +50,8 @@ export class GroupWizardService {
         message: 'Добавьте хотя бы один курс — без курса группе нечему учить.'
       });
     }
+    /* МГ-B6.1: источник копии должен быть группой этого центра — иначе 404, как у любого чтения. */
+    if (request.copyOfGroupId) this.mvp.getGroup(tenantId, request.copyOfGroupId);
 
     // 1. Группа: черновик достраивается, иначе создаётся; статус — по дате начала.
     const { draftId, ...fields } = request.group;
@@ -225,7 +227,8 @@ export class GroupWizardService {
         coursesAssigned,
         learnersTotal: rows.length,
         learnersFailed: result.enrollments.failed,
-        accessMode: request.access.mode
+        accessMode: request.access.mode,
+        ...(request.copyOfGroupId ? { copyOfGroupId: request.copyOfGroupId } : {})
       }
     });
     return result;

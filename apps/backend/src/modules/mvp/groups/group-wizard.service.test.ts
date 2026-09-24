@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_GROUP_CREATION_SETTINGS } from './group-defaults.js';
@@ -137,6 +137,34 @@ describe('GroupWizardService', () => {
       DEFAULT_GROUP_CREATION_SETTINGS
     );
     expect(invitesOf(events)).toHaveLength(2);
+  });
+
+  it('копия группы (МГ-B6.1): источник пишется в аудит; чужой или несуществующий источник — 404', () => {
+    const { wizard, course, mvp, audit } = setup();
+    const source = mvp.createGroup(T, ctx.userId, { name: 'Исходная' }, ctx);
+    wizard.complete(
+      T,
+      ctx.userId,
+      baseRequest(course.id, { idempotencyKey: 'wiz-copy', copyOfGroupId: source.id }),
+      ctx,
+      DEFAULT_GROUP_CREATION_SETTINGS
+    );
+    expect(audit.write).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'learning.group_wizard_completed',
+        newValues: expect.objectContaining({ copyOfGroupId: source.id })
+      })
+    );
+    expect(() =>
+      wizard.complete(
+        T,
+        ctx.userId,
+        baseRequest(course.id, { idempotencyKey: 'wiz-copy-2', copyOfGroupId: 'grp_missing' }),
+        ctx,
+        DEFAULT_GROUP_CREATION_SETTINGS
+      )
+    ).toThrow(NotFoundException);
+    expect(mvp.listGroups(T, {}).total).toBe(2);
   });
 
   it('повтор с тем же ключом — прежний результат, вторая группа не создаётся; черновик достраивается', () => {
