@@ -171,7 +171,9 @@ import type {
   KpiSnapshotDto,
   Learner,
   LearnerAssignmentSummary,
+  LearnerDiploma,
   LearnerEnrollmentSummary,
+  LearnerPassport,
   LearnerTestSummary,
   Material,
   MaterialProgress,
@@ -1202,6 +1204,18 @@ export class MvpService {
       phone?: string | null;
       status?: string;
       linkedIamUserId?: string | null;
+      /* Личное дело (МГ-C1.1, срез 8.12). */
+      passport?: LearnerPassport | null;
+      gender?: 'm' | 'f' | null;
+      birthPlace?: string | null;
+      citizenship?: string | null;
+      registrationAddress?: string | null;
+      educationLevel?: string | null;
+      diploma?: LearnerDiploma | null;
+      trackingNumber?: string | null;
+      deliveryMethod?: string | null;
+      extraFields?: Record<string, string> | null;
+      counterpartyId?: string | null;
     },
     context: RequestContext
   ): Learner {
@@ -1240,6 +1254,57 @@ export class MvpService {
     if (request.status !== undefined) current.status = request.status;
     if (request.linkedIamUserId !== undefined)
       current.linkedIamUserId = request.linkedIamUserId ?? undefined;
+
+    /* Личное дело (МГ-C1.1): null — очистить; паспорт — объектом, без серии или номера нельзя (РМ76). */
+    if (request.passport !== undefined) {
+      if (request.passport === null) {
+        delete current.passport;
+      } else {
+        const series = request.passport.series?.trim() ?? '';
+        const number = request.passport.number?.trim() ?? '';
+        if (!series || !number) {
+          throw new BadRequestException({
+            code: 'validation_error',
+            message: 'Паспорт: укажите и серию, и номер — или очистите поле целиком.'
+          });
+        }
+        current.passport = {
+          series,
+          number,
+          ...(request.passport.issuedAt ? { issuedAt: request.passport.issuedAt } : {}),
+          ...(request.passport.issuedBy?.trim()
+            ? { issuedBy: request.passport.issuedBy.trim() }
+            : {})
+        };
+      }
+    }
+    const textFields = [
+      'birthPlace',
+      'citizenship',
+      'registrationAddress',
+      'educationLevel',
+      'trackingNumber',
+      'deliveryMethod',
+      'counterpartyId'
+    ] as const;
+    for (const field of textFields) {
+      if (request[field] !== undefined) current[field] = request[field]?.trim() || undefined;
+    }
+    if (request.gender !== undefined) current.gender = request.gender ?? undefined;
+    if (request.diploma !== undefined) {
+      const diploma = request.diploma
+        ? Object.fromEntries(
+            Object.entries(request.diploma).filter(([, v]) => typeof v === 'string' && v.trim())
+          )
+        : {};
+      current.diploma = Object.keys(diploma).length ? (diploma as LearnerDiploma) : undefined;
+    }
+    if (request.extraFields !== undefined) {
+      current.extraFields =
+        request.extraFields && Object.keys(request.extraFields).length
+          ? request.extraFields
+          : undefined;
+    }
 
     current.updatedAt = this.now();
 

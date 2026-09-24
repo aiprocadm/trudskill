@@ -54,6 +54,8 @@ function hasLegacyPlaintextPii(item: unknown): boolean {
   const learner = item as Record<string, unknown>;
   return ENCRYPTED_LEARNER_FIELDS.some((field) => {
     const value = learner[field];
+    // Паспорт хранится объектом (МГ-C1.1): незашифрованный объект — тоже открытый текст.
+    if (field === 'passport') return value !== null && typeof value === 'object';
     return typeof value === 'string' && value !== '' && !isEncryptedPiiValue(value);
   });
 }

@@ -12,6 +12,7 @@ import {
 } from './normalized-projection.js';
 import {
   isEncryptedPiiValue,
+  passportBlindIndex,
   snilsBlindIndex
 } from '../../../../infrastructure/crypto/pii-crypto.js';
 
@@ -510,5 +511,43 @@ describe('круговой проход: projectEntity → rowToEntity возв�
       asDbRow(projectEntity('enrollmentStatusHistory', T, source, emptyContext()))
     );
     expect(back).toEqual(source);
+  });
+});
+
+// МГ-C1.1 (срез 8.12, РМ76–РМ77): паспорт — в свою колонку шифртекстом с индексом, личное дело — в колонки.
+describe('проекция личного дела слушателя', () => {
+  it('паспорт уходит в passport_enc/passport_hash без открытых цифр, поля §4 — в колонки, а не в payload', () => {
+    const row = projectEntity(
+      'learners',
+      'tenant_demo',
+      {
+        id: 'lrn_p',
+        tenantId: 'tenant_demo',
+        status: 'active',
+        createdAt: '2026-09-24T00:00:00.000Z',
+        updatedAt: '2026-09-24T00:00:00.000Z',
+        firstName: 'Анна',
+        lastName: 'Новикова',
+        passport: { series: '4512', number: '123456' },
+        gender: 'f',
+        citizenship: 'РФ',
+        registrationAddress: 'г. Москва',
+        diploma: { series: 'АБ', number: '1' },
+        counterpartyId: 'cp_1'
+      } as never,
+      emptyContext()
+    );
+    expect(isEncryptedPiiValue(row.columns.passport_enc)).toBe(true);
+    expect(row.columns.passport_hash).toBe(passportBlindIndex('4512123456'));
+    expect(JSON.stringify(row)).not.toContain('123456');
+    expect(row.columns).toMatchObject({
+      gender: 'f',
+      citizenship: 'РФ',
+      registration_address: 'г. Москва',
+      counterparty_id: 'cp_1'
+    });
+    expect(row.columns.diploma).toEqual({ series: 'АБ', number: '1' });
+    expect(row.payload).not.toHaveProperty('passport');
+    expect(row.payload).not.toHaveProperty('gender');
   });
 });

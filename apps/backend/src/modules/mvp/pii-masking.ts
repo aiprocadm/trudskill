@@ -103,13 +103,35 @@ export const piiAccessMetadata = (record: PiiAccessRecord): Record<string, unkno
  * данные в памяти для всех остальных — в этом модуле состояние арендатора живёт в общей
  * структуре, и одна такая правка утекла бы в соседний запрос.
  */
+/** Паспорт бывает объектом (МГ-C1.1) или строкой (старые записи) — маска одна. */
+const passportDigits = (value: unknown): string | null => {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  const p = value as { series?: string; number?: string };
+  return `${p.series ?? ''} ${p.number ?? ''}`.trim() || null;
+};
+
+/*
+ * Маскируются оба написания даты рождения: `dateOfBirth` — поле карточки, `birthDate` —
+ * старое имя в ответах раскрытия. Раньше маска знала только `birthDate`, и дата рождения
+ * уходила в список открытой (журнал 637, срез 8.12).
+ */
 export const maskLearnerRow = <
-  T extends { snils?: string | null; passport?: string | null; birthDate?: string | null }
+  T extends {
+    snils?: string | null;
+    passport?: unknown;
+    birthDate?: string | null;
+    dateOfBirth?: string | null;
+  }
 >(
   row: T
-): T => ({
-  ...row,
-  ...(row.snils !== undefined ? { snils: maskedSnils(row.snils) } : {}),
-  ...(row.passport !== undefined ? { passport: maskedPassport(row.passport) } : {}),
-  ...(row.birthDate !== undefined ? { birthDate: maskedBirthDate(row.birthDate) } : {})
-});
+): T =>
+  ({
+    ...row,
+    ...(row.snils !== undefined ? { snils: maskedSnils(row.snils) } : {}),
+    ...(row.passport !== undefined
+      ? { passport: maskedPassport(passportDigits(row.passport)) }
+      : {}),
+    ...(row.birthDate !== undefined ? { birthDate: maskedBirthDate(row.birthDate) } : {}),
+    ...(row.dateOfBirth !== undefined ? { dateOfBirth: maskedBirthDate(row.dateOfBirth) } : {})
+  }) as T;

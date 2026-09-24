@@ -46,7 +46,13 @@ export const ERASABLE_FIELDS = [
   'phone',
   'snils',
   'snilsHash',
-  'dateOfBirth'
+  'dateOfBirth',
+  /* Личное дело (МГ-C1.1): паспорт с индексом, адрес и место рождения — тоже личность. */
+  'passport',
+  'passportHash',
+  'registrationAddress',
+  'birthPlace',
+  'photoFileId'
 ] as const;
 
 export interface ErasureReport {

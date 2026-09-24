@@ -165,3 +165,17 @@ describe('маска действительно применена, а не то
     expect(piiService).toMatch(/piiAccessMetadata\(/);
   });
 });
+
+// МГ-C1.1 (срез 8.12, РМ78): дата рождения под своим именем поля и паспорт-объект тоже маскируются.
+describe('маска знает поле dateOfBirth и паспорт-объект', () => {
+  it('dateOfBirth оставляет только год, паспорт-объект — последние три цифры номера', () => {
+    const row = maskLearnerRow({
+      id: 'l1',
+      dateOfBirth: '1990-05-01',
+      passport: { series: '4512', number: '123456', issuedBy: 'ОВД' }
+    });
+    expect(row.dateOfBirth).toBe('**.**.1990');
+    expect(row.passport).toBe('**** ***456');
+    expect(JSON.stringify(row)).not.toContain('4512');
+  });
+});

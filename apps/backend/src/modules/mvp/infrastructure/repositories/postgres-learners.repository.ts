@@ -29,7 +29,11 @@ export const LEARNER_SORT_COLUMNS: Record<string, string> = {
 const COLUMNS =
   'id, tenant_id, created_at, updated_at, user_id, learner_no, first_name, last_name, middle_name, ' +
   'position, organization_unit_id, snils_enc, snils_hash, email_enc, phone_enc, birth_date_enc, status, ' +
-  'external_id, source_system, legacy_login, linked_iam_user_id, payload';
+  'external_id, source_system, legacy_login, linked_iam_user_id, ' +
+  /* Личное дело (МГ-C1.1): колонки 0106/0002 читаются вместе с карточкой. */
+  'counterparty_id, counterparty_employee_id, passport_enc, passport_hash, gender, birth_place, citizenship, ' +
+  'registration_address, education_level, diploma, tracking_number, delivery_method, extra_fields, ' +
+  'consent_status, photo_file_id, login, position_id, payload';
 
 /** Выражение ФИО — ровно как в индексе `learners_full_name_trgm_idx` (0109), иначе индекс не сработает. */
 const FULL_NAME = "(last_name || ' ' || first_name || ' ' || coalesce(middle_name, ''))";

@@ -102,7 +102,25 @@ export const TABLE_SPECS: Record<HotCollection, TableSpec> = {
       status: 'text',
       external_id: 'text',
       source_system: 'text',
-      legacy_login: 'text'
+      legacy_login: 'text',
+      /* Личное дело (МГ-C1.1, срез 8.12): колонки 0106/0002 — раньше всё это уходило в payload. */
+      counterparty_id: 'text',
+      counterparty_employee_id: 'text',
+      passport_enc: 'text',
+      passport_hash: 'text',
+      gender: 'text',
+      birth_place: 'text',
+      citizenship: 'text',
+      registration_address: 'text',
+      education_level: 'text',
+      diploma: 'json',
+      tracking_number: 'text',
+      delivery_method: 'text',
+      extra_fields: 'json',
+      consent_status: 'text',
+      photo_file_id: 'text',
+      login: 'text',
+      position_id: 'text'
     }
   },
   groups: {
@@ -429,7 +447,24 @@ const projectLearner = (entity: Entity, tenantId: string, ctx: ProjectionContext
       status,
       external_id: str(atRest.externalId),
       source_system: str(atRest.sourceSystem),
-      legacy_login: str(atRest.legacyLogin)
+      legacy_login: str(atRest.legacyLogin),
+      counterparty_id: str(atRest.counterpartyId),
+      counterparty_employee_id: str(atRest.counterpartyEmployeeId),
+      passport_enc: str(atRest.passport),
+      passport_hash: str(atRest.passportHash),
+      gender: str(atRest.gender),
+      birth_place: str(atRest.birthPlace),
+      citizenship: str(atRest.citizenship),
+      registration_address: str(atRest.registrationAddress),
+      education_level: str(atRest.educationLevel),
+      diploma: atRest.diploma ?? null,
+      tracking_number: str(atRest.trackingNumber),
+      delivery_method: str(atRest.deliveryMethod),
+      extra_fields: atRest.extraFields ?? null,
+      consent_status: str(atRest.consentStatus),
+      photo_file_id: str(atRest.photoFileId),
+      login: str(atRest.login),
+      position_id: str(atRest.positionId)
     },
     [
       'linkedIamUserId',
@@ -447,7 +482,24 @@ const projectLearner = (entity: Entity, tenantId: string, ctx: ProjectionContext
       'status',
       'externalId',
       'sourceSystem',
-      'legacyLogin'
+      'legacyLogin',
+      'counterpartyId',
+      'counterpartyEmployeeId',
+      'passport',
+      'passportHash',
+      'gender',
+      'birthPlace',
+      'citizenship',
+      'registrationAddress',
+      'educationLevel',
+      'diploma',
+      'trackingNumber',
+      'deliveryMethod',
+      'extraFields',
+      'consentStatus',
+      'photoFileId',
+      'login',
+      'positionId'
     ],
     { ...extra, ...(linked !== null && !userKnown ? { linkedIamUserId: linked } : {}) }
   );
@@ -902,7 +954,9 @@ const COLUMN_TO_FIELD: Partial<Record<HotCollection, Record<string, string>>> = 
     snils_hash: 'snilsHash',
     email_enc: 'email',
     phone_enc: 'phone',
-    birth_date_enc: 'dateOfBirth'
+    birth_date_enc: 'dateOfBirth',
+    passport_enc: 'passport',
+    passport_hash: 'passportHash'
   },
   examResults: { is_passed: 'passed' },
   generatedDocuments: { storage_file_id: 'fileId' }

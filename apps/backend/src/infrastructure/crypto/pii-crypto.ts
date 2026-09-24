@@ -33,6 +33,7 @@ const piiCrypto = new IntegrationCryptoService();
 
 const ENC_PREFIX = 'enc:';
 const SNILS_BLIND_LABEL = 'pii-snils';
+const PASSPORT_BLIND_LABEL = 'pii-passport';
 
 export function isEncryptedPiiValue(value: unknown): value is string {
   return typeof value === 'string' && value.startsWith(ENC_PREFIX);
@@ -42,6 +43,43 @@ export function isEncryptedPiiValue(value: unknown): value is string {
 export function snilsBlindIndex(rawSnils: string): string {
   return piiCrypto.blindIndex(rawSnils.replace(/\D/g, ''), SNILS_BLIND_LABEL);
 }
+
+/** Паспорт слушателя (МГ-C1.1): хранится объектом, шифруется целиком одним значением (РМ76). */
+export interface LearnerPassport {
+  series?: string;
+  number?: string;
+  issuedAt?: string;
+  issuedBy?: string;
+}
+
+/** Слепой индекс паспорта — по цифрам серии и номера (поиск дублей при импорте, C3.1). */
+export function passportBlindIndex(passport: LearnerPassport | string): string {
+  const raw =
+    typeof passport === 'string' ? passport : `${passport.series ?? ''}${passport.number ?? ''}`;
+  return piiCrypto.blindIndex(raw.replace(/\D/g, ''), PASSPORT_BLIND_LABEL);
+}
+
+/** Паспорт → строка для шифрования; объект без единого значения — как пустое поле. */
+const passportToPlain = (value: unknown): string => {
+  if (typeof value === 'string') return value;
+  if (!value || typeof value !== 'object') return '';
+  const clean = Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).filter(
+      ([, v]) => typeof v === 'string' && v.trim() !== ''
+    )
+  );
+  return Object.keys(clean).length ? JSON.stringify(clean) : '';
+};
+
+const passportFromPlain = (value: string): LearnerPassport | string => {
+  if (!value.startsWith('{')) return value;
+  try {
+    return JSON.parse(value) as LearnerPassport;
+  } catch {
+    // Расшифровалось, но это не JSON: значит, записано строкой до появления объекта — отдаём как есть.
+    return value;
+  }
+};
 
 interface LearnerAtRest {
   snils?: unknown;
@@ -60,7 +98,8 @@ export const ENCRYPTED_LEARNER_FIELDS = [
   'snils', // главный идентификатор человека в госреестрах
   'email', // способ дотянуться до человека; часто совпадает с рабочей почтой
   'phone', // то же и с меньшей защитой на другом конце
-  'dateOfBirth' // вместе с ФИО опознаёт человека не хуже СНИЛСа
+  'dateOfBirth', // вместе с ФИО опознаёт человека не хуже СНИЛСа
+  'passport' // серия и номер — готовый документ; объект шифруется целиком (МГ-C1.1, РМ76)
 ] as const;
 
 /** Перед записью в jsonb: ПДн → шифртекст (+ слепой индекс у СНИЛСа). */
@@ -71,7 +110,7 @@ export function encryptLearnerPiiAtRest(entity: unknown): unknown {
   const next: LearnerAtRest = { ...learner };
   let changed = false;
   for (const field of ENCRYPTED_LEARNER_FIELDS) {
-    const value = learner[field];
+    const value = field === 'passport' ? passportToPlain(learner[field]) : learner[field];
     /*
      * Пустые значения не шифруем: шифртекст пустой строки занимает место и ничего не
      * скрывает, а вот отличить «не заполнено» от «зашифровано» после этого сложнее.
@@ -79,6 +118,9 @@ export function encryptLearnerPiiAtRest(entity: unknown): unknown {
     if (typeof value !== 'string' || value === '' || isEncryptedPiiValue(value)) continue;
     next[field] = piiCrypto.encrypt(value);
     if (field === 'snils') next.snilsHash = snilsBlindIndex(value);
+    if (field === 'passport') {
+      next.passportHash = passportBlindIndex(learner.passport as LearnerPassport | string);
+    }
     changed = true;
   }
   return changed ? next : entity;
@@ -139,11 +181,16 @@ export function decryptLearnerPiiAtRest(document: unknown): unknown {
   for (const field of ENCRYPTED_LEARNER_FIELDS) {
     const value = learner[field];
     if (!isEncryptedPiiValue(value)) continue;
-    next[field] = piiCrypto.decrypt(value);
+    const plain = piiCrypto.decrypt(value);
+    next[field] = field === 'passport' ? passportFromPlain(plain) : plain;
     changed = true;
   }
   if ('snilsHash' in next) {
     delete next.snilsHash;
+    changed = true;
+  }
+  if ('passportHash' in next) {
+    delete next.passportHash;
     changed = true;
   }
   return changed ? next : document;

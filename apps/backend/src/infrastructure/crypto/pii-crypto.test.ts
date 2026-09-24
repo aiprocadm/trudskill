@@ -6,6 +6,7 @@ import {
   encryptDocumentSnapshotAtRest,
   encryptLearnerPiiAtRest,
   isEncryptedPiiValue,
+  passportBlindIndex,
   snilsBlindIndex
 } from './pii-crypto.js';
 
@@ -207,5 +208,36 @@ describe('шифруются все четыре персональных пол
   it('повторное шифрование не заворачивает шифртекст во второй слой', () => {
     const once = encryptLearnerPiiAtRest(learner);
     expect(encryptLearnerPiiAtRest(once)).toBe(once);
+  });
+});
+
+// МГ-C1.1 (РМ76): паспорт — объект, шифруется целиком, слепой индекс по цифрам серии и номера.
+describe('паспорт слушателя шифруется целиком и возвращается объектом', () => {
+  const learner = {
+    id: 'lrn_p',
+    firstName: 'Анна',
+    lastName: 'Новикова',
+    passport: { series: '4512', number: '123456', issuedAt: '2015-03-01', issuedBy: 'ОВД' }
+  };
+
+  it('в хранимой записи паспорт — один шифртекст с индексом, без серии и номера открытым текстом', () => {
+    const stored = encryptLearnerPiiAtRest(learner) as Record<string, unknown>;
+    expect(stored.passport).toMatch(/^enc:/);
+    expect(stored.passportHash).toBe(passportBlindIndex('4512 123456'));
+    expect(JSON.stringify(stored)).not.toContain('123456');
+    expect(encryptLearnerPiiAtRest(stored)).toBe(stored); // второй раз не шифруется
+  });
+
+  it('чтение возвращает объект паспорта и убирает индекс; пустой объект не шифруется', () => {
+    const restored = decryptLearnerPiiAtRest(encryptLearnerPiiAtRest(learner)) as typeof learner & {
+      passportHash?: string;
+    };
+    expect(restored.passport).toEqual(learner.passport);
+    expect(restored.passportHash).toBeUndefined();
+    const stored = encryptLearnerPiiAtRest({ id: 'x', passport: { series: '' } }) as Record<
+      string,
+      unknown
+    >;
+    expect(stored.passport).toEqual({ series: '' });
   });
 });

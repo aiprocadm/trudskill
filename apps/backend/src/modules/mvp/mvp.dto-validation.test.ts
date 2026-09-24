@@ -1226,3 +1226,33 @@ describe('DTO группы (Фаза 2, срез 8.1)', () => {
     expect(errorsOf(SetGroupStatusRequest, {})).not.toHaveLength(0);
   });
 });
+
+// МГ-C1.1 (срез 8.12): личное дело — паспорт вложенным объектом, пол из двух значений, null очищает.
+describe('UpdateLearnerExtendedRequest — личное дело', () => {
+  const errorsFor = (raw: Record<string, unknown>) =>
+    validateSync(plainToInstance(UpdateLearnerExtendedRequest, raw), {
+      whitelist: true,
+      forbidNonWhitelisted: true
+    });
+
+  it('принимает паспорт, пол, адрес и диплом; null очищает', () => {
+    expect(
+      errorsFor({
+        passport: { series: '4512', number: '123456', issuedAt: '2015-03-01', issuedBy: 'ОВД' },
+        gender: 'f',
+        registrationAddress: 'г. Москва',
+        diploma: { series: 'АБ', number: '1', institution: 'МГУ' },
+        counterpartyId: 'cp_1'
+      })
+    ).toHaveLength(0);
+    expect(errorsFor({ passport: null, gender: null, diploma: null })).toHaveLength(0);
+  });
+
+  it('отклоняет паспорт без номера, чужой пол и дату выдачи не в ISO', () => {
+    expect(errorsFor({ passport: { series: '4512' } })).not.toHaveLength(0);
+    expect(errorsFor({ gender: 'x' })).not.toHaveLength(0);
+    expect(
+      errorsFor({ passport: { series: '4512', number: '1', issuedAt: '01.03.2015' } })
+    ).not.toHaveLength(0);
+  });
+});
