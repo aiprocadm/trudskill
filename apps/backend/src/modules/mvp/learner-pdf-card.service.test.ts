@@ -144,7 +144,8 @@ describe('LearnerPdfCardService (Plan C §5.11)', () => {
     const aggregate = await service.composeData('tenant_demo', 'admin', 'l_1', ctx);
 
     expect(aggregate.learner.fullName).toBe('Иванов Иван Сергеевич');
-    expect(aggregate.learner.snils).toBe('111-222-333 44');
+    // Журнал 638 (РМ90): под `learners.read` СНИЛС только маской — раскрытие по причине отдельной ручкой.
+    expect(aggregate.learner.snils).toBe('***-***-*** 44');
     expect(aggregate.learner.position).toBe('Электромонтёр');
 
     expect(aggregate.enrollments).toHaveLength(1);

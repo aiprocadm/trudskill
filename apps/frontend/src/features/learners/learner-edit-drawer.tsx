@@ -23,6 +23,8 @@ import type { LearnerEditFormState, LearnerListItem, LearnerStatus } from './typ
 
 interface LearnerEditDrawerProps {
   learner: LearnerListItem;
+  /** С какой вкладки открыть: меню карточки ведёт прямо к обезличиванию (МГ-C2.1). */
+  initialTab?: 'profile' | 'personal' | 'erase';
   onClose: () => void;
   onSaved: () => void;
 }
@@ -49,8 +51,13 @@ const LEARNER_TABS = [
 ];
 const FORM_ID = 'learner-edit-form';
 
-export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDrawerProps) {
-  const [tab, setTab] = useState<string>('profile');
+export function LearnerEditDrawer({
+  learner,
+  initialTab,
+  onClose,
+  onSaved
+}: LearnerEditDrawerProps) {
+  const [tab, setTab] = useState<string>(initialTab ?? 'profile');
   const [form, setForm] = useState<LearnerEditFormState>(() => toFormState(learner));
   // CMP-010 (порция 28): панель обязана предупредить, что закрытие потеряет правки.
   const [initialForm] = useState<LearnerEditFormState>(() => toFormState(learner));

@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { learnersApi } from './api';
+import { learnerHistoryApi, learnersApi } from './api';
 import { ApiClientError } from '../../lib/api/client';
 import { useAuth } from '../auth/context';
 import { mvpApi } from '../mvp/api';
@@ -223,4 +223,16 @@ export function useEnrollLearnersToGroup() {
   };
 
   return { run, isRunning };
+}
+
+/** История слушателя — читается только когда открыта её вкладка (МГ-C2.1, срез 9.1). */
+export function useLearnerHistory(learnerId: string, enabled: boolean) {
+  const { session } = useAuth();
+  return useQuery({
+    queryKey: ['learner-history', learnerId],
+    enabled: Boolean(session) && Boolean(learnerId) && enabled,
+    queryFn: () => learnerHistoryApi.fetch(session!, learnerId),
+    /* Ошибка показывается внутри вкладки, а не тостом поверх карточки. */
+    meta: { suppressGlobalErrorToast: true }
+  });
 }

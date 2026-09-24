@@ -2,6 +2,7 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from './infrastructure/mvp-state.token.js';
+import { maskedSnils } from './pii-masking.js';
 import { AuditService } from '../audit/audit.service.js';
 import { DocumentsService } from '../documents/documents.service.js';
 
@@ -19,6 +20,11 @@ export interface LearnerPdfCardEnrollment {
   enrolledAt: string;
   completedAt?: string;
   status: string;
+  /* МГ-C2.1 (срез 9.1, РМ92): вкладка «Обучение» читает всё из агрегата — без справочников. */
+  groupId?: string;
+  groupName?: string;
+  resultCode?: string;
+  documentsCount?: number;
 }
 
 export interface LearnerPdfCardDocument {
@@ -88,16 +94,30 @@ export class LearnerPdfCardService {
       (e) => e.tenantId === tenantId && e.learnerId === learnerId
     );
 
-    const enrollmentRows: LearnerPdfCardEnrollment[] = enrollments.map((enr) =>
-      this.composeEnrollmentRow(tenantId, enr)
-    );
-
     const enrollmentIds = new Set(enrollments.map((e) => e.id));
     const documents = this.documentsService
       .listDocuments(tenantId, { sourceEntityType: 'enrollment' })
       .items.filter((d: GeneratedDocumentEntity) =>
         d.sourceEntityId ? enrollmentIds.has(d.sourceEntityId) : false
       );
+    const documentsByEnrollment = new Map<string, number>();
+    for (const d of documents) {
+      if (!d.sourceEntityId) continue;
+      documentsByEnrollment.set(
+        d.sourceEntityId,
+        (documentsByEnrollment.get(d.sourceEntityId) ?? 0) + 1
+      );
+    }
+
+    const enrollmentRows: LearnerPdfCardEnrollment[] = enrollments.map((enr) => ({
+      ...this.composeEnrollmentRow(tenantId, enr),
+      groupId: enr.groupId,
+      ...(this.groupName(tenantId, enr.groupId)
+        ? { groupName: this.groupName(tenantId, enr.groupId) }
+        : {}),
+      ...(enr.resultCode ? { resultCode: enr.resultCode } : {}),
+      documentsCount: documentsByEnrollment.get(enr.id) ?? 0
+    }));
 
     const documentRows: LearnerPdfCardDocument[] = documents.map((d) => ({
       id: d.id,
@@ -112,7 +132,8 @@ export class LearnerPdfCardService {
         id: learner.id,
         learnerNo: learner.learnerNo,
         fullName: this.composeFullName(learner),
-        snils: learner.snils,
+        /* Журнал 638 (РМ90): агрегат живёт под `learners.read` — СНИЛС только маской, как в списке. */
+        ...(learner.snils ? { snils: maskedSnils(learner.snils) } : {}),
         position: learner.position,
         email: learner.email
       },
@@ -145,6 +166,10 @@ export class LearnerPdfCardService {
       completedAt: enr.completedAt,
       status: enr.status
     };
+  }
+
+  private groupName(tenantId: string, groupId: string): string | undefined {
+    return this.state.groups.find((g) => g.tenantId === tenantId && g.id === groupId)?.name;
   }
 
   private composeFullName(learner: Learner): string {

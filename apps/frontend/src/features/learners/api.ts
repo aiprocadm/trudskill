@@ -1,7 +1,9 @@
 import { apiRequest } from '../../lib/api/client';
+import { frontendEnv } from '../../lib/config/env';
 
 import type {
   LearnerErasureReport,
+  LearnerHistory,
   LearnerListItem,
   LearnerPassport,
   LearnersListFilters,
@@ -95,3 +97,30 @@ export const learnersApi = {
       ...withAuth(session)
     })
 };
+
+/** История слушателя для вкладки карточки (МГ-C2.1, срез 9.1, РМ91). */
+export const learnerHistoryApi = {
+  fetch: (session: UserSession, learnerId: string): Promise<LearnerHistory> =>
+    apiRequest<LearnerHistory>(`/learners/${learnerId}/history`, withAuth(session))
+};
+
+/**
+ * Дело слушателя одним PDF (ФТ-C2, журнал 641): сервер отдаёт файл, а не конверт API, поэтому
+ * идём мимо `apiRequest` и возвращаем object-URL для открытия во вкладке.
+ */
+export async function fetchLearnerDossierPdfUrl(
+  session: UserSession,
+  learnerId: string
+): Promise<string> {
+  const res = await fetch(
+    `${frontendEnv.NEXT_PUBLIC_API_BASE_URL}/learners/${learnerId}/dossier.pdf`,
+    {
+      headers: {
+        authorization: `Bearer ${session.tokens.accessToken}`,
+        'x-tenant-id': session.user.tenantId
+      }
+    }
+  );
+  if (!res.ok) throw new Error(`Не удалось собрать личное дело (HTTP ${res.status})`);
+  return URL.createObjectURL(await res.blob());
+}

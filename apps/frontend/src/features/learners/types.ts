@@ -137,3 +137,18 @@ export interface UpdateLearnerProfilePayload {
   /** Только изменённые ключи: сервер сливает по ключам, пустая строка удаляет (РМ87). */
   extraFields?: Record<string, string> | null;
 }
+
+/** История слушателя (МГ-C2.1, срез 9.1): «когда / кто / что / над чем», без значений полей. */
+export interface LearnerHistoryItem {
+  id: string;
+  createdAt: string;
+  action: string;
+  entityType: string;
+  actorName?: string;
+  system: boolean;
+}
+
+export interface LearnerHistory {
+  items: LearnerHistoryItem[];
+  truncated: boolean;
+}

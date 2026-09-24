@@ -13,6 +13,11 @@ export interface LearnerPdfCardEnrollment {
   enrolledAt: string;
   completedAt?: string;
   status: string;
+  /* МГ-C2.1 (срез 9.1, РМ92): вкладка «Обучение» — из агрегата, без справочников. */
+  groupId?: string;
+  groupName?: string;
+  resultCode?: string;
+  documentsCount?: number;
 }
 
 export interface LearnerPdfCardDocument {
