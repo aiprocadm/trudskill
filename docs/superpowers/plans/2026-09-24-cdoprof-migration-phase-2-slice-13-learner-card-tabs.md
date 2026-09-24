@@ -41,13 +41,13 @@
 
 **Files:** Create `mvp/learners/learner-history.service.ts` (+ тест); Modify `mvp/learner-pdf-card.service.ts` (маска СНИЛС, поля зачисления), `learner-pdf-card.service.test.ts`, `mvp.controller.ts` (ручка `history`, `LearnerHistoryService` необязательным последним), `mvp.module.ts`.
 
-- [ ] Тесты → код → lint/typecheck → commit.
+- [x] Тесты → код → lint/typecheck → commit (§5.589).
 
 ## Task 2: фронт (срез 9.1)
 
 **Files:** Modify `features/learners/learner-detail-screen.tsx` (вкладки, меню, история), `learner-edit-drawer.tsx` (`initialTab`), `learners/{api,hooks,types}.ts` (история, PDF дела), `learner-pdf-card/types.ts`; Delete `learner-pdf-card/learner-pdf-card-sections.tsx`; снимок MET-001.
 
-- [ ] Экран; сторожа; commit.
+- [x] Экран; сторожа; commit (§5.589; снимок MET-001 обновлён).
 
 ## Task 3: документация 9.1 — handoff §5.589, трекер (РМ90–РМ93, МГ-C2.1 🔄), журнал 641 (дрейф: дело PDF не подключено) и 638 (частично), О12, README, CLAUDE. `pnpm ci:check`, PR, слияние.
 
