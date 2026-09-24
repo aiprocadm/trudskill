@@ -5,6 +5,7 @@ import { useState } from 'react';
 
 import { learnersApi } from './api';
 import { undescribedExtraFieldLabel } from './extra-fields';
+import { LearnerConsentBlock } from './learner-consent-block';
 import { useLearnerExtraFields } from './use-extra-fields';
 import { SectionCard, SectionError } from '../../components/state-wrappers';
 import { hasPermission } from '../../lib/rbac/permissions';
@@ -147,6 +148,8 @@ export function LearnerProfileSection({ learner }: { learner: LearnerProfile }) 
           ...extraFieldItems
         ]}
       />
+      {/* МГ-C5.1 (срез 12.1): согласия словами и «Отметить бумажное согласие». */}
+      <LearnerConsentBlock learnerId={learner.id} />
       {canReveal && !revealed ? (
         <div className="ui-form-actions">
           <button type="button" className="ui-button" onClick={reveal} disabled={busy}>

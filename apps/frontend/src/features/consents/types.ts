@@ -11,6 +11,9 @@ export interface ConsentStateDto {
   renewalRecommended: boolean;
   documentVersion?: number;
   hasDocument: boolean;
+  /** МГ-C5.1: откуда согласие и есть ли скан в личном деле. */
+  source?: 'self' | 'paper' | 'legacy' | 'imported';
+  evidenceFileId?: string;
 }
 
 export interface ConsentStatusDto {

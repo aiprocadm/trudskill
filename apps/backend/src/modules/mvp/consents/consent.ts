@@ -85,7 +85,14 @@ export interface ConsentFactSnapshot {
   grantedAt: string;
   revokedAt?: string | undefined;
   bodyHash?: string | undefined;
+  /* МГ-C5.1 (срез 12.1): откуда согласие и где скан — бумага, отмеченная сотрудником. */
+  source?: ConsentSource | undefined;
+  evidenceFileId?: string | undefined;
 }
+
+/** self — сам на экране; paper — бумага, отметил сотрудник; legacy — старое единое согласие; imported — перенос из прежней системы. */
+export const CONSENT_SOURCES = ['self', 'paper', 'legacy', 'imported'] as const;
+export type ConsentSource = (typeof CONSENT_SOURCES)[number];
 
 export interface ConsentState {
   kind: ConsentKind;
@@ -97,6 +104,9 @@ export interface ConsentState {
   renewalRecommended: boolean;
   documentVersion?: number;
   hasDocument: boolean;
+  /** Откуда согласие и есть ли скан (МГ-C5.1) — карточка показывает словами. */
+  source?: ConsentSource;
+  evidenceFileId?: string;
 }
 
 /**
@@ -118,6 +128,8 @@ export function resolveConsentState(
     granted,
     ...(fact?.grantedAt ? { grantedAt: fact.grantedAt } : {}),
     ...(fact?.revokedAt ? { revokedAt: fact.revokedAt } : {}),
+    ...(fact?.source ? { source: fact.source } : {}),
+    ...(fact?.evidenceFileId ? { evidenceFileId: fact.evidenceFileId } : {}),
     renewalRecommended: Boolean(
       granted && document && fact?.bodyHash && fact.bodyHash !== document.bodyHash
     ),

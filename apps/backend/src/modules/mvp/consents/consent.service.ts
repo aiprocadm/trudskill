@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  NotFoundException,
   Optional,
   PreconditionFailedException
 } from '@nestjs/common';
@@ -23,8 +24,10 @@ import {
 } from './consent.repository.js';
 import { AuditService } from '../../audit/audit.service.js';
 import { LegalLogWriter } from '../esignature/legal-log.writer.js';
+import { LEARNER_FILES_REPOSITORY } from '../learners/learner-files.repository.js';
 
 import type { RequestContext } from '../../../common/context/request-context.js';
+import type { LearnerFilesRepository } from '../learners/learner-files.repository.js';
 
 /**
  * Раздельные согласия на ПДн и на фото (ФТ-C3.2, Фаза 3 Task 6).
@@ -53,7 +56,11 @@ export class ConsentService {
     @Inject(CONSENT_REPOSITORY) private readonly repo: ConsentRepository,
     @Inject(LegalLogWriter) private readonly legalLog: LegalLogWriter,
     /* Последним и необязательным: тесты собирают сервис позиционно (см. §5.357). */
-    @Optional() @Inject(AuditService) private readonly auditService?: AuditService
+    @Optional() @Inject(AuditService) private readonly auditService?: AuditService,
+    /* МГ-C5.1 (срез 12.1): скан бумажного согласия — файл из личного дела слушателя. */
+    @Optional()
+    @Inject(LEARNER_FILES_REPOSITORY)
+    private readonly learnerFiles?: LearnerFilesRepository
   ) {}
 
   getDocument(tenantId: string, kind: ConsentKind): Promise<ConsentDocumentRow | null> {
@@ -262,6 +269,85 @@ export class ConsentService {
   }
 
   /**
+   * Бумажное согласие, полученное сотрудником (МГ-C5.1, срез 12.1, РМ109–РМ111): дата подписи
+   * становится датой согласия, источник — `paper`, скан — файл из личного дела слушателя.
+   * Действующее согласие не дублируется; после отзыва бумагу можно отметить заново.
+   */
+  async markPaper(
+    tenantId: string,
+    learnerId: string,
+    kind: ConsentKind,
+    input: { signedAt: string; fileId?: string },
+    ctx: RequestContext
+  ): Promise<ConsentState> {
+    const signedAt = paperSignedAt(input.signedAt);
+    if (!signedAt) {
+      throw new BadRequestException({
+        code: 'consent_paper_date_invalid',
+        message: 'Дата подписи согласия — в формате ГГГГ-ММ-ДД, не позже сегодняшнего дня.'
+      });
+    }
+    if (input.fileId) {
+      const file = await this.learnerFiles?.get(tenantId, learnerId, input.fileId);
+      if (!file) {
+        throw new NotFoundException({
+          code: 'file_not_found',
+          message: 'Скан не найден в личном деле этого слушателя'
+        });
+      }
+    }
+    const existing = await this.repo.findLatestFact(tenantId, learnerId, kind);
+    if (existing && !existing.revokedAt) return this.getState(tenantId, learnerId, kind);
+
+    const document = await this.repo.findCurrentDocument(tenantId, kind);
+    await this.repo.insertFact({
+      tenantId,
+      learnerId,
+      kind,
+      grantedAt: signedAt,
+      source: 'paper',
+      ...(ctx.userId ? { actorUserId: ctx.userId } : {}),
+      ...(input.fileId ? { evidenceFileId: input.fileId } : {}),
+      ...(document ? { documentVersion: document.version, bodyHash: document.bodyHash } : {}),
+      ...(ctx.ip ? { ip: ctx.ip } : {}),
+      ...(ctx.userAgent ? { userAgent: ctx.userAgent } : {})
+    });
+    await this.legalLog.write({
+      tenantId,
+      ...(ctx.userId ? { actorId: ctx.userId } : {}),
+      entityType: 'learning.learner',
+      entityId: learnerId,
+      eventType: `consent.${kind}_granted`,
+      description: `Бумажное согласие на ${KIND_TITLES[kind]} получено — отметил сотрудник`,
+      payload: {
+        kind,
+        source: 'paper',
+        signedAt: input.signedAt,
+        evidenceFileId: input.fileId,
+        documentVersion: document?.version,
+        bodyHash: document?.bodyHash
+      }
+    });
+    this.auditService?.write({
+      tenantId,
+      ...(ctx.userId ? { actorId: ctx.userId } : {}),
+      action: 'learning.consent_paper_marked',
+      entityType: 'learning.learner',
+      entityId: learnerId,
+      newValues: {
+        kind,
+        signedAt: input.signedAt,
+        ...(input.fileId ? { fileId: input.fileId } : {})
+      },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
+    return this.getState(tenantId, learnerId, kind);
+  }
+
+  /**
    * Отзыв согласия. Трогает ТОЛЬКО указанный вид — отзыв фото не отзывает согласие на
    * обработку данных. Уже принятое решение модератора не отменяется: отзыв запрещает
    * НОВУЮ обработку, а не переписывает историю.
@@ -292,3 +378,14 @@ export class ConsentService {
     return this.getState(tenantId, learnerId, kind);
   }
 }
+
+/** Дата подписи бумаги: «ГГГГ-ММ-ДД», существующий день, не позже сегодняшнего; иначе `null`. */
+const paperSignedAt = (raw: string): string | null => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((raw ?? '').trim());
+  if (!m) return null;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  if (date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d) return null;
+  if (date.getTime() > Date.now() + 24 * 60 * 60 * 1000) return null;
+  return date.toISOString();
+};

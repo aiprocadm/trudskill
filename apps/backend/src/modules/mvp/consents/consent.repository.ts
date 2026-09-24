@@ -1,4 +1,4 @@
-import type { ConsentKind } from './consent.js';
+import type { ConsentKind, ConsentSource } from './consent.js';
 
 export const CONSENT_REPOSITORY = Symbol('CONSENT_REPOSITORY');
 
@@ -23,6 +23,10 @@ export interface ConsentFactRow {
   revokedAt?: string;
   ip?: string;
   userAgent?: string;
+  /* МГ-C5.1 (0115): источник, кто отметил, скан из личного дела. */
+  source?: ConsentSource;
+  actorUserId?: string;
+  evidenceFileId?: string;
 }
 
 export interface ConsentRepository {

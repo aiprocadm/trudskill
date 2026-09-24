@@ -20,6 +20,24 @@ export const consentsApi = {
     apiRequest<ConsentDocumentsDto>('/consents/documents', { method: 'GET', ...withAuth(session) }),
   grant: (session: UserSession, kind: ConsentKind): Promise<unknown> =>
     apiRequest<unknown>(`/consents/me/${kind}/grant`, { method: 'POST', ...withAuth(session) }),
+  /** МГ-C5.1 (срез 12.1): согласия слушателя для его карточки — под правом карточки. */
+  forLearner: (session: UserSession, learnerId: string): Promise<ConsentStatusDto> =>
+    apiRequest<ConsentStatusDto>(`/consents/learners/${learnerId}/status`, {
+      method: 'GET',
+      ...withAuth(session)
+    }),
+  /** Бумажное согласие получено: дата подписи и скан из личного дела. */
+  markPaper: (
+    session: UserSession,
+    learnerId: string,
+    kind: ConsentKind,
+    payload: { signedAt: string; fileId?: string }
+  ): Promise<ConsentStateDto> =>
+    apiRequest<ConsentStateDto>(`/consents/learners/${learnerId}/${kind}/paper`, {
+      method: 'POST',
+      body: payload,
+      ...withAuth(session)
+    }),
   /** Отзыв ОДНОГО вида согласия — второй не затрагивается. */
   revoke: (session: UserSession, kind: ConsentKind): Promise<ConsentStateDto> =>
     apiRequest<ConsentStateDto>(`/consents/me/${kind}/revoke`, {

@@ -7,7 +7,7 @@ import { consentsApi } from './api';
 import { LEARNER_NOT_LINKED_SHORT, isLearnerNotLinked } from '../../lib/errors/learner-link';
 import { useAuth } from '../auth/context';
 
-import type { ConsentDocumentsDto, ConsentKind, ConsentStatusDto } from './types';
+import type { ConsentDocumentsDto, ConsentKind, ConsentStateDto, ConsentStatusDto } from './types';
 
 export function useMyConsents() {
   const { session } = useAuth();
@@ -60,4 +60,41 @@ export function useConsentToggle() {
   };
 
   return { toggle, pendingKind, error };
+}
+
+/** Согласия слушателя на его карточке (МГ-C5.1, срез 12.1). */
+export function useLearnerConsents(learnerId: string) {
+  const { session } = useAuth();
+  return useQuery({
+    queryKey: ['consents', 'learner', learnerId],
+    enabled: Boolean(session) && Boolean(learnerId),
+    queryFn: () => consentsApi.forLearner(session!, learnerId),
+    meta: { suppressGlobalErrorToast: true }
+  });
+}
+
+/** «Отметить бумажное согласие» — тот же приём `useState` + `await`, что у остальных мутаций. */
+export function useMarkPaperConsent() {
+  const { session } = useAuth();
+  const queryClient = useQueryClient();
+  const [isRunning, setIsRunning] = useState(false);
+  return {
+    isRunning,
+    run: async (
+      learnerId: string,
+      kind: ConsentKind,
+      payload: { signedAt: string; fileId?: string }
+    ): Promise<ConsentStateDto> => {
+      if (!session) throw new Error('Нет активной сессии');
+      setIsRunning(true);
+      try {
+        const state = await consentsApi.markPaper(session, learnerId, kind, payload);
+        await queryClient.invalidateQueries({ queryKey: ['consents', 'learner', learnerId] });
+        await queryClient.invalidateQueries({ queryKey: ['learners-list'] });
+        return state;
+      } finally {
+        setIsRunning(false);
+      }
+    }
+  };
 }
