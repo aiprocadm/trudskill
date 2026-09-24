@@ -16,6 +16,6 @@
 
 **Files:** Modify `features/navigation/role-home.test.ts` (+ куратор в проверке «дом открывается своим правом»), `modules/iam/services/iam.service.ts` (запасной список ролей: `curator`), `docs/ia/routes.md` (куратор обучения на маршрутах, которые роль открывает по правам 0099/0103: книга выдачи, шаблоны документов, курсы, зачисление списком, группы, слушатели, оперативная панель, госвыгрузки, отчёты, компании).
 
-- [ ] Патч → сторожа `src/e2e`, `features/navigation`, бэкенд `iam` → commit.
+- [x] Патч → сторожа `src/e2e`, `features/navigation`, бэкенд `iam` → commit.
 
-## Task 2: документация — handoff §5.582, трекер (РМ71, МГ-J1 ✅ с остатками), README, CLAUDE. `pnpm ci:check`, PR, слияние.
+## Task 2: документация — [x] сделано (§5.582) — handoff §5.582, трекер (РМ71, МГ-J1 ✅ с остатками), README, CLAUDE. `pnpm ci:check`, PR, слияние.
