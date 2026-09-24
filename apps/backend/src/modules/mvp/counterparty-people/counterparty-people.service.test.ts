@@ -30,7 +30,7 @@ const learner = (id: string, counterpartyId?: string): Learner =>
     createdAt: NOW,
     updatedAt: NOW,
     ...(counterpartyId ? { counterpartyId } : {})
-  }) as Learner;
+  }) as unknown as Learner;
 
 const ctx = (extra: Partial<RequestContext> = {}): RequestContext => ({
   requestId: 'req',
