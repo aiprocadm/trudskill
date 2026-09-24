@@ -168,6 +168,120 @@ describe('mvp service domain rules', () => {
 
     const history = service.listEnrollmentStatusHistory('tenant_demo', enrollment.id);
     expect(history.map((item) => item.status)).toEqual(['pending', 'active']);
+
+    // МГ-B7.1 (РМ62): причина отчисления попадает в историю статусов.
+    service.changeEnrollmentStatus(
+      'tenant_demo',
+      ctx.userId,
+      enrollment.id,
+      { status: 'cancelled', reason: 'уволен' },
+      ctx
+    );
+    expect(service.listEnrollmentStatusHistory('tenant_demo', enrollment.id).at(-1)).toMatchObject({
+      status: 'cancelled',
+      reason: 'уволен'
+    });
+  });
+
+  it('МГ-B7.1: «неявка» — итог, не статус: ставится и снимается у учащегося, невозможна у отчисленного и завершившего', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G2', name: 'Group' },
+      ctx
+    );
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'L2', name: 'Иванов Иван' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    service.changeEnrollmentStatus(
+      'tenant_demo',
+      ctx.userId,
+      enrollment.id,
+      { status: 'active' },
+      ctx
+    );
+
+    const absent = service.markEnrollmentResult(
+      'tenant_demo',
+      ctx.userId,
+      enrollment.id,
+      { resultCode: 'absent', reason: 'не пришёл на экзамен' },
+      ctx
+    );
+    expect(absent.resultCode).toBe('absent');
+    expect(absent.status).toBe('active');
+
+    const cleared = service.markEnrollmentResult(
+      'tenant_demo',
+      ctx.userId,
+      enrollment.id,
+      { resultCode: null },
+      ctx
+    );
+    expect(cleared.resultCode).toBeUndefined();
+
+    service.changeEnrollmentStatus(
+      'tenant_demo',
+      ctx.userId,
+      enrollment.id,
+      { status: 'completed' },
+      ctx
+    );
+    expect(() =>
+      service.markEnrollmentResult(
+        'tenant_demo',
+        ctx.userId,
+        enrollment.id,
+        { resultCode: 'absent' },
+        ctx
+      )
+    ).toThrow(PreconditionFailedException);
+
+    const other = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'L3', name: 'Петров Пётр' },
+      ctx
+    );
+    const second = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: other.id },
+      ctx
+    );
+    service.changeEnrollmentStatus(
+      'tenant_demo',
+      ctx.userId,
+      second.id,
+      { status: 'cancelled' },
+      ctx
+    );
+    expect(() =>
+      service.markEnrollmentResult(
+        'tenant_demo',
+        ctx.userId,
+        second.id,
+        { resultCode: 'absent' },
+        ctx
+      )
+    ).toThrow(/отчислен/);
   });
 
   it('calculates progress based on min_view_seconds and aggregates module/course', () => {

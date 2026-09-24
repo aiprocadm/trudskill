@@ -583,8 +583,22 @@ describe('resolveGroupLearnersVariables (Plan B §5.7)', () => {
       position: 'Электромонтёр',
       enrolledAt: '2026-04-01',
       status: 'completed',
-      learnerNo: 'L-001'
+      learnerNo: 'L-001',
+      result: '',
+      result_code: ''
     });
+  });
+
+  // МГ-B7.1 (РМ61): протокол видит «не явился» как итог, слушатель остаётся в таблице.
+  it('exposes the enrollment result as a Russian word and a code for the protocol table', () => {
+    const ctx: GroupLearnersVariableContext = {
+      learners: [learnerA],
+      enrollments: [{ ...enrollmentA, status: 'active', resultCode: 'absent' }]
+    };
+    const arr = resolveGroupLearnersVariables(ctx, ['group_learners'])[
+      'group_learners'
+    ] as GroupLearnerView[];
+    expect(arr[0]).toMatchObject({ result: 'не явился', result_code: 'absent', status: 'active' });
   });
 
   // Фаза 1 Task 4: внутри цикла админ пишет snake_case (как во всём каталоге) и нумерует строки.

@@ -71,6 +71,8 @@ export class EisotTestingRegistryService {
     ).filter(
       (e) =>
         e.status !== 'cancelled' &&
+        /* МГ-B7.1 (РМ61): не явившийся остаётся в группе, но на тестирование не подаётся. */
+        e.resultCode !== 'absent' &&
         (!filter.from || (e.enrolledAt ? e.enrolledAt >= filter.from : false)) &&
         (!filter.to || (e.enrolledAt ? e.enrolledAt <= filter.to : false))
     );

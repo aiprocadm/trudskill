@@ -289,12 +289,23 @@ describe('EisotTestingRegistryService.exportEisotTestingRegistry', () => {
       enrolledAt: '2026-03-13'
     } as Enrollment);
 
+    // МГ-B7.1 (РМ61): «не явился» остаётся в группе, но на тестирование не подаётся.
+    h.state.enrollments.push({
+      ...base,
+      id: 'enr_absent',
+      groupId: 'grp_y',
+      learnerId: 'lrn_3',
+      status: 'active',
+      resultCode: 'absent',
+      enrolledAt: '2026-03-14'
+    } as Enrollment);
+
     const outcome = await h.service.exportEisotTestingRegistry(TENANT, {}, ctx);
 
     expect(outcome.exported).toBe(0);
     expect(outcome.errors.some((e) => e.field === 'employerName')).toBe(true);
     expect(outcome.fileId).toBeUndefined();
-    expect(outcome.total).toBe(1); // cancelled enr_y excluded; only enr_x is a candidate
+    expect(outcome.total).toBe(1); // cancelled enr_y and absent enr_absent excluded; only enr_x is a candidate
     expect(h.state.eisotTestingBatches[0]!.batchStatus).toBe('failed');
     expect(h.storagePut).not.toHaveBeenCalled();
   });

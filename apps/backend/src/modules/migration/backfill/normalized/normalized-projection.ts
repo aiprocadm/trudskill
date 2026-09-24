@@ -592,6 +592,7 @@ const projectEnrollment = (entity: Entity, tenantId: string): ProjectedRow => {
       completed_at: completedAt,
       planned_end_at: str(entity.plannedEndAt),
       proctoring_override: str(entity.proctoringOverride),
+      result_code: str(entity.resultCode),
       external_id: str(entity.externalId),
       source_system: str(entity.sourceSystem)
     },
@@ -603,6 +604,7 @@ const projectEnrollment = (entity: Entity, tenantId: string): ProjectedRow => {
       'completedAt',
       'plannedEndAt',
       'proctoringOverride',
+      'resultCode',
       'externalId',
       'sourceSystem'
     ],

@@ -345,7 +345,16 @@ export interface GroupLearnerView {
   full_name: string;
   enrolled_at: string;
   learner_no: string;
+  /** МГ-B7.1: итог по зачислению словом («сдал», «не сдал», «не явился») и кодом — для протокола. */
+  result: string;
+  result_code: string;
 }
+
+const ENROLLMENT_RESULT_WORD: Record<string, string> = {
+  passed: 'сдал',
+  failed: 'не сдал',
+  absent: 'не явился'
+};
 
 export interface GroupLearnersVariableContext {
   learners: Learner[];
@@ -388,7 +397,9 @@ export function resolveGroupLearnersVariables(
         enrolled_at: enrolledAt,
         status: enr.status ?? '',
         learnerNo: l.learnerNo ?? '',
-        learner_no: l.learnerNo ?? ''
+        learner_no: l.learnerNo ?? '',
+        result: enr.resultCode ? (ENROLLMENT_RESULT_WORD[enr.resultCode] ?? enr.resultCode) : '',
+        result_code: enr.resultCode ?? ''
       };
     })
     .filter((v): v is GroupLearnerView => v !== undefined)

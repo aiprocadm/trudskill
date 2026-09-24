@@ -209,6 +209,13 @@ export interface GroupCourse extends BaseEntity {
 
 export type EnrollmentStatus = 'pending' | 'active' | 'suspended' | 'completed' | 'cancelled';
 
+/**
+ * Итог обучения по зачислению (ТЗ перехода §4, миграция 0107 `result_code`, РМ61):
+ * «сдал / не сдал / не явился». «Не явился» — НЕ статус зачисления: человек остаётся в составе
+ * группы (для протокола он «не явился»), но в ЕИСОТ-реестр не попадает.
+ */
+export type EnrollmentResultCode = 'passed' | 'failed' | 'absent';
+
 /** Phase 4 Plan B: per-student proctoring override ('require'/'exempt'); undefined inherits the group-course flag. */
 export type ProctoringOverride = 'require' | 'exempt';
 
@@ -222,6 +229,8 @@ export interface Enrollment extends BaseEntity {
   plannedEndAt?: string;
   /** Phase 4 Plan B: per-student proctoring override; undefined inherits GroupCourse.requiresProctoring. */
   proctoringOverride?: ProctoringOverride;
+  /** МГ-B7.1: итог по зачислению; `absent` ставит куратор («Отметить неявку»), остальное — экзамен (Фаза 3). */
+  resultCode?: EnrollmentResultCode;
 }
 
 /**
