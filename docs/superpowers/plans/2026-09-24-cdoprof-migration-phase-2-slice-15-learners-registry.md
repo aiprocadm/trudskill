@@ -40,13 +40,13 @@
 
 **Files:** Create `infrastructure/repositories/learners-registry.ts`, `learners/learners-registry-export.service.ts` (+ тест); Modify `learners.repository.ts`, `postgres-learners.repository.ts`, `in-memory-learners.repository.ts` (+ тест), `mvp-normalized-reads.service.ts`, `mvp.dto.ts` (`no_email`, `never_logged_in`), `mvp.controller.ts` (`registry` в списке, `GET learners/export.xlsx`), `mvp.module.ts`.
 
-- [ ] Тесты → код → lint/typecheck → commit; документация §5.594; `pnpm ci:check`, PR, слияние.
+- [x] Тесты → код → lint/typecheck → commit; документация §5.594; `pnpm ci:check`, PR, слияние.
 
 ## Task 2: фронт (срез 11.2)
 
 **Files:** Modify `features/learners/{types,api,hooks,learners-list-screen}.tsx`, снимок MET-001; Create `features/learners/registry-labels.ts`.
 
-- [ ] Экран; сторожа; commit; документация §5.595.
+- [x] Экран; сторожа; commit; документация §5.595.
 
 ## Task 3: представления на сервере (срез 11.3, МГ-H4.1)
 

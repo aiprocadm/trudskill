@@ -248,3 +248,51 @@ export function useLearnerFiles(learnerId: string) {
     meta: { suppressGlobalErrorToast: true }
   });
 }
+
+/**
+ * Массово «Выслать доступы» (МГ-C3.2, срез 11.2): по одному через `POST learners/:id/access/send`,
+ * как архивирование — отказы поимённо (нет почты, предел запросов), пачка не отменяется.
+ */
+export function useSendAccessToLearners() {
+  const { session } = useAuth();
+  const [isRunning, setIsRunning] = useState(false);
+
+  const run = async (learners: LearnerListItem[]): Promise<BulkOutcome> => {
+    if (!session) {
+      return {
+        total: learners.length,
+        succeeded: 0,
+        failures: learners.map((learner) => ({
+          label: `${learner.lastName} ${learner.firstName}`,
+          reason: 'нет активной сессии'
+        }))
+      };
+    }
+    setIsRunning(true);
+    const failures: BulkOutcome['failures'] = [];
+    let succeeded = 0;
+    for (const learner of learners) {
+      const label = `${learner.lastName} ${learner.firstName}`;
+      try {
+        const outcome = await learnersApi.sendAccess(session, learner.id);
+        if (outcome.status === 'throttled') {
+          failures.push({
+            label,
+            reason: 'слишком много запросов ссылки на этот адрес — повторите через 15 минут'
+          });
+        } else {
+          succeeded += 1;
+        }
+      } catch (err) {
+        failures.push({
+          label,
+          reason: err instanceof ApiClientError ? err.message : 'неизвестная ошибка'
+        });
+      }
+    }
+    setIsRunning(false);
+    return { total: learners.length, succeeded, failures };
+  };
+
+  return { run, isRunning };
+}

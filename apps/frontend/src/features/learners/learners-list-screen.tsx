@@ -10,23 +10,39 @@ import {
   SearchInput,
   StatusChip
 } from '@trudskill/ui';
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
+import { fetchLearnersXlsxUrl } from './api';
 import { STATUS_LABEL, formatFullName, formatSnils } from './format';
-import { useArchiveLearners, useEnrollLearnersToGroup, useLearnersList } from './hooks';
+import {
+  useArchiveLearners,
+  useEnrollLearnersToGroup,
+  useLearnersList,
+  useSendAccessToLearners
+} from './hooks';
 import { LearnerCreateDrawer } from './learner-create-drawer';
 import { LearnerEditDrawer } from './learner-edit-drawer';
 import { LearnerPasteDrawer } from './learner-paste-drawer';
+import { companyLabel, consentLabel, currentGroupLabel, lastLoginLabel } from './registry-labels';
 import { LEARNER_PRESET_VIEWS, matchesQuery, readSavedViews, writeSavedViews } from './saved-views';
-import { PageContainer, PageHeader } from '../../components/state-wrappers';
+import { PageContainer, PageHeader, SectionError } from '../../components/state-wrappers';
 import { buildCsv, downloadCsv } from '../../lib/export/csv';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
-import { GroupSelect } from '../groups/group-picker';
+import { ClientSelect, GroupSelect } from '../groups/group-picker';
 
 import type { LearnerListItem, LearnerStatus, LearnersListFilters } from './types';
 import type { SavedView } from '@trudskill/ui';
 import type { BulkOutcome, Column, RowKey } from '@trudskill/ui';
+
+/** Строка реестра: карточка плюс подписи сведений (МГ-C3.2) — ключи колонок должны быть полями строки. */
+type LearnerRow = LearnerListItem & {
+  company: string;
+  currentGroup: string;
+  lastLoginAt: string;
+  consent: string;
+};
 
 const PAGE_SIZE = 20;
 
@@ -38,7 +54,16 @@ const PAGE_SIZE = 20;
  * и показывать пользователю `ou_1f2e…` — прямое нарушение правила «ни одного сырого ID».
  * Справочник названий потребовал бы новой ручки API — вне границ фазы, записано в журнал.
  */
-const DEFAULT_COLUMNS = ['lastName', 'email', 'snils', 'position', 'status'];
+/* МГ-C3.2 (срез 11.2): семь колонок по умолчанию (§13.2); последний вход и согласие — через выбор колонок. */
+const DEFAULT_COLUMNS = [
+  'lastName',
+  'email',
+  'snils',
+  'position',
+  'company',
+  'currentGroup',
+  'status'
+];
 
 /**
  * Значение колонки для выгрузки — ПЛОСКИМ текстом (ТЗ 5.5 / Э5).
@@ -47,7 +72,7 @@ const DEFAULT_COLUMNS = ['lastName', 'email', 'snils', 'position', 'status'];
  * попал бы объект вместо слова. Статус выгружается тем же русским словом, что на экране, —
  * иначе человек откроет файл и увидит `archived`.
  */
-const csvValue = (learner: LearnerListItem, key: string): string => {
+const csvValue = (learner: LearnerRow, key: string): string => {
   switch (key) {
     case 'lastName':
       return formatFullName(learner);
@@ -61,6 +86,14 @@ const csvValue = (learner: LearnerListItem, key: string): string => {
       return learner.position ?? '';
     case 'organizationUnitId':
       return learner.organizationUnitId ?? '';
+    case 'company':
+      return learner.company;
+    case 'currentGroup':
+      return learner.currentGroup;
+    case 'lastLoginAt':
+      return learner.lastLoginAt;
+    case 'consent':
+      return learner.consent;
     default:
       return '';
   }
@@ -69,6 +102,13 @@ const csvValue = (learner: LearnerListItem, key: string): string => {
 export function LearnersListScreen() {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<'' | LearnerStatus>('');
+  /* МГ-C3.2 (срез 11.2): компания и группа — в «Ещё фильтры», два переключателя — рядом. */
+  const [companyId, setCompanyId] = useState('');
+  const [groupId, setGroupId] = useState('');
+  const [noEmail, setNoEmail] = useState(false);
+  const [neverLoggedIn, setNeverLoggedIn] = useState(false);
+  const [exportError, setExportError] = useState<unknown>(null);
+  const [exporting, setExporting] = useState(false);
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<LearnerListItem | null>(null);
   const [creating, setCreating] = useState(false);
@@ -91,10 +131,14 @@ export function LearnersListScreen() {
     () => ({
       ...(q.trim() ? { q: q.trim() } : {}),
       ...(status ? { status } : {}),
+      ...(companyId ? { companyId } : {}),
+      ...(groupId ? { groupId } : {}),
+      ...(noEmail ? { noEmail: true } : {}),
+      ...(neverLoggedIn ? { neverLoggedIn: true } : {}),
       page,
       pageSize: PAGE_SIZE
     }),
-    [q, status, page]
+    [q, status, companyId, groupId, noEmail, neverLoggedIn, page]
   );
 
   const { session } = useAuth();
@@ -104,9 +148,17 @@ export function LearnersListScreen() {
   const list = useLearnersList(filters);
   const archive = useArchiveLearners();
   const enroll = useEnrollLearnersToGroup();
-  const rows = list.data?.items ?? [];
+  const access = useSendAccessToLearners();
+  const canSendAccess = hasPermission(session?.permissions ?? [], 'learners.write');
+  const rows: LearnerRow[] = (list.data?.items ?? []).map((item) => ({
+    ...item,
+    company: companyLabel(item.registry),
+    currentGroup: currentGroupLabel(item.registry),
+    lastLoginAt: lastLoginLabel(item.registry),
+    consent: consentLabel(item.registry)
+  }));
 
-  const columns: Column<LearnerListItem>[] = [
+  const columns: Column<LearnerRow>[] = [
     { key: 'lastName', title: 'ФИО', render: (row) => formatFullName(row) },
     { key: 'email', title: 'Электронная почта', render: (row) => row.email ?? '—' },
     { key: 'snils', title: 'СНИЛС', render: (row) => formatSnils(row.snils) },
@@ -116,6 +168,27 @@ export function LearnersListScreen() {
       title: 'Подразделение',
       render: (row) => row.organizationUnitId ?? '—'
     },
+    /* МГ-C3.2 (срез 11.2): сведения реестра — компания, текущая группа, последний вход, согласие. */
+    { key: 'company', title: 'Компания', render: (row) => row.company },
+    {
+      key: 'currentGroup',
+      title: 'Группа (текущая)',
+      /* Идентификатор группы — только в адрес ссылки; на экране всегда название и статус. */
+      render: (row) => {
+        const groupHref = row.registry?.currentGroupId
+          ? `/groups/${row.registry.currentGroupId}`
+          : null;
+        return groupHref ? (
+          <Link className="ui-link" href={groupHref}>
+            {row.currentGroup}
+          </Link>
+        ) : (
+          row.currentGroup
+        );
+      }
+    },
+    { key: 'lastLoginAt', title: 'Последний вход', render: (row) => row.lastLoginAt },
+    { key: 'consent', title: 'Согласие ПДн', render: (row) => row.consent },
     {
       key: 'status',
       title: 'Статус',
@@ -124,7 +197,13 @@ export function LearnersListScreen() {
   ];
 
   const totalPages = list.data ? Math.max(1, Math.ceil(list.data.total / PAGE_SIZE)) : 1;
-  const activeFilters = (q.trim() ? 1 : 0) + (status ? 1 : 0);
+  const activeFilters =
+    (q.trim() ? 1 : 0) +
+    (status ? 1 : 0) +
+    (companyId ? 1 : 0) +
+    (groupId ? 1 : 0) +
+    (noEmail ? 1 : 0) +
+    (neverLoggedIn ? 1 : 0);
   /* Подсвечен тот отбор, чьи значения сейчас и стоят в фильтрах. */
   const activeView = [...LEARNER_PRESET_VIEWS, ...ownViews].find((view) =>
     matchesQuery(view, { q, status })
@@ -152,6 +231,29 @@ export function LearnersListScreen() {
     setEnrollGroupId('');
     setSelected([]);
     void list.refetch();
+  };
+
+  /* МГ-C3.2 (срез 11.2): массово «Выслать доступы» — по одному, отказы поимённо. */
+  const runSendAccess = async () => {
+    const result = await access.run(selectedLearners);
+    setOutcome(result);
+    void list.refetch();
+  };
+
+  /* Выгрузка XLSX с сервера (РМ105): весь реестр по текущим фильтрам, не только страница. */
+  const exportXlsx = () => {
+    if (!session) return;
+    setExporting(true);
+    setExportError(null);
+    fetchLearnersXlsxUrl(session, filters)
+      .then((url) => {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'slushateli.xlsx';
+        link.click();
+      })
+      .catch((err: unknown) => setExportError(err))
+      .finally(() => setExporting(false));
   };
 
   /* Выгружается то, что человек видит: выбранные строки и колонки, которые он оставил. */
@@ -191,6 +293,7 @@ export function LearnersListScreen() {
             }
           : {})}
       />
+      {exportError !== null ? <SectionError error={exportError} /> : null}
 
       {/*
         ТЗ 5.6 (Э6): порядок блоков списка считает каркас, а не экран. Быстрые отборы, поиск
@@ -198,7 +301,7 @@ export function LearnersListScreen() {
         в другом порядке нельзя. Раньше каждый из них рисовался здесь рядом, и порядок жил в
         памяти автора экрана.
       */}
-      <ListPage<LearnerListItem>
+      <ListPage<LearnerRow>
         /*
           CMP-012: быстрые отборы. Приходят с тремя готовыми — пустой список «сохранённых»
           бесполезен: им нельзя воспользоваться, пока сам что-нибудь не сохранишь.
@@ -255,10 +358,54 @@ export function LearnersListScreen() {
             </select>
           </>
         }
+        secondaryFilters={
+          <>
+            <ClientSelect
+              value={companyId}
+              onChange={(value) => {
+                setCompanyId(value);
+                setPage(1);
+              }}
+            />
+            <GroupSelect
+              value={groupId}
+              onChange={(value) => {
+                setGroupId(value);
+                setPage(1);
+              }}
+            />
+            <label className="ui-inline">
+              <input
+                type="checkbox"
+                checked={noEmail}
+                onChange={(e) => {
+                  setNoEmail(e.target.checked);
+                  setPage(1);
+                }}
+              />
+              Без почты
+            </label>
+            <label className="ui-inline">
+              <input
+                type="checkbox"
+                checked={neverLoggedIn}
+                onChange={(e) => {
+                  setNeverLoggedIn(e.target.checked);
+                  setPage(1);
+                }}
+              />
+              Ни разу не входил
+            </label>
+          </>
+        }
         activeFilterCount={activeFilters}
         onResetFilters={() => {
           setQ('');
           setStatus('');
+          setCompanyId('');
+          setGroupId('');
+          setNoEmail(false);
+          setNeverLoggedIn(false);
           setPage(1);
         }}
         columnPicker={
@@ -288,7 +435,7 @@ export function LearnersListScreen() {
         bulkBar={
           <BulkActionBar
             selectedCount={selected.length}
-            isRunning={archive.isRunning}
+            isRunning={archive.isRunning || access.isRunning || exporting}
             {...(outcome ? { outcome } : {})}
             /*
               ТЗ 5.5 (Э5): полезные действия, а не одно красное. «Назначить курс» из списка ТЗ
@@ -299,7 +446,11 @@ export function LearnersListScreen() {
               ...(canEnroll
                 ? [{ label: 'Добавить в группу', onSelect: () => setEnrollOpen(true) }]
                 : []),
+              ...(canSendAccess
+                ? [{ label: 'Выслать доступы', onSelect: () => void runSendAccess() }]
+                : []),
               { label: 'Выгрузить выбранных', onSelect: exportSelected },
+              { label: 'Выгрузить XLSX', onSelect: exportXlsx },
               {
                 label: 'Архивировать',
                 danger: true,

@@ -48,6 +48,8 @@ export interface LearnerListItem extends LearnerProfileFields {
   status: LearnerStatus;
   createdAt: string;
   updatedAt: string;
+  /** Сведения реестра (МГ-C3.2, срез 11.2): только на базе; без них колонки — «—». */
+  registry?: LearnerRegistryDetails;
 }
 
 /** Карточка слушателя: то же, что строка списка (ручка одна, поля те же). */
@@ -63,8 +65,23 @@ export interface LearnersListResponse {
 export interface LearnersListFilters {
   q?: string;
   status?: LearnerStatus;
+  /* МГ-C3.2 (срез 11.2): компания, группа, «без почты», «не входил» — под именами бэкенда в `api.ts`. */
+  companyId?: string;
+  groupId?: string;
+  noEmail?: boolean;
+  neverLoggedIn?: boolean;
   page?: number;
   pageSize?: number;
+}
+
+/** Сведения реестра по слушателю — зеркало серверного `LearnerRegistryDetails`. */
+export interface LearnerRegistryDetails {
+  companyName?: string;
+  currentGroupId?: string;
+  currentGroupName?: string;
+  currentGroupStatus?: string;
+  lastLoginAt?: string;
+  consentGranted?: boolean;
 }
 
 export interface LearnerEditFormState {
