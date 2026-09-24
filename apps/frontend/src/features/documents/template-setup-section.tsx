@@ -6,6 +6,12 @@ import { useState } from 'react';
 
 import { documentsApi } from './api';
 import {
+  defaultKindFor,
+  documentKindLabel,
+  kindsForTemplateType,
+  useDocumentKinds
+} from './document-kinds';
+import {
   useActiveVersionId,
   useTemplateBindings,
   useTemplateVariables,
@@ -15,6 +21,7 @@ import { SectionEmpty } from '../../components/state-wrappers';
 import { useUnsavedForm } from '../../components/use-unsaved-form';
 import { useAuth } from '../auth/context';
 import { useCoursesList, useDirectionsList, useGroupsList } from '../mvp/hooks';
+import { readApiMessage } from '../mvp/screen-helpers';
 import {
   type TemplateParseResult,
   fetchPreviewPdfUrl,
@@ -55,9 +62,12 @@ const BIND_TYPE_LABELS: Record<string, string> = {
  */
 export const TemplateSetupSection = ({
   templateId,
+  templateType,
   onError
 }: {
   templateId: string;
+  /** Тип бланка — по нему в привязке предлагаются только подходящие виды документов. */
+  templateType?: string | undefined;
   onError: (message: string | null) => void;
 }) => {
   const { session } = useAuth();
@@ -71,6 +81,8 @@ export const TemplateSetupSection = ({
   const [varCategory, setVarCategory] = useState('learner');
   const [bindType, setBindType] = useState<'course' | 'group' | 'direction'>('group');
   const [bindTargetId, setBindTargetId] = useState('');
+  /** `null` — человек вид не трогал: подставляется единственный подходящий (МГ-F1.1). */
+  const [bindKind, setBindKind] = useState<string | null>(null);
 
   const versionsQuery = useTemplateVersions(templateId);
   const activeTemplateVersionId = useActiveVersionId(templateId);
@@ -82,6 +94,11 @@ export const TemplateSetupSection = ({
 
   const groupName = new Map((groups.data?.items ?? []).map((g) => [g.id, g.name]));
   const courseName = new Map((courses.data?.items ?? []).map((c) => [c.id, c.title]));
+  const directionName = new Map((directions.data?.items ?? []).map((d) => [d.id, d.name]));
+  const kindsQuery = useDocumentKinds();
+  const kinds = kindsQuery.data?.items ?? [];
+  const fittingKinds = kindsForTemplateType(kinds, templateType);
+  const kindValue = bindKind ?? defaultKindFor(kinds, templateType) ?? '';
 
   /**
    * ФТ-A3.1/A3.2/A3.4: выбрал .docx → интент → PUT в хранилище → новая версия → активация →
@@ -167,12 +184,14 @@ export const TemplateSetupSection = ({
         bindType,
         groupId: bindType === 'group' ? bindTargetId : undefined,
         courseId: bindType === 'course' ? bindTargetId : undefined,
-        directionId: bindType === 'direction' ? bindTargetId : undefined
+        directionId: bindType === 'direction' ? bindTargetId : undefined,
+        kindCode: kindValue || undefined
       });
       setBindTargetId('');
+      setBindKind(null);
       await queryClient.invalidateQueries({ queryKey: ['template-bindings'] });
     } catch (error) {
-      onError(error instanceof Error ? error.message : 'Не удалось привязать шаблон');
+      onError(readApiMessage(error));
     }
   };
 
@@ -188,7 +207,15 @@ export const TemplateSetupSection = ({
    * прямо: настраивают его подолгу и по частям.
    */
   const unsavedGuard = useUnsavedForm(
-    { varCode, varDisplayName, varCategory, bindType, bindTargetId, blank: blankFile?.name ?? '' },
+    {
+      varCode,
+      varDisplayName,
+      varCategory,
+      bindType,
+      bindTargetId,
+      bindKind: bindKind ?? '',
+      blank: blankFile?.name ?? ''
+    },
     { saving: uploading }
   );
 
@@ -375,14 +402,19 @@ export const TemplateSetupSection = ({
         <DataTable
           columns={[
             { key: 'typeView', title: 'Применяется к' },
-            { key: 'targetView', title: 'Название' }
+            { key: 'targetView', title: 'Название' },
+            ...(fittingKinds.length > 0
+              ? [{ key: 'kindView' as const, title: 'Вид документа' }]
+              : [])
           ]}
           rows={bindingsQuery.data.items.map((item) => ({
-            typeView: BIND_TYPE_LABELS[item.bindType] ?? item.bindType,
+            typeView: BIND_TYPE_LABELS[item.bindType] ?? 'Другое',
             targetView:
               (item.groupId ? groupName.get(item.groupId) : undefined) ??
               (item.courseId ? courseName.get(item.courseId) : undefined) ??
-              '—'
+              (item.directionId ? directionName.get(item.directionId) : undefined) ??
+              '—',
+            kindView: documentKindLabel(kinds, item.kindCode)
           }))}
         />
       ) : (
@@ -417,6 +449,23 @@ export const TemplateSetupSection = ({
             ))}
           </select>
         </label>
+        {fittingKinds.length > 0 ? (
+          <label className="ui-field" style={{ minWidth: 0, maxWidth: '100%' }}>
+            <span className="ui-field-label">Вид документа</span>
+            <select
+              value={kindValue}
+              style={{ maxWidth: '100%' }}
+              onChange={(e) => setBindKind(e.target.value)}
+            >
+              <option value="">{documentKindLabel(kinds, undefined)}</option>
+              {fittingKinds.map((k) => (
+                <option key={k.code} value={k.code}>
+                  {k.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <button
           type="button"
           className="ui-button-secondary"

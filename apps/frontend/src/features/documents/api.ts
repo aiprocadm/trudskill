@@ -47,6 +47,9 @@ export interface TemplateBindingDto {
   bindType: string;
   groupId?: string;
   courseId?: string;
+  directionId?: string;
+  /** МГ-F1.1: вид документа из каталога; пусто — любой вид этого типа. */
+  kindCode?: string;
 }
 
 const auth = (session: UserSession) => ({
@@ -153,6 +156,7 @@ export const documentsApi = {
       groupId?: string | undefined;
       courseId?: string | undefined;
       directionId?: string | undefined;
+      kindCode?: string | undefined;
     }
   ) {
     return apiRequest('/template-bindings', { method: 'POST', body, ...auth(session) });

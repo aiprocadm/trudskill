@@ -549,6 +549,8 @@ export interface CourseDocumentSetEntry {
   position: number;
   isRequired: boolean;
   autoIssueOnCompletion: boolean;
+  /** МГ-F1.1: вид документа из каталога `GET /document-kinds`; пусто — любой вид этого типа. */
+  kindCode?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -558,6 +560,7 @@ export interface CourseDocumentSetEntryDraft {
   position: number;
   isRequired: boolean;
   autoIssueOnCompletion: boolean;
+  kindCode?: string;
 }
 
 export interface RegulatoryAct {

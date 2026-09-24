@@ -140,6 +140,7 @@ export function DocumentsScreen() {
         >
           <TemplateSetupSection
             templateId={setupTemplate.id ?? setupTemplate.name}
+            templateType={setupTemplate.type ?? setupTemplate.templateType}
             onError={setActionError}
           />
         </DetailDrawer>
