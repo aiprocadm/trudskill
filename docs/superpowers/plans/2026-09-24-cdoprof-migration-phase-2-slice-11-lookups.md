@@ -37,12 +37,12 @@
 
 **Files:** Create `migrations/0113_lookup_positions_education_countries.sql`, `modules/lookup/{lookup.types,lookup.repository,postgres-lookup.repository,in-memory-lookup.repository,lookup.seed,lookup.service,lookup.dto,lookup.controller,lookup.module}.ts` (+ тесты сервиса и DTO); Modify `app.module.ts`, `mvp/mvp.module.ts`, `mvp/mvp.controller.ts` (автопополнение в 4 обработчиках), `common/guards/tenant-scoped-handlers.isolation.test.ts` (глобальные списки), фронт `audit/labels.ts` (`lookup.position_created`).
 
-- [ ] Тесты → код → lint/typecheck → бэкенд тесты и сторожа → commit.
+- [x] Тесты → код → lint/typecheck → бэкенд тесты и сторожа → commit (в одном коммите с фронтом). Отклонение: `POST learners` без пополнения — у простого заведения нет поля должности.
 
 ## Task 2: фронт
 
 **Files:** Create `packages/ui/src/components/combo-input/index.tsx` (+ экспорт, тест), `features/lookup/{api,hooks}.ts` (+ контрактный тест); Modify `learner-edit-drawer.tsx` (должность и гражданство — `ComboInput`, образование — `LookupSelect`), `learner-profile-section.tsx` (уровень образования подписью), `features/lookup/labels.ts` (`EDUCATION_LEVEL_LABEL`).
 
-- [ ] Экран; сторожа; commit.
+- [x] Экран; сторожа; commit. Отклонение: у обёртки `useQuery` нет `staleTime` — кэш по умолчанию.
 
-## Task 3: документация 8.13 — handoff §5.586, трекер (РМ80–РМ83, МГ-C1.2 ✅), README, CLAUDE (миграция 0113), план — галочки. `pnpm ci:check`, PR, слияние.
+## Task 3: документация 8.13 — [x] сделано (§5.586) — handoff §5.586, трекер (РМ80–РМ83, МГ-C1.2 ✅), README, CLAUDE (миграция 0113), план — галочки. `pnpm ci:check`, PR, слияние.
