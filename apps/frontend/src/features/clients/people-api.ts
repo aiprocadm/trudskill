@@ -8,7 +8,8 @@ import type {
   ContactPayload,
   EmployeePayload,
   EmployeesBulkOutcome,
-  EmployeesBulkRowInput
+  EmployeesBulkRowInput,
+  RepresentativeInviteOutcome
 } from './people-types';
 import type { UserSession } from '../../entities/session/model';
 
@@ -56,6 +57,17 @@ export const clientPeopleApi = {
       body: payload,
       ...withAuth(session)
     }),
+
+  /** МГ-D2.1 (срез 14.3): контакт — представителем в портал заказчика, письмо входа. */
+  inviteContact: (
+    session: UserSession,
+    counterpartyId: string,
+    contactId: string
+  ): Promise<RepresentativeInviteOutcome> =>
+    apiRequest<RepresentativeInviteOutcome>(
+      `${base(counterpartyId)}/contacts/${encodeURIComponent(contactId)}/invite`,
+      { method: 'POST', ...withAuth(session) }
+    ),
 
   listEmployees: (
     session: UserSession,

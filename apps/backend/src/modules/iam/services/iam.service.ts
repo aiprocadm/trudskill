@@ -5,7 +5,8 @@ import {
   Inject,
   Injectable,
   NotFoundException,
-  Optional
+  Optional,
+  ServiceUnavailableException
 } from '@nestjs/common';
 
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
@@ -984,6 +985,55 @@ export class IamService {
     return (await this.hasRepresentativeRole(tenantId, userId))
       ? { permissions, unlinkedRepresentative: true }
       : { permissions };
+  }
+
+  /**
+   * МГ-D2.1 (срез 14.3): сделать пользователя представителем компании — привязка к компании и
+   * роль `counterparty_rep` ОДНОЙ транзакцией. Порядок «сначала роль» без привязки открыл бы
+   * портал всего центра (журнал 647); прочие роли пользователя не трогаются.
+   */
+  async linkRepresentative(
+    tenantId: string,
+    userId: string,
+    counterpartyId: string
+  ): Promise<void> {
+    if (!this.databaseService) {
+      throw new ServiceUnavailableException({
+        code: 'counterparty_people_unavailable',
+        message: 'Приглашение в портал доступно только с базой данных.'
+      });
+    }
+    const db = this.databaseService;
+    await db.withTransaction(async (client) => {
+      const updated = await db.query<{ id: string }>(
+        `update iam.users set counterparty_id = $3, updated_at = now()
+         where tenant_id = $1 and id = $2 and deleted_at is null
+         returning id`,
+        [tenantId, userId, counterpartyId],
+        client
+      );
+      if (updated.length === 0) {
+        throw new NotFoundException({ code: 'user_not_found', message: 'Пользователь не найден' });
+      }
+      const role = await db.query<{ id: string }>(
+        `select id from iam.roles where tenant_id = $1 and code = 'counterparty_rep'`,
+        [tenantId],
+        client
+      );
+      if (!role[0]) {
+        throw new ServiceUnavailableException({
+          code: 'representative_role_missing',
+          message: 'В центре нет роли «Представитель заказчика».'
+        });
+      }
+      await db.query(
+        `insert into iam.user_roles (id, tenant_id, user_id, role_id)
+         values ($1, $2, $3, $4)
+         on conflict (tenant_id, user_id, role_id) do nothing`,
+        [`ur_${Math.random().toString(36).slice(2, 12)}`, tenantId, userId, role[0].id],
+        client
+      );
+    });
   }
 
   private async hasRepresentativeRole(tenantId: string, userId: string): Promise<boolean> {

@@ -77,6 +77,18 @@ describe.skipIf(!dockerAvailable)('скоуп актора: представит
       const staff = await iam.resolveActorScope(T, 'u_staff_plain');
       expect(staff.unlinkedRepresentative).toBeUndefined();
       expect(staff.counterpartyId).toBeUndefined();
+
+      // МГ-D2.1 (срез 14.3): приглашение ставит привязку и роль одной транзакцией —
+      // представитель без привязки становится представителем СВОЕЙ компании.
+      await iam.linkRepresentative(T, 'u_rep_unlinked', 'cp_scope');
+      const invited = await iam.resolveActorScope(T, 'u_rep_unlinked');
+      expect(invited).toMatchObject({ counterpartyId: 'cp_scope' });
+      expect(invited.unlinkedRepresentative).toBeUndefined();
+
+      await iam.linkRepresentative(T, 'u_staff_plain', 'cp_scope');
+      const promoted = await iam.resolveActorScope(T, 'u_staff_plain');
+      expect(promoted).toMatchObject({ counterpartyId: 'cp_scope' });
+      expect(promoted.permissions).toContain('portal.read');
     });
   }, 180_000);
 });

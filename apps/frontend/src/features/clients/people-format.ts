@@ -19,6 +19,15 @@ export const EMPLOYEE_STATUS_LABEL: Record<EmployeeStatus, string> = {
   dismissed: 'уволен'
 };
 
+/** Итог приглашения словами — по исходу сервера, без технических кодов. */
+export function inviteOutcomeText(name: string, status: 'sent' | 'throttled' | 'logged'): string {
+  if (status === 'sent')
+    return `Приглашение отправлено: «${name}» получит ссылку для входа в портал заказчика.`;
+  if (status === 'logged')
+    return `«${name}» теперь представитель компании, но почта стенда выключена — ссылка записана в журнал сервера.`;
+  return `«${name}» — представитель компании. Письмо со ссылкой недавно уже уходило; повторить можно чуть позже.`;
+}
+
 export const contactName = (c: Pick<ClientContact, 'lastName' | 'firstName'>): string =>
   [c.lastName, c.firstName].filter(Boolean).join(' ');
 

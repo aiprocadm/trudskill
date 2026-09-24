@@ -140,6 +140,10 @@ export class InMemoryCounterpartyPeopleRepository implements CounterpartyPeopleR
       }));
   }
 
+  async ensureCounterparty(): Promise<void> {
+    /* В памяти внешних ключей нет — досоздавать нечего. */
+  }
+
   async saveEmployees(
     tenantId: string,
     counterparty: Counterparty,

@@ -75,7 +75,7 @@ describe('лимит сотрудников', () => {
     await new TenantStaffLimitService(db).assertCanAddStaff('t1');
 
     const countSql = query.mock.calls.map(([sql]) => sql).find((sql) => sql.includes('iam.users'));
-    expect(countSql).toContain("r.code <> 'learner'");
+    expect(countSql).toContain("r.code not in ('learner', 'counterparty_rep')");
     expect(countSql).toContain("u.status = 'active'");
   });
 });

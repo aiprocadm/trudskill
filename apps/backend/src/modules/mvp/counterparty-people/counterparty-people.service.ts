@@ -79,7 +79,7 @@ export class CounterpartyPeopleService {
     counterpartyId: string,
     ctx: RequestContext
   ): Promise<{ items: CounterpartyContact[] }> {
-    this.counterpartyOf(tenantId, counterpartyId, ctx);
+    this.requireCounterparty(tenantId, counterpartyId, ctx);
     return { items: await this.repo.listContacts(tenantId, counterpartyId) };
   }
 
@@ -89,7 +89,7 @@ export class CounterpartyPeopleService {
     body: CreateCounterpartyContactRequest,
     ctx: RequestContext
   ): Promise<CounterpartyContact> {
-    const counterparty = this.counterpartyOf(tenantId, counterpartyId, ctx);
+    const counterparty = this.requireCounterparty(tenantId, counterpartyId, ctx);
     const now = new Date().toISOString();
     const contact: CounterpartyContact = {
       id: newId('cc'),
@@ -119,7 +119,7 @@ export class CounterpartyPeopleService {
     body: UpdateCounterpartyContactRequest,
     ctx: RequestContext
   ): Promise<CounterpartyContact> {
-    const counterparty = this.counterpartyOf(tenantId, counterpartyId, ctx);
+    const counterparty = this.requireCounterparty(tenantId, counterpartyId, ctx);
     const current = await this.repo.getContact(tenantId, counterpartyId, contactId);
     if (!current) {
       throw new NotFoundException({ code: 'not_found', message: 'Контакт не найден' });
@@ -152,7 +152,7 @@ export class CounterpartyPeopleService {
     query: ListCounterpartyEmployeesQuery,
     ctx: RequestContext
   ): Promise<EmployeesPage> {
-    this.counterpartyOf(tenantId, counterpartyId, ctx);
+    this.requireCounterparty(tenantId, counterpartyId, ctx);
     return this.repo.listEmployees(tenantId, counterpartyId, {
       ...(query.q ? { q: query.q } : {}),
       ...(query.status ? { status: query.status } : {}),
@@ -167,7 +167,7 @@ export class CounterpartyPeopleService {
     body: CreateCounterpartyEmployeeRequest,
     ctx: RequestContext
   ): Promise<CounterpartyEmployee> {
-    const counterparty = this.counterpartyOf(tenantId, counterpartyId, ctx);
+    const counterparty = this.requireCounterparty(tenantId, counterpartyId, ctx);
     const employeeNo = clean(body.employeeNo);
     if (employeeNo) await this.assertEmployeeNoFree(tenantId, counterpartyId, employeeNo);
     const now = new Date().toISOString();
@@ -200,7 +200,7 @@ export class CounterpartyPeopleService {
     body: UpdateCounterpartyEmployeeRequest,
     ctx: RequestContext
   ): Promise<CounterpartyEmployee> {
-    const counterparty = this.counterpartyOf(tenantId, counterpartyId, ctx);
+    const counterparty = this.requireCounterparty(tenantId, counterpartyId, ctx);
     const current = await this.repo.getEmployee(tenantId, counterpartyId, employeeId);
     if (!current) {
       throw new NotFoundException({ code: 'not_found', message: 'Сотрудник не найден' });
@@ -255,7 +255,7 @@ export class CounterpartyPeopleService {
     body: BulkCounterpartyEmployeesRequest,
     ctx: RequestContext
   ): Promise<EmployeesBulkOutcome> {
-    const counterparty = this.counterpartyOf(tenantId, counterpartyId, ctx);
+    const counterparty = this.requireCounterparty(tenantId, counterpartyId, ctx);
     const existing = await this.repo.activeEmployeeKeys(tenantId, counterpartyId);
     const seenPeople = new Set(existing.map((e) => personKey(e)));
     const seenNumbers = new Set(existing.map((e) => e.employeeNo).filter(Boolean) as string[]);
@@ -348,11 +348,7 @@ export class CounterpartyPeopleService {
   }
 
   /** Компания из снимка центра с проверкой скоупа представителя: чужая — «не найдено». */
-  private counterpartyOf(
-    tenantId: string,
-    counterpartyId: string,
-    ctx: RequestContext
-  ): Counterparty {
+  requireCounterparty(tenantId: string, counterpartyId: string, ctx: RequestContext): Counterparty {
     const counterparty = this.state.counterparties.find(
       (c) => c.tenantId === tenantId && c.id === counterpartyId
     );

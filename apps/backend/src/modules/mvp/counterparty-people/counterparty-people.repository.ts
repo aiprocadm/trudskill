@@ -50,6 +50,8 @@ export interface CounterpartyPeopleRepository {
   ): Promise<
     Array<Pick<CounterpartyEmployee, 'lastName' | 'firstName' | 'middleName' | 'employeeNo'>>
   >;
+  /** Строка компании в `crm.counterparties` — до ссылок на неё извне (`iam.users`, 0071). */
+  ensureCounterparty(tenantId: string, counterparty: Counterparty): Promise<void>;
   /** Вставка или правка пачкой — одной транзакцией. */
   saveEmployees(
     tenantId: string,
