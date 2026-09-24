@@ -22,6 +22,7 @@ import type {
   Direction,
   Enrollment,
   EnrollmentCertificateRow,
+  EnrollmentResultCode,
   ExamResult,
   Group,
   GroupCourse,
@@ -318,10 +319,27 @@ export const mvpApi = {
       `/enrollments/${enrollmentId}/certificates`,
       withAuth(session)
     ),
-  updateEnrollmentStatus: (session: UserSession, id: string, status: Enrollment['status']) =>
+  /* МГ-B7.1 (РМ62): причина отчисления уходит в историю статусов. */
+  updateEnrollmentStatus: (
+    session: UserSession,
+    id: string,
+    status: Enrollment['status'],
+    reason?: string
+  ) =>
     apiRequest<Enrollment>(`/enrollments/${id}/status`, {
       method: 'PATCH',
-      body: { status },
+      body: { status, ...(reason ? { reason } : {}) },
+      ...withAuth(session)
+    }),
+  /* МГ-B7.1 (РМ61, РМ64): «Отметить неявку» / снять — итог, не статус. */
+  markEnrollmentResult: (
+    session: UserSession,
+    id: string,
+    payload: { resultCode: EnrollmentResultCode | null; reason?: string }
+  ) =>
+    apiRequest<Enrollment>(`/enrollments/${id}/result`, {
+      method: 'PATCH',
+      body: payload,
       ...withAuth(session)
     }),
 

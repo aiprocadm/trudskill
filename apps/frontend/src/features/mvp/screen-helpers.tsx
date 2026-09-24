@@ -25,6 +25,13 @@ export const ENROLLMENT_STATUS_LABEL: Record<string, string> = {
   cancelled: 'Отменён'
 };
 
+/** Итог по зачислению по-русски (МГ-B7.1, `TXT-006`): пусто — итога ещё нет. */
+export const ENROLLMENT_RESULT_LABEL: Record<string, string> = {
+  passed: 'Сдал',
+  failed: 'Не сдал',
+  absent: 'Не явился'
+};
+
 /**
  * Виды документов по-русски (`TXT-006`). Жил в карточке слушателя (learner-pdf-card),
  * экрану «Мои курсы» нужен вторым — вместо копии словарь переехал в общий слой.

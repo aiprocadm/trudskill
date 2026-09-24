@@ -2,6 +2,7 @@
 
 import {
   BlockedHint,
+  DataTable,
   DetailDrawer,
   DetailLayout,
   Dialog,
@@ -12,6 +13,7 @@ import {
   statusAccessibleLabel,
   useConfirmDialog
 } from '@trudskill/ui';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
@@ -44,9 +46,17 @@ import {
   useGroupCourses,
   useLearnerCourseProgress
 } from '../mvp/hooks';
-import { ENROLLMENT_STATUS_LABEL, MutationError, readApiMessage } from '../mvp/screen-helpers';
+import {
+  ENROLLMENT_RESULT_LABEL,
+  ENROLLMENT_STATUS_LABEL,
+  MutationError,
+  formatDate,
+  readApiMessage
+} from '../mvp/screen-helpers';
 import { useObjectCrumb } from '../navigation/use-object-crumb';
 import { proctoringApi } from '../proctoring/api';
+
+import type { Enrollment } from '../mvp/types';
 
 /*
  * TPL-002 (Фаза 4 срез 3). Что изменилось против перенесённой версии:
@@ -64,6 +74,9 @@ import { proctoringApi } from '../proctoring/api';
  * действие теперь «Зачислить слушателя» (повседневная работа с группой), а закрытие стоит
  * вторичным, красным, под тем же подтверждением с вводом названия группы (Э3).
  */
+/** Строка состава группы — зачисление как есть; подписи и ссылки строит таблица. */
+type RosterRow = Enrollment;
+
 export const GroupDetailsScreen = ({ id }: { id: string }) => {
   const { session } = useAuth();
   const router = useRouter();
@@ -84,8 +97,94 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
   const { data: enrollments, refetch: refetchEnrollments } = useEnrollments({ group_id: id });
   const learnerNames = useLearnerNames();
   const { data: progress } = useLearnerCourseProgress(groupCourses?.items[0]?.courseId);
-  const { createGroupCourse, createEnrollment, setGroupStatus, archiveGroup } =
-    useDomainMutations();
+  const {
+    createGroupCourse,
+    createEnrollment,
+    setGroupStatus,
+    archiveGroup,
+    updateEnrollmentStatus,
+    markEnrollmentResult
+  } = useDomainMutations();
+  /* МГ-B7.1 (срез 8.7b): состав группы — действия строки под правом ручек статуса и итога. */
+  const canChangeStatus = hasPermission(session?.permissions ?? [], 'enrollments.change_status');
+  const [busy, setBusy] = useState(false);
+  const { ask: askExpel, dialog: expelDialog } = useConfirmDialog();
+  /*
+   * Единственное место обработки отказа для действий состава: отказ сервера виден человеку
+   * (`MutationError` под таблицей), кнопки на время запроса заняты. Действия ниже зовут
+   * мутации только через эту обёртку.
+   */
+  const runRosterAction = async (action: () => Promise<unknown>) => {
+    setBusy(true);
+    setSaveError(null);
+    try {
+      await action();
+      await refetchEnrollments();
+    } catch (actionError) {
+      setSaveError(readApiMessage(actionError));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const roster = {
+    setStatus: (
+      enrollmentId: string,
+      status: 'active' | 'suspended' | 'cancelled',
+      reason?: string
+    ) => runRosterAction(() => updateEnrollmentStatus(enrollmentId, status, reason)),
+    setAbsent: (enrollmentId: string, absent: boolean) =>
+      runRosterAction(() =>
+        markEnrollmentResult(enrollmentId, { resultCode: absent ? 'absent' : null })
+      )
+  };
+  const confirmExpel = (enrollment: { id: string; learnerId: string }) => {
+    const name = learnerNameCell(learnerNames, enrollment.learnerId);
+    askExpel(
+      {
+        title: `Отчислить из группы: ${name}`,
+        message: `${name} не сможет войти в курсы группы «${group?.name ?? ''}», зачисление станет «Отменён» — вернуть человека можно только новым зачислением.`,
+        confirmLabel: 'Отчислить из группы',
+        tone: 'danger',
+        input: { label: 'Причина отчисления', placeholder: 'Например: уволен', required: true }
+      },
+      (reason) => void roster.setStatus(enrollment.id, 'cancelled', reason)
+    );
+  };
+  const rosterActions = (row: RosterRow) => {
+    if (!canChangeStatus || row.status === 'completed' || row.status === 'cancelled') return [];
+    const absent = row.resultCode === 'absent';
+    return [
+      ...(row.status === 'active'
+        ? [
+            {
+              label: 'Приостановить обучение',
+              disabled: busy,
+              onSelect: () => void roster.setStatus(row.id, 'suspended')
+            }
+          ]
+        : []),
+      ...(row.status === 'suspended'
+        ? [
+            {
+              label: 'Возобновить обучение',
+              disabled: busy,
+              onSelect: () => void roster.setStatus(row.id, 'active')
+            }
+          ]
+        : []),
+      {
+        label: absent ? 'Снять неявку' : 'Отметить неявку',
+        disabled: busy,
+        onSelect: () => void roster.setAbsent(row.id, !absent)
+      },
+      {
+        label: 'Отчислить из группы',
+        danger: true,
+        disabled: busy,
+        onSelect: () => confirmExpel(row)
+      }
+    ];
+  };
   const [selectedCourseId, setSelectedCourseId] = useState('');
   /* МГ-B3.1 / B6.2 (срез 8.3): ручной перевод статуса и архив — в «…», под правом `groups.write`. */
   const [statusOpen, setStatusOpen] = useState(false);
@@ -365,44 +464,77 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
           {/*
             Э4: форма зачисления переехала в панель — её открывает первичное действие шапки.
             Держать одну и ту же форму в двух местах нельзя: у действия одно место (Э1).
+            МГ-B7.1 (срез 8.7b): список стал таблицей состава — статус и итог словом, действия
+            строки в «…» (отчислить с причиной, пауза, неявка) под правом enrollments.change_status.
           */}
-          <ul className="ui-stack" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {enrollments?.items.map((item) => (
-              <li key={item.id} className="ui-inline" style={{ gap: 8, flexWrap: 'wrap' }}>
-                {/* Список зачисленных состоял из идентификаторов вместо фамилий. */}
-                <span>{learnerNameCell(learnerNames, item.learnerId)}</span>
-                {/* TXT-006: статус словом, а не кодом `active`/`completed`. */}
-                <StatusChip
-                  status={item.status}
-                  label={ENROLLMENT_STATUS_LABEL[item.status] ?? item.status}
-                />
-                {/* Phase 4 Plan B: per-student proctoring override (PATCH needs learners.write). */}
-                {session && hasPermission(session.permissions, 'learners.write') ? (
-                  <label className="ui-inline" style={{ gap: 4 }}>
-                    <span>Прокторинг:</span>
-                    <select
-                      className="ui-select"
-                      value={item.proctoringOverride ?? ''}
-                      aria-label={`Прокторинг для слушателя ${item.learnerId}`}
-                      onChange={(event) => {
-                        const value = event.target.value;
-                        void proctoringApi
-                          .setOverride(session, item.id, {
-                            override: value === 'require' || value === 'exempt' ? value : null
-                          })
-                          .then(() => refetchEnrollments())
-                          .catch((overrideError) => setSaveError(readApiMessage(overrideError)));
-                      }}
-                    >
-                      <option value="">наследуется</option>
-                      <option value="require">требуется</option>
-                      <option value="exempt">освобождён</option>
-                    </select>
-                  </label>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+          <DataTable<RosterRow>
+            columns={[
+              {
+                key: 'learnerId',
+                title: 'Слушатель',
+                render: (row) => (
+                  <Link className="ui-link" href={`/learners/${row.learnerId}`}>
+                    {learnerNameCell(learnerNames, row.learnerId)}
+                  </Link>
+                )
+              },
+              {
+                key: 'status',
+                title: 'Статус',
+                /* TXT-006: статус словом, а не кодом `active`/`completed`. */
+                render: (row) => (
+                  <StatusChip
+                    status={row.status}
+                    label={ENROLLMENT_STATUS_LABEL[row.status] ?? row.status}
+                  />
+                )
+              },
+              {
+                key: 'resultCode',
+                title: 'Итог',
+                render: (row) =>
+                  row.resultCode ? (ENROLLMENT_RESULT_LABEL[row.resultCode] ?? row.resultCode) : '—'
+              },
+              { key: 'enrolledAt', title: 'Зачислен', render: (row) => formatDate(row.enrolledAt) },
+              ...(session && hasPermission(session.permissions, 'learners.write')
+                ? [
+                    {
+                      key: 'proctoringOverride' as const,
+                      title: 'Прокторинг',
+                      /* Phase 4 Plan B: per-student proctoring override (PATCH needs learners.write). */
+                      render: (row: RosterRow) => (
+                        <select
+                          className="ui-select"
+                          value={row.proctoringOverride ?? ''}
+                          aria-label={`Прокторинг для слушателя ${learnerNameCell(learnerNames, row.learnerId)}`}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            void proctoringApi
+                              .setOverride(session, row.id, {
+                                override: value === 'require' || value === 'exempt' ? value : null
+                              })
+                              .then(() => refetchEnrollments())
+                              .catch((overrideError) =>
+                                setSaveError(readApiMessage(overrideError))
+                              );
+                          }}
+                        >
+                          <option value="">наследуется</option>
+                          <option value="require">требуется</option>
+                          <option value="exempt">освобождён</option>
+                        </select>
+                      )
+                    }
+                  ]
+                : [])
+            ]}
+            rows={enrollments?.items ?? []}
+            rowKey={(row) => row.id}
+            rowActions={rosterActions}
+            emptyMessage="В группе пока никого"
+            emptyHint="Зачислите слушателя кнопкой «Зачислить слушателя» вверху карточки или списком из файла."
+          />
+          {expelDialog}
           <MutationError message={saveError} />
         </SectionCard>
 

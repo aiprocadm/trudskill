@@ -51,6 +51,6 @@
 
 **Files:** Modify `features/mvp/api.ts` (`updateEnrollmentStatus(session, id, status, reason?)`, `markEnrollmentResult`), `hooks.ts` (мутации), `types.ts` (`Enrollment.resultCode?`), `screen-helpers.tsx` (`ENROLLMENT_RESULT_LABEL`), `groups/group-details-screen.tsx` («Слушатели группы» → `DataTable` колонки: Слушатель (ссылка), Статус (чип), Результат, Зачислен, Прокторинг (select как был, под `learners.write`); `rowActions` под `enrollments.change_status`: «Приостановить»/«Возобновить» (по переходам), «Отметить неявку»/«Снять неявку», «Отчислить» (danger, `useConfirmDialog` с `input.required` и сообщением `${ФИО} не сможет войти в курсы группы …`)), `api.contract.test.ts` (+1 с `reason`), `group-details` e2e/сторожа (`disabled-explains-itself`, `directory-select-ratchet` — select остаётся один, `irreversible-confirms-object`, `button-names-result`).
 
-- [ ] Экран, клиент; сторожа; commit.
+- [x] Экран, клиент; сторожа; commit. Отклонение: вызовы мутаций вынесены в `roster.setStatus`/`roster.setAbsent` под сторож `mutation-failure-is-visible` (обёртка — единственное место обработки отказа).
 
-### Task 4: документация 8.7b — handoff §5.579, трекер (МГ-B7.1 ✅ по коду кроме перевода P1), README, CLAUDE, `pnpm ci:check`, PR, слияние.
+### Task 4: документация 8.7b — [x] сделано (§5.579) — handoff §5.579, трекер (МГ-B7.1 ✅ по коду кроме перевода P1), README, CLAUDE, `pnpm ci:check`, PR, слияние.

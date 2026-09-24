@@ -65,6 +65,17 @@ describe('mvp api envelope compatibility', () => {
       }
     ) => Promise<{ group: { id: string }; enrollments: { failed: number } }>;
     nextGroupCode: (session: UserSession) => Promise<{ code: string }>;
+    updateEnrollmentStatus: (
+      session: UserSession,
+      id: string,
+      status: 'cancelled',
+      reason?: string
+    ) => Promise<{ id: string; status: string }>;
+    markEnrollmentResult: (
+      session: UserSession,
+      id: string,
+      payload: { resultCode: 'absent' | null }
+    ) => Promise<{ id: string; resultCode?: string }>;
     listMyEnrollments: (session: UserSession) => Promise<{
       items: Array<{ id: string; courseId?: string; courseTitle?: string; status: string }>;
     }>;
@@ -131,6 +142,29 @@ describe('mvp api envelope compatibility', () => {
       idempotencyKey: 'k1',
       courses: [{ courseId: 'c1' }]
     });
+  });
+
+  // МГ-B7.1: отчисление несёт причину в теле, неявка идёт отдельной ручкой результата.
+  it('updateEnrollmentStatus шлёт причину, markEnrollmentResult — PATCH /enrollments/:id/result', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(envelope({ id: 'enr_1', status: 'cancelled' }), { status: 200 })
+    );
+    await mvpApi.updateEnrollmentStatus(session, 'enr_1', 'cancelled', 'уволен');
+    const [statusUrl, statusInit] = fetchMock.mock.calls[0] ?? [];
+    expect(String(statusUrl)).toContain('/enrollments/enr_1/status');
+    expect(JSON.parse(String((statusInit as RequestInit).body))).toEqual({
+      status: 'cancelled',
+      reason: 'уволен'
+    });
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(envelope({ id: 'enr_1', resultCode: 'absent' }), { status: 200 })
+    );
+    const marked = await mvpApi.markEnrollmentResult(session, 'enr_1', { resultCode: 'absent' });
+    expect(marked.resultCode).toBe('absent');
+    const [resultUrl, resultInit] = fetchMock.mock.calls[1] ?? [];
+    expect(String(resultUrl)).toContain('/enrollments/enr_1/result');
+    expect((resultInit as RequestInit).method).toBe('PATCH');
   });
 
   it('nextGroupCode читает код из конверта по /groups/next-code', async () => {
