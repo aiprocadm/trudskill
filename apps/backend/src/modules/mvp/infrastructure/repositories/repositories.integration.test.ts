@@ -11,6 +11,14 @@ import {
   PostgresEnrollmentsRepository,
   parseEnrollmentListQuery
 } from './postgres-enrollments.repository.js';
+import {
+  PostgresExamResultsRepository,
+  parseExamResultListQuery
+} from './postgres-exam-results.repository.js';
+import {
+  PostgresGroupCoursesRepository,
+  parseGroupCourseListQuery
+} from './postgres-group-courses.repository.js';
 import { GROUP_SORT_COLUMNS, PostgresGroupsRepository } from './postgres-groups.repository.js';
 import {
   LEARNER_SORT_COLUMNS,
@@ -529,6 +537,167 @@ describe.skipIf(!dockerAvailable)('SQL-репозитории контраген
       ]);
       expect('createdAt' in h[0]!).toBe(false);
       expect(await repo.history(T, 'e_missing')).toEqual([]);
+    });
+  }, 180_000);
+
+  it('курсы группы и результаты (срез 4b): фильтры, anti-IDOR, форма без выдуманных полей, изоляция', async () => {
+    await withTestDb(TEST_DB, async (db) => {
+      await seed(db);
+      const learners = [
+        {
+          id: 'l1',
+          tenantId: T,
+          ...at(1),
+          firstName: 'Иван',
+          lastName: 'Иванов',
+          status: 'active'
+        },
+        {
+          id: 'l2',
+          tenantId: T,
+          ...at(2),
+          firstName: 'Пётр',
+          lastName: 'Петров',
+          status: 'active'
+        },
+        {
+          id: 'l9',
+          tenantId: T2,
+          ...at(1),
+          firstName: 'Чужой',
+          lastName: 'Чужой',
+          status: 'active'
+        }
+      ];
+      const enrollments = [
+        { id: 'e1', tenantId: T, ...at(1), groupId: 'g1', learnerId: 'l1', status: 'active' },
+        { id: 'e2', tenantId: T, ...at(2), groupId: 'g2', learnerId: 'l2', status: 'completed' },
+        { id: 'e9', tenantId: T2, ...at(1), groupId: 'g9', learnerId: 'l9', status: 'active' }
+      ];
+      const groupCourses = [
+        // Без флагов и статуса — колонки получат подстановки, ответ их не отдаст.
+        { id: 'gc1', tenantId: T, ...at(1), groupId: 'g1', courseId: 'c1', sortOrder: 0 },
+        {
+          id: 'gc2',
+          tenantId: T,
+          ...at(2),
+          groupId: 'g2',
+          courseId: 'c2',
+          courseVersionId: 'cv2',
+          sortOrder: 1,
+          requiresProctoring: true,
+          status: 'active'
+        },
+        { id: 'gc9', tenantId: T2, ...at(1), groupId: 'g9', courseId: 'c1', sortOrder: 0 }
+      ];
+      const examResults = [
+        {
+          id: 'r1',
+          tenantId: T,
+          ...at(1),
+          enrollmentId: 'e1',
+          learnerId: 'l1',
+          testId: 't_final',
+          attemptsCount: 1,
+          bestAttemptId: 'a1',
+          bestScore: 9.5,
+          finalScore: 9.5,
+          maxScore: 10,
+          passingScore: 7,
+          passed: true,
+          status: 'active'
+        },
+        {
+          id: 'r2',
+          tenantId: T,
+          ...at(2),
+          enrollmentId: 'e2',
+          learnerId: 'l2',
+          testId: 't_final',
+          attemptsCount: 2,
+          bestScore: 5,
+          finalScore: 5,
+          maxScore: 10,
+          passed: false,
+          status: 'needs_review'
+        },
+        {
+          id: 'r9',
+          tenantId: T2,
+          ...at(1),
+          enrollmentId: 'e9',
+          learnerId: 'l9',
+          testId: 't_final',
+          attemptsCount: 1,
+          maxScore: 10,
+          passed: true,
+          status: 'active'
+        }
+      ];
+      await db.withTransaction(async (client) => {
+        for (const tenant of [T, T2]) {
+          const own = <R extends { tenantId: string }>(rows: R[]) =>
+            rows.filter((r) => r.tenantId === tenant);
+          await upsertRows(
+            client,
+            TABLE_SPECS.learners,
+            own(learners).map((l) => projectEntity('learners', tenant, l, emptyContext()))
+          );
+          await upsertRows(
+            client,
+            TABLE_SPECS.groupCourses,
+            own(groupCourses).map((g) => projectEntity('groupCourses', tenant, g, emptyContext()))
+          );
+          await upsertRows(
+            client,
+            TABLE_SPECS.enrollments,
+            own(enrollments).map((e) => projectEntity('enrollments', tenant, e, emptyContext()))
+          );
+          await upsertRows(
+            client,
+            TABLE_SPECS.examResults,
+            own(examResults).map((r) => projectEntity('examResults', tenant, r, emptyContext()))
+          );
+        }
+      });
+
+      // Курсы группы: изоляция, порядок, форма без выдуманных полей, фильтры, сортировка.
+      const gcRepo = new PostgresGroupCoursesRepository(db as DatabaseService);
+      const gq = (query: Record<string, unknown>) => parseGroupCourseListQuery(query as never);
+      const gcAll = await gcRepo.list(T, gq({}));
+      expect(gcAll.items.map((g) => g.id)).toEqual(['gc1', 'gc2']);
+      expect(gcAll.items[0]).toEqual(groupCourses[0]);
+      expect(gcAll.items[1]).toEqual(groupCourses[1]);
+      expect((await gcRepo.list(T, gq({ group_id: 'g2' }))).items.map((g) => g.id)).toEqual([
+        'gc2'
+      ]);
+      expect((await gcRepo.list(T, gq({ course_version_id: 'cv2' }))).total).toBe(1);
+      expect((await gcRepo.list(T, gq({ sort: 'sortOrder:desc' }))).items.map((g) => g.id)).toEqual(
+        ['gc2', 'gc1']
+      );
+      expect(await gcRepo.get(T, 'gc9')).toBeNull();
+      expect((await gcRepo.get(T, 'gc1'))?.courseId).toBe('c1');
+
+      // Результаты: anti-IDOR, фильтры, баллы числами (сотые сохраняются), форма без finalizedAt.
+      const erRepo = new PostgresExamResultsRepository(db as DatabaseService);
+      const rq = (query: Record<string, unknown>, learnerIds: string[] | null = null) =>
+        parseExamResultListQuery(query as never, learnerIds);
+      const erAll = await erRepo.list(T, rq({}));
+      expect(erAll.items.map((r) => r.id)).toEqual(['r1', 'r2']);
+      expect(erAll.items[0]).toEqual(examResults[0]);
+      expect(erAll.items[1]).toEqual(examResults[1]);
+      expect((await erRepo.list(T, rq({}, ['l1']))).items.map((r) => r.id)).toEqual(['r1']);
+      expect((await erRepo.list(T, rq({}, []))).total).toBe(0);
+      expect((await erRepo.list(T, rq({ status: 'needs_review' }))).items.map((r) => r.id)).toEqual(
+        ['r2']
+      );
+      expect((await erRepo.list(T, rq({ test_id: 't_final', learner_id: 'l2' }))).total).toBe(1);
+      expect((await erRepo.list(T, rq({ sort: 'bestScore:desc' }))).items.map((r) => r.id)).toEqual(
+        ['r1', 'r2']
+      );
+      expect(await erRepo.get(T, 'r9')).toBeNull();
+      expect((await erRepo.byEnrollment(T, 'e1')).map((r) => r.id)).toEqual(['r1']);
+      expect(await erRepo.byEnrollment(T, 'e9')).toEqual([]);
     });
   }, 180_000);
 });

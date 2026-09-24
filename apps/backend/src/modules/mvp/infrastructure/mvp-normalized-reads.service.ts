@@ -4,10 +4,14 @@ import { decryptLearnerPiiAtRest } from '../../../infrastructure/crypto/pii-cryp
 import { resolveCounterpartyScope, scopeAllows } from '../counterparty-scope.js';
 import { COUNTERPARTIES_REPOSITORY } from './repositories/counterparties.repository.js';
 import { ENROLLMENTS_REPOSITORY } from './repositories/enrollments.repository.js';
+import { EXAM_RESULTS_REPOSITORY } from './repositories/exam-results.repository.js';
+import { GROUP_COURSES_REPOSITORY } from './repositories/group-courses.repository.js';
 import { GROUPS_REPOSITORY } from './repositories/groups.repository.js';
 import { LEARNERS_REPOSITORY } from './repositories/learners.repository.js';
 import { COUNTERPARTY_SORT_COLUMNS } from './repositories/postgres-counterparties.repository.js';
 import { parseEnrollmentListQuery } from './repositories/postgres-enrollments.repository.js';
+import { parseExamResultListQuery } from './repositories/postgres-exam-results.repository.js';
+import { parseGroupCourseListQuery } from './repositories/postgres-group-courses.repository.js';
 import { GROUP_SORT_COLUMNS } from './repositories/postgres-groups.repository.js';
 import { LEARNER_SORT_COLUMNS } from './repositories/postgres-learners.repository.js';
 import { parseRegistryListQuery } from './repositories/registry-list-query.js';
@@ -17,11 +21,15 @@ import type {
   Counterparty,
   Enrollment,
   EnrollmentStatusHistory,
+  ExamResult,
+  GroupCourse,
   GroupEntity,
   Learner
 } from '../mvp.types.js';
 import type { CounterpartiesRepository } from './repositories/counterparties.repository.js';
 import type { EnrollmentsRepository } from './repositories/enrollments.repository.js';
+import type { ExamResultsRepository } from './repositories/exam-results.repository.js';
+import type { GroupCoursesRepository } from './repositories/group-courses.repository.js';
 import type { GroupsRepository } from './repositories/groups.repository.js';
 import type { LearnersRepository } from './repositories/learners.repository.js';
 import type { LookupItem, RegistryListPage } from './repositories/registry-list-query.js';
@@ -55,7 +63,10 @@ export class MvpNormalizedReadsService {
     /* Срез 2b: слушатели. ПДн из таблицы — шифртекст; расшифровка здесь, до маскирования в контроллере. */
     @Inject(LEARNERS_REPOSITORY) private readonly learners: LearnersRepository,
     /* Срез 3b: зачисления и история статусов. */
-    @Inject(ENROLLMENTS_REPOSITORY) private readonly enrollments: EnrollmentsRepository
+    @Inject(ENROLLMENTS_REPOSITORY) private readonly enrollments: EnrollmentsRepository,
+    /* Срез 4b: курсы группы и результаты экзаменов. */
+    @Inject(GROUP_COURSES_REPOSITORY) private readonly groupCourses: GroupCoursesRepository,
+    @Inject(EXAM_RESULTS_REPOSITORY) private readonly examResults: ExamResultsRepository
   ) {}
 
   listCounterparties(
@@ -194,6 +205,59 @@ export class MvpNormalizedReadsService {
     const found = await this.enrollments.get(tenantId, enrollmentId);
     if (found) await this.assertReadAllowedForLearner(tenantId, found.learnerId, access);
     return this.enrollments.history(tenantId, enrollmentId);
+  }
+
+  /** Курсы группы (срез 4b): скоупа нет — как в снимке (`groups.read` только у персонала). */
+  async listGroupCourses(
+    tenantId: string,
+    query: BaseFilterQuery
+  ): Promise<RegistryListPage<GroupCourse>> {
+    return this.groupCourses.list(tenantId, parseGroupCourseListQuery(query));
+  }
+
+  async getGroupCourse(tenantId: string, id: string): Promise<GroupCourse> {
+    const found = await this.groupCourses.get(tenantId, id);
+    if (!found) throw new NotFoundException({ code: 'not_found', message: 'Entity not found' });
+    return found;
+  }
+
+  /**
+   * Результаты экзаменов (срез 4b) — те же правила, что у зачислений: персонал с правом обхода
+   * видит всё, слушатель — только свои (без привязки — пусто, закрыто по умолчанию).
+   */
+  async listExamResults(
+    tenantId: string,
+    query: BaseFilterQuery,
+    access?: NormalizedReadAccess
+  ): Promise<RegistryListPage<ExamResult>> {
+    const learnerIds = await this.restrictLearnerIds(tenantId, access);
+    return this.examResults.list(tenantId, parseExamResultListQuery(query, learnerIds));
+  }
+
+  /** Карточка результата: 404 для чужого центра и несуществующей; 403 — чужой привязанный слушатель. */
+  async getExamResult(
+    tenantId: string,
+    id: string,
+    access?: NormalizedReadAccess
+  ): Promise<ExamResult> {
+    const found = await this.examResults.get(tenantId, id);
+    if (!found) throw new NotFoundException({ code: 'not_found', message: 'Entity not found' });
+    await this.assertReadAllowedForLearner(tenantId, found.learnerId, access);
+    return found;
+  }
+
+  /** По зачислению: сначала 404 по зачислению, затем 403 по его слушателю — как в снимке. */
+  async getExamResultByEnrollment(
+    tenantId: string,
+    enrollmentId: string,
+    access?: NormalizedReadAccess
+  ): Promise<ExamResult[]> {
+    const enrollment = await this.enrollments.get(tenantId, enrollmentId);
+    if (!enrollment) {
+      throw new NotFoundException({ code: 'not_found', message: 'Entity not found' });
+    }
+    await this.assertReadAllowedForLearner(tenantId, enrollment.learnerId, access);
+    return this.examResults.byEnrollment(tenantId, enrollmentId);
   }
 
   private hasReadBypass(access: NormalizedReadAccess | undefined): boolean {
