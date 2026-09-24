@@ -393,3 +393,56 @@ LMS_NORMALIZED_COLLECTIONS=groups,counterparties,learners,enrollments
 DATABASE_URL=… pnpm backfill:normalized --batch 1000   # после 0111 — обязательно
 k6 run -e TOKEN=$TOKEN -e VUS=10 -e DURATION=60s infra/load/k6-cdoprof-volume.js
 ```
+
+## 2026-09-24 — «после», Фаза 1 срез 5b: все семь коллекций под флагом (`/exam-results`, `/documents` добавлены в сценарий)
+
+Стенд тот же (`trudskill_perf`, :3091), бэкфилл повторён после проекций 4a/5a, флаг
+`LMS_NORMALIZED_COLLECTIONS=groups,counterparties,learners,enrollments,groupCourses,examResults,generatedDocuments`.
+Ручки `/exam-results` и `/documents` читаются из таблиц без замка центра и без загрузки снимков
+(у документов — без девяти запросов снимка домена документов).
+
+### k6, 60 секунд
+
+| Ручка           | p95, 1 VU | max, 1 VU | p95, 10 VU | max, 10 VU | Бюджет |
+| --------------- | --------- | --------- | ---------- | ---------- | ------ |
+| `/groups`       | 0,12 с    | 0,14 с    | 0,62 с     | 0,83 с     | 0,5 с  |
+| `/learners`     | 0,06 с    | 0,07 с    | 0,48 с     | 0,66 с     | 0,5 с  |
+| `/enrollments`  | 0,05 с    | 0,08 с    | 0,49 с     | 0,85 с     | 0,5 с  |
+| `/exam-results` | 0,01 с    | 0,03 с    | 0,33 с     | 0,46 с     | 0,5 с  |
+| `/documents`    | 0,01 с    | 0,02 с    | 0,34 с     | 0,59 с     | 0,5 с  |
+| `/search`       | 0,54 с    | 0,63 с    | 2,48 с     | 4,78 с     | 0,5 с  |
+
+Запросов за 60 с при VUS=10: **2510** (1 610 после 3c, 126 «до»). Ошибок 0.00 %; память 121 МБ.
+
+```
+  /groups   p50 37 мс · p95 125 мс · max 145 мс
+  /learners p50 24 мс · p95 56 мс · max 67 мс
+  /enrollments p50 28 мс · p95 54 мс · max 80 мс
+  /exam-results p50 7 мс · p95 9 мс · max 30 мс
+  /documents p50 5 мс · p95 8 мс · max 20 мс
+  /search   p50 471 мс · p95 541 мс · max 633 мс
+  ошибок    0.00 %
+```
+
+```
+  /groups   p50 373 мс · p95 617 мс · max 833 мс
+  /learners p50 107 мс · p95 477 мс · max 659 мс
+  /enrollments p50 91 мс · p95 486 мс · max 851 мс
+  /exam-results p50 16 мс · p95 334 мс · max 463 мс
+  /documents p50 11 мс · p95 337 мс · max 592 мс
+  /search   p50 816 мс · p95 2483 мс · max 4782 мс
+  ошибок    0.00 %
+```
+
+### Вывод
+
+- `/documents` и `/exam-results` — в бюджете при десяти пользователях; сценарий стал тяжелее на два запроса за итерацию, поэтому числа списков не сравнимы напрямую с 3c по количеству запросов.
+- Остаток на `/search` (снимок целиком под замком центра) — журнал 613; выброс первого запроса после бэкфилла — журнал 615.
+
+### Как повторить
+
+```bash
+LMS_NORMALIZED_COLLECTIONS=groups,counterparties,learners,enrollments,groupCourses,examResults,generatedDocuments
+DATABASE_URL=… pnpm backfill:normalized --batch 1000
+k6 run -e TOKEN=$TOKEN -e VUS=10 -e DURATION=60s infra/load/k6-cdoprof-volume.js
+```

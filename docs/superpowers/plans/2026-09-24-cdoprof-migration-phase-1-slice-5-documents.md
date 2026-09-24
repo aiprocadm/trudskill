@@ -63,9 +63,11 @@ handoff §5.569, трекер (РМ41–РМ43, очередь, МГ-A1), README
 
 **Files:** Create `documents/infrastructure/repositories/generated-documents.repository.ts` (+ `postgres-`, `in-memory-`: `list(tenantId, {page,pageSize,search?,documentType?,sourceEntityType?,sourceEntityId?})`, `get`, `listIssued(tenantId, IssuedDocumentFilter)`), `documents/infrastructure/documents-normalized-reads.service.ts` (+ тест); Modify `documents/infrastructure/documents-request-persistence.interceptor.ts` (`@Optional() @Inject(Reflector)` последним; `readsFromNormalizedTable` как в MVP), `documents/documents.controller.ts` (три ручки + `.csv` под `@ReadsNormalized('generatedDocuments')`), `documents/documents.module.ts` (фабрика по `DOCUMENTS_PERSISTENCE_DRIVER`), `mvp/infrastructure/normalized-collections.ts` (+`generatedDocuments`; тест — пример недопустимой → `tasks`), `.env.example`, `docs/environment-and-config.md`, `repositories.integration.test.ts` документов (Docker), тест интерцептора документов (пропуск при флаге).
 
-- [ ] Commit `feat(backend): документы читаются из documents.generated_documents под флагом (Фаза 1, срез 5b)`.
+- [x] Commit 800c3de.
 
 ### Task 6: документация 5b и замер
+
+- [x] Сделано (§5.570, `LOAD_TEST_RESULTS.md`).
 
 handoff §5.570, трекер (МГ-A1/A2 — все горячие коллекции под флагом), план; k6 «после» с `LMS_NORMALIZED_COLLECTIONS=…,groupCourses,examResults,generatedDocuments` (`docs/LOAD_TEST_RESULTS.md`). `pnpm ci:check`, PR.
 
