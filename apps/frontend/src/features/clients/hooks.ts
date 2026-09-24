@@ -11,6 +11,7 @@ import type {
   ClientListItem,
   ClientsListFilters,
   CreateClientPayload,
+  InnSuggestion,
   UpdateClientPayload
 } from './types';
 
@@ -139,4 +140,35 @@ export function useSetGroupCounterparty() {
   };
 
   return { ...state, mutate, reset: () => setState({ isPending: false, error: null }) };
+}
+
+export interface InnSuggestState {
+  isPending: boolean;
+  error: string | null;
+}
+
+/** МГ-D1.2: «Заполнить по ИНН» — действие по кнопке, поэтому без кэша запросов. */
+export function useInnSuggest() {
+  const { session } = useAuth();
+  const [state, setState] = useState<InnSuggestState>({ isPending: false, error: null });
+
+  const run = async (inn: string): Promise<InnSuggestion | null> => {
+    if (!session) {
+      setState({ isPending: false, error: 'Нет активной сессии' });
+      return null;
+    }
+    setState({ isPending: true, error: null });
+    try {
+      const result = await clientsApi.suggestByInn(session, inn.replace(/\s+/g, ''));
+      setState({ isPending: false, error: null });
+      return result;
+    } catch (err) {
+      const message =
+        err instanceof ApiClientError ? err.message : 'Не удалось получить реквизиты по ИНН';
+      setState({ isPending: false, error: message });
+      return null;
+    }
+  };
+
+  return { ...state, run, reset: () => setState({ isPending: false, error: null }) };
 }

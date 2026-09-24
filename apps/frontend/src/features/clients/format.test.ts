@@ -2,12 +2,16 @@ import { describe, expect, it } from 'vitest';
 
 import {
   CLIENT_STATUS_LABEL,
+  applyInnSuggestion,
   buildClientCreatePayload,
   buildClientUpdatePayload,
+  clientRequisiteRows,
   emptyClientForm,
+  formatContractDate,
   formatInn,
   formatPhone,
   formatProgressLabel,
+  isInnForSuggest,
   toEditFormState
 } from './format';
 
@@ -70,6 +74,7 @@ describe('formatProgressLabel', () => {
 describe('buildClientUpdatePayload', () => {
   it('returns nulls for empty optional strings + required trimmed', () => {
     const payload = buildClientUpdatePayload({
+      ...emptyClientForm(),
       code: ' X ',
       name: ' Имя ',
       legalName: '',
@@ -93,6 +98,7 @@ describe('buildClientUpdatePayload', () => {
 describe('buildClientCreatePayload', () => {
   it('omits empty optional fields entirely', () => {
     const payload = buildClientCreatePayload({
+      ...emptyClientForm(),
       code: 'C',
       name: 'N',
       legalName: '',
@@ -109,6 +115,7 @@ describe('buildClientCreatePayload', () => {
 
   it('includes optional fields when non-empty', () => {
     const payload = buildClientCreatePayload({
+      ...emptyClientForm(),
       code: 'C',
       name: 'N',
       legalName: 'ООО',
@@ -158,5 +165,68 @@ describe('CLIENT_STATUS_LABEL', () => {
   it('translates statuses to Russian', () => {
     expect(CLIENT_STATUS_LABEL.active).toBe('Активна');
     expect(CLIENT_STATUS_LABEL.archived).toBe('В архиве');
+  });
+});
+
+describe('реквизиты контрагента (МГ-D1, срез 13.2)', () => {
+  const suggestion = {
+    inn: '7707083893',
+    name: 'ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ "РОМАШКА"',
+    shortName: 'ООО "РОМАШКА"',
+    kpp: '773601001',
+    ogrn: '1027700132195',
+    directorName: 'Иванов Иван Иванович',
+    liquidated: false
+  };
+
+  it('«Заполнить по ИНН» кладёт реквизиты только в пустые поля и считает их', () => {
+    const form = { ...emptyClientForm(), inn: '7707083893', code: 'R-1', kpp: '770101001' };
+    const { form: next, filled } = applyInnSuggestion(form, suggestion);
+    expect(next.name).toBe('ООО "РОМАШКА"');
+    expect(next.legalName).toBe('ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ "РОМАШКА"');
+    expect(next.kpp).toBe('770101001');
+    expect(next.ogrn).toBe('1027700132195');
+    expect(next.directorName).toBe('Иванов Иван Иванович');
+    expect(next.code).toBe('R-1');
+    expect(filled).toBe(5);
+    expect(applyInnSuggestion(next, suggestion).filled).toBe(0);
+  });
+
+  it('новые реквизиты уходят в тело: пустые при правке — null, при создании — пропускаются', () => {
+    const form = { ...emptyClientForm(), code: 'C', name: 'N', ogrn: ' 1027700132195 ' };
+    const update = buildClientUpdatePayload(form);
+    expect(update.ogrn).toBe('1027700132195');
+    expect(update.okved).toBeNull();
+    expect(update.managerUserId).toBeNull();
+    expect(buildClientCreatePayload(form)).toEqual({ code: 'C', name: 'N', ogrn: '1027700132195' });
+  });
+
+  it('карточка показывает только заполненные реквизиты словами, дату — по-русски, ответственного — по имени', () => {
+    const client: ClientListItem = {
+      id: 'cp_1',
+      tenantId: 't',
+      code: 'C',
+      name: 'N',
+      status: 'active',
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+      ogrn: '1027700132195',
+      contractDate: '2026-03-01',
+      managerUserId: 'u1',
+      managerName: 'Петрова Анна'
+    };
+    expect(clientRequisiteRows(client)).toEqual([
+      { label: 'ОГРН', value: '1027700132195' },
+      { label: 'Дата договора', value: '01.03.2026' },
+      { label: 'Ответственный за компанию', value: 'Петрова Анна' }
+    ]);
+    expect(formatContractDate('01.03.2026')).toBe('01.03.2026');
+  });
+
+  it('кнопка подстановки ждёт ИНН из 10 или 12 цифр', () => {
+    expect(isInnForSuggest('7707083893')).toBe(true);
+    expect(isInnForSuggest('500100732259')).toBe(true);
+    expect(isInnForSuggest('77070838')).toBe(false);
+    expect(isInnForSuggest('')).toBe(false);
   });
 });

@@ -7,6 +7,7 @@ import type {
   ClientsListResponse,
   CreateClientPayload,
   GroupProgressSummary,
+  InnSuggestion,
   UpdateClientPayload
 } from './types';
 import type { UserSession } from '../../entities/session/model';
@@ -54,6 +55,13 @@ export const clientsApi = {
     apiRequest<ClientListItem>(`/counterparties/${id}/profile`, {
       method: 'PATCH',
       body: payload,
+      ...withAuth(session)
+    }),
+
+  /** МГ-D1.2: реквизиты по ИНН для формы; 404 — не найдено, 503 — подстановка не подключена. */
+  suggestByInn: (session: UserSession, inn: string): Promise<InnSuggestion> =>
+    apiRequest<InnSuggestion>(`/counterparties/suggest?inn=${encodeURIComponent(inn)}`, {
+      method: 'GET',
       ...withAuth(session)
     }),
 

@@ -282,11 +282,16 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('counterparties.read')
   @ReadsNormalized('counterparties')
-  getCounterparty(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+  async getCounterparty(@CurrentContext() c: RequestContext, @Param('id') id: string) {
     const actor = { counterpartyId: c.counterpartyId };
-    return isNormalizedRead('counterparties')
-      ? this.normalizedReads.getCounterparty(c.tenantId!, id, actor)
+    const counterparty = isNormalizedRead('counterparties')
+      ? await this.normalizedReads.getCounterparty(c.tenantId!, id, actor)
       : this.mvpService.getCounterparty(c.tenantId!, id, actor);
+    // МГ-D1.1 (срез 13.2): менеджер на карточке — по ФИО, не идентификатором.
+    return {
+      ...counterparty,
+      managerName: await this.userNames.nameOf(c.tenantId!, counterparty.managerUserId)
+    };
   }
   @Post('counterparties')
   @UseGuards(PermissionGuard)
