@@ -36,12 +36,12 @@
 
 **Files:** Modify `mvp/video/learning-hours.service.ts` (поля, `@Optional() @Inject(DatabaseService)` последним аргументом, SQL последнего входа, `renderLearningJournalXlsx`, расширение CSV), `mvp/video/video-playback.controller.ts` (`GET groups/:groupId/learning-journal.xlsx`), тесты `learning-hours.service.test.ts` (+3), HTTP-стаб `mvp.http.integration.test.ts` (+1) или `learning-journal.permission.test.ts`.
 
-- [ ] Тесты → код → lint/typecheck → commit.
+- [x] Тесты → код → lint/typecheck → commit. Отклонение: имя файла XLSX — по идентификатору группы (ASCII), а не по коду.
 
 ## Task 2: фронт — раздел «Статистика посещений»
 
 **Files:** Modify `features/learning-journal/api.ts` (DTO, `fetchLearningJournalFileUrl(session, groupId, 'csv' | 'xlsx')`), `features/learning-journal/screens.tsx` (заголовок, 7 колонок: Слушатель · Статус · Последний вход · Прогресс · Часы (факт / план) · Тесты (попыток · лучший балл) · Итог; кнопки «Выгрузить XLSX» и «Выгрузить CSV»; подсказка, что раскладка минут — в файле), тесты раздела/контракта (если есть), журнал 636.
 
-- [ ] Экран, клиент; сторожа; commit.
+- [x] Экран, клиент; сторожа; commit.
 
-## Task 3: документация 8.8 — handoff §5.580, трекер (РМ65–РМ67, МГ-B4.2 ✅), README, CLAUDE, журнал 636, план — галочки. `pnpm ci:check`, PR, слияние.
+## Task 3: документация 8.8 — [x] сделано (§5.580) — handoff §5.580, трекер (РМ65–РМ67, МГ-B4.2 ✅), README, CLAUDE, журнал 636, план — галочки. `pnpm ci:check`, PR, слияние.
