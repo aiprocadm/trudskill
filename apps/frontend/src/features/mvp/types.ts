@@ -118,6 +118,10 @@ export interface PortalDocument extends BaseEntity {
 export interface Direction extends BaseEntity {
   code: string;
   name: string;
+  /** МГ-E1.1: вложенность и порядок направлений. */
+  parentDirectionId?: string;
+  sortOrder?: number;
+  note?: string;
 }
 
 export interface Course extends BaseEntity {
@@ -125,6 +129,8 @@ export interface Course extends BaseEntity {
   title: string;
   description?: string;
   isArchived: boolean;
+  /** МГ-E1.1: направление курса. */
+  directionId?: string;
 }
 
 export interface CourseVersion extends BaseEntity {
