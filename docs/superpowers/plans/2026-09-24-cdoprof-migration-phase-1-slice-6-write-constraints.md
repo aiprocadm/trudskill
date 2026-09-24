@@ -25,8 +25,10 @@
 
 **Files:** Modify `apps/backend/src/modules/mvp/mvp.service.ts` (`assertRegistryCodeFree(source, tenantId, code, exceptId, what)`; вызовы в `createGroup`, `updateGroup`, `createCounterparty`, `updateCounterparty`, `createCounterpartyExtended`, `updateCounterpartyExtended`), `mvp.service.test.ts` (+ случаи выше).
 
-- [ ] Commit `fix(backend): код группы и контрагента уникален в центре — 409 вместо дубля, который под флагом пропадает из списка (Фаза 1, срез 6.0)`.
+- [x] Сделано (см. коммит в PR).
 
 ### Task 2: документация
+
+- [x] Сделано (§5.571).
 
 handoff §5.571, трекер (РМ44, очередь, МГ-A1), README, журнал 625 (дефект логики — исправлено), 626 (дорожная карта 6.x/7 пересмотрена). `pnpm ci:check`, PR.
