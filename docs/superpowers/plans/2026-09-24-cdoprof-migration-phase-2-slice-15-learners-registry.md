@@ -52,4 +52,4 @@
 
 **Files:** Create миграция `0114_reports_saved_views.sql`, `modules/reports/saved-views.*`; Modify `features/learners/saved-views.ts` (+ тест), `packages/ui/saved-views`.
 
-- [ ] Миграция; ручки; фронт; документация §5.596 (МГ-C3.2 ✅, МГ-H4.1 ✅ для слушателей).
+- [x] Миграция 0114; модуль `saved-views` (свои/общие, предел 30); `features/saved-views`; реестр слушателей на сервере с разовым переносом из браузера; документация §5.596 (МГ-C3.2 ✅, МГ-H4.1 ✅ для слушателей).

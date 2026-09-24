@@ -237,6 +237,9 @@ const PHRASES: Record<string, string> = {
   'learning.learner_file_attached': 'Файл добавлен в личное дело',
   'learning.learner_file_removed': 'Файл удалён из личного дела',
   'learning.learner_access_sent': 'Слушателю выслана ссылка для входа',
+  /* МГ-H4.1 (срез 11.3): представления реестров. */
+  'reports.saved_view_created': 'Представление реестра сохранено',
+  'reports.saved_view_deleted': 'Представление реестра удалено',
   'assessment.test_rules_updated': 'Правила теста изменены',
   'learning.enrollments_bulk': 'Массовое зачисление выполнено',
   'learning.enrollment_status_changed': 'Статус зачисления изменён',
@@ -298,6 +301,8 @@ const ENTITY_LABELS: Record<string, string> = {
   /* ТЗ 15.5: обращение из кнопки «Сообщить о проблеме». */
   'support.problem_report': 'Обращение в поддержку',
   'reports.template': 'Шаблон отчёта',
+  /* МГ-H4.1 (срез 11.3): представление реестра — своё или общее центра. */
+  'reports.saved_view': 'Представление реестра',
   'documents.generated': 'Выпущенный документ',
   'documents.generated_document': 'Выпущенный документ',
   'assessment.test_attempt': 'Попытка теста',

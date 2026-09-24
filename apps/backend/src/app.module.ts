@@ -21,6 +21,7 @@ import { MvpModule } from './modules/mvp/mvp.module.js';
 import { OrgModule } from './modules/org/org.module.js';
 import { PaymentsModule } from './modules/payments/payments.module.js';
 import { PlatformModule } from './modules/platform/platform.module.js';
+import { SavedViewsModule } from './modules/saved-views/saved-views.module.js';
 import { SupportModule } from './modules/support/support.module.js';
 import { TasksModule } from './modules/tasks/tasks.module.js';
 import { TenantModule } from './modules/tenant/tenant.module.js';
@@ -43,6 +44,8 @@ const baseModules = [
   CommunicationModule,
   /* ТЗ перехода с CDOPROF, МГ-C1.2: справочники личного дела (должности, образование, страны). */
   LookupModule,
+  /* ТЗ перехода с CDOPROF, МГ-H4.1: сохранённые представления реестров на сервере. */
+  SavedViewsModule,
   EsignModule,
   WorkspaceModule
 ];

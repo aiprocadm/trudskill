@@ -11,7 +11,7 @@ import {
   StatusChip
 } from '@trudskill/ui';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { fetchLearnersXlsxUrl } from './api';
 import { STATUS_LABEL, formatFullName, formatSnils } from './format';
@@ -25,15 +25,21 @@ import { LearnerCreateDrawer } from './learner-create-drawer';
 import { LearnerEditDrawer } from './learner-edit-drawer';
 import { LearnerPasteDrawer } from './learner-paste-drawer';
 import { companyLabel, consentLabel, currentGroupLabel, lastLoginLabel } from './registry-labels';
-import { LEARNER_PRESET_VIEWS, matchesQuery, readSavedViews, writeSavedViews } from './saved-views';
+import {
+  LEARNERS_VIEW_ENTITY,
+  LEARNER_PRESET_VIEWS,
+  clearLegacyViews,
+  matchesQuery,
+  readLegacyViews
+} from './saved-views';
 import { PageContainer, PageHeader, SectionError } from '../../components/state-wrappers';
 import { buildCsv, downloadCsv } from '../../lib/export/csv';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 import { ClientSelect, GroupSelect } from '../groups/group-picker';
+import { useSavedViews, useSavedViewsMutations } from '../saved-views/hooks';
 
 import type { LearnerListItem, LearnerStatus, LearnersListFilters } from './types';
-import type { SavedView } from '@trudskill/ui';
 import type { BulkOutcome, Column, RowKey } from '@trudskill/ui';
 
 /** Строка реестра: карточка плюс подписи сведений (МГ-C3.2) — ключи колонок должны быть полями строки. */
@@ -114,11 +120,11 @@ export function LearnersListScreen() {
   const [creating, setCreating] = useState(false);
   /* МГ-C3.1 (срез 10.2): вставка списком — тем же импортом, без группы. */
   const [pasting, setPasting] = useState(false);
-  /*
-    CMP-012. Свои отборы читаются один раз при первом отрисовывании: хранилище браузера
-    синхронное, и дёргать его на каждый ввод в поиске незачем.
-  */
-  const [ownViews, setOwnViews] = useState<SavedView[]>(() => readSavedViews());
+  /* CMP-012 · МГ-H4.1 (срез 11.3): свои и общие отборы — с сервера, видны с любого устройства. */
+  const savedViews = useSavedViews(LEARNERS_VIEW_ENTITY);
+  const viewsMutation = useSavedViewsMutations(LEARNERS_VIEW_ENTITY);
+  const ownViews = savedViews.views;
+  const [viewError, setViewError] = useState<unknown>(null);
   const [selected, setSelected] = useState<RowKey[]>([]);
   const [visibleColumns, setVisibleColumns] = useState<string[]>(DEFAULT_COLUMNS);
   const [confirmingArchive, setConfirmingArchive] = useState(false);
@@ -205,9 +211,57 @@ export function LearnersListScreen() {
     (noEmail ? 1 : 0) +
     (neverLoggedIn ? 1 : 0);
   /* Подсвечен тот отбор, чьи значения сейчас и стоят в фильтрах. */
+  const currentQuery: Record<string, string> = {
+    q,
+    status,
+    companyId,
+    groupId,
+    noEmail: noEmail ? '1' : '',
+    neverLoggedIn: neverLoggedIn ? '1' : ''
+  };
   const activeView = [...LEARNER_PRESET_VIEWS, ...ownViews].find((view) =>
-    matchesQuery(view, { q, status })
+    matchesQuery(view, currentQuery)
   );
+
+  /* Отбор с сервера или готовый — в фильтры экрана; чужие ключи игнорируются (РМ107). */
+  const applyView = (query: Record<string, string>) => {
+    setQ(query.q ?? '');
+    setStatus((query.status ?? '') as '' | LearnerStatus);
+    setCompanyId(query.companyId ?? '');
+    setGroupId(query.groupId ?? '');
+    setNoEmail(query.noEmail === '1');
+    setNeverLoggedIn(query.neverLoggedIn === '1');
+    setPage(1);
+  };
+
+  const saveView = (label: string) => {
+    setViewError(null);
+    viewsMutation
+      .save({ name: label, filters: currentQuery, columns: visibleColumns })
+      .catch((err: unknown) => setViewError(err));
+  };
+
+  const deleteView = (id: string) => {
+    const dto = savedViews.dtos.find((item) => item.id === id);
+    if (!dto) return;
+    setViewError(null);
+    viewsMutation.remove(dto).catch((err: unknown) => setViewError(err));
+  };
+
+  /*
+   * Разовый перенос (РМ108): отборы, сохранённые в браузере до переезда, уезжают на сервер при
+   * первом открытии и ключ очищается — второй раз они не поедут.
+   */
+  useEffect(() => {
+    if (!session || savedViews.isLoading) return;
+    const legacy = readLegacyViews(typeof window === 'undefined' ? undefined : window.localStorage);
+    if (legacy.length === 0) return;
+    clearLegacyViews(typeof window === 'undefined' ? undefined : window.localStorage);
+    void Promise.all(
+      legacy.map((view) => viewsMutation.save({ name: view.label, filters: view.query }))
+    ).catch((err: unknown) => setViewError(err));
+    /* Нарочно один раз на сессию: перенос — событие, а не подписка на состояние. */
+  }, [session?.user.id, savedViews.isLoading]);
 
   const selectedLearners = rows.filter((row) => selected.includes(row.id));
 
@@ -294,6 +348,7 @@ export function LearnersListScreen() {
           : {})}
       />
       {exportError !== null ? <SectionError error={exportError} /> : null}
+      {viewError !== null ? <SectionError error={viewError} /> : null}
 
       {/*
         ТЗ 5.6 (Э6): порядок блоков списка считает каркас, а не экран. Быстрые отборы, поиск
@@ -312,26 +367,10 @@ export function LearnersListScreen() {
             {...(activeView ? { activeId: activeView.id } : {})}
             onApply={(id) => {
               const view = [...LEARNER_PRESET_VIEWS, ...ownViews].find((item) => item.id === id);
-              if (!view) return;
-              setQ(view.query.q ?? '');
-              setStatus((view.query.status ?? '') as '' | LearnerStatus);
-              setPage(1);
+              if (view) applyView(view.query);
             }}
-            onSave={(label) => {
-              const view: SavedView = {
-                id: `own-${label}-${status}-${q}`,
-                label,
-                query: { q, status }
-              };
-              const next = [...ownViews.filter((item) => item.id !== view.id), view];
-              setOwnViews(next);
-              writeSavedViews(next);
-            }}
-            onDelete={(id) => {
-              const next = ownViews.filter((item) => item.id !== id);
-              setOwnViews(next);
-              writeSavedViews(next);
-            }}
+            onSave={saveView}
+            onDelete={deleteView}
           />
         }
         filters={
