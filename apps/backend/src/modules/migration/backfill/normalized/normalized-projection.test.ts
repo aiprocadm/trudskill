@@ -409,6 +409,48 @@ describe('круговой проход: projectEntity → rowToEntity возв�
     ).toEqual(legacy);
   });
 
+  it('документ: связи из контекста, подстановки и служебные ключи payload обратно не возвращаются (срез 5a)', () => {
+    const ctx = emptyContext();
+    ctx.enrollments.set('e1', { groupId: 'g1', learnerId: 'l1' });
+    ctx.groups.set('g1', { counterpartyId: 'cp1' });
+    ctx.files.add('f1');
+    // У документа снимка нет createdAt/updatedAt, kindCode, finalizedAt — как у настоящей сущности.
+    const source = {
+      id: 'd1',
+      tenantId: T,
+      templateId: 'tpl',
+      templateVersionId: 'tplv',
+      documentType: 'certificate',
+      name: 'Удостоверение',
+      sourceEntityType: 'enrollment',
+      sourceEntityId: 'e1',
+      fileId: 'f1',
+      status: 'final',
+      isFinal: true,
+      documentNumber: 'АБ-1',
+      documentDate: '2026-09-02',
+      generatedAt: '2026-09-02T10:00:00.000Z',
+      qrToken: 'q'.repeat(22),
+      learnerNamePublic: 'Иванов И. И.'
+    };
+    const row = projectEntity('generatedDocuments', T, source, ctx);
+    expect(row.columns.learner_id).toBe('l1');
+    expect(row.columns.storage_file_id).toBe('f1');
+    expect(row.columns.finalized_at).toBe(source.generatedAt);
+    const dbRow = asDbRow(row);
+    // Отвязка при удалении слушателя в MVP оставляет исходник в служебном ключе.
+    dbRow.payload = { ...(dbRow.payload as object), __detached: { learner_id: 'l1' } };
+    expect(rowToEntity('generatedDocuments', dbRow)).toEqual(source);
+    // Отозванный «финальный» возвращается с исходным флагом.
+    const revoked = { ...source, status: 'revoked', revokedAt: '2026-09-03T10:00:00.000Z' };
+    expect(
+      rowToEntity(
+        'generatedDocuments',
+        asDbRow(projectEntity('generatedDocuments', T, revoked, ctx))
+      )
+    ).toEqual(revoked);
+  });
+
   it('история статусов: created_at нужен базе, но у сущности снимка его нет — обратно не возвращается', () => {
     const source = {
       id: 'h1',

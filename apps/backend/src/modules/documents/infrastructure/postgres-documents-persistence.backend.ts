@@ -16,6 +16,18 @@ import {
   bumpTenantStateVersion,
   readTenantStateVersion
 } from '../../../infrastructure/database/tenant-state-version.js';
+import {
+  type ProjectedRow,
+  type ProjectionContext,
+  TABLE_SPECS,
+  projectEntity
+} from '../../migration/backfill/normalized/normalized-projection.js';
+import {
+  deleteAbsent,
+  deleteRows,
+  loadGeneratedDocumentContext,
+  upsertRows
+} from '../../migration/backfill/normalized/normalized-upsert.js';
 
 import type { GeneratedDocumentEntity } from '../documents.types.js';
 import type { InMemoryDocumentsState } from '../in-memory-documents.state.js';
@@ -226,6 +238,134 @@ export class PostgresDocumentsPersistenceBackend implements DocumentsPersistence
          values ($1, $2, $3, $4::jsonb, now(), now())`,
         [tenantId, IDEM_COLLECTION, IDEM_ROW_ID, JSON.stringify(idemPayload)]
       );
+
+      // Фаза 1, срез 5a (РМ41): изменённые документы догоняют `documents.generated_documents`
+      // в той же транзакции, что и снимок; при двойной записи — ровно один раз, у таблицы чтения.
+      if (tableName === this.authoritativeTable()) {
+        await this.projectChanged(client, tenantId, state);
+      }
+    });
+  }
+
+  /**
+   * Проекция изменённых документов (срез 5a). Снимок остаётся источником правды; таблица
+   * догоняет его на каждом сохранении. Контекст (зачисление → слушатель и группа, группа →
+   * контрагент, файл) читается из таблиц той же транзакцией; чего там нет — обнуляется в
+   * `payload` (как в бэкфилле), отказ строки уходит в журнал сверки `projection_failed`, а
+   * снимок сохраняется всегда (РМ35).
+   */
+  private async projectChanged(
+    client: PoolClient,
+    tenantId: string,
+    state: InMemoryDocumentsState
+  ): Promise<void> {
+    const changes = state.changedGeneratedDocuments();
+    const documents = changes === 'all' ? state.generatedDocuments : changes.upserted;
+    const deletedIds = changes === 'all' ? [] : changes.deletedIds;
+    if (changes !== 'all' && documents.length === 0 && deletedIds.length === 0) return;
+
+    const ctx = await loadGeneratedDocumentContext(
+      client,
+      tenantId,
+      documents as unknown as Array<Record<string, unknown>>
+    );
+    await this.projectRows(client, tenantId, documents, ctx);
+
+    const spec = TABLE_SPECS.generatedDocuments;
+    if (changes === 'all') {
+      await this.projectSafely(client, tenantId, null, () =>
+        deleteAbsent(
+          client,
+          spec,
+          tenantId,
+          state.generatedDocuments.map((d) => d.id)
+        )
+      );
+    } else if (deletedIds.length > 0) {
+      await this.projectSafely(client, tenantId, null, () =>
+        deleteRows(client, spec, tenantId, deletedIds)
+      ).then(() => undefined);
+    }
+  }
+
+  /** Пачкой в точке сохранения; при отказе — по одной, чтобы назвать плохую строку. */
+  private async projectRows(
+    client: PoolClient,
+    tenantId: string,
+    documents: GeneratedDocumentEntity[],
+    ctx: ProjectionContext
+  ): Promise<void> {
+    if (documents.length === 0) return;
+    const spec = TABLE_SPECS.generatedDocuments;
+    const rows: Array<{ id: string; row?: ProjectedRow; error?: unknown }> = documents.map(
+      (document) => {
+        try {
+          return {
+            id: document.id,
+            row: projectEntity('generatedDocuments', tenantId, document, ctx)
+          };
+        } catch (error) {
+          return { id: document.id, error };
+        }
+      }
+    );
+    for (const bad of rows.filter((r) => r.error !== undefined)) {
+      await this.logProjectionFailure(tenantId, bad.id, bad.error);
+    }
+    const good = rows.filter((r): r is { id: string; row: ProjectedRow } => r.row !== undefined);
+    if (good.length === 0) return;
+
+    await client.query('savepoint projection_batch');
+    try {
+      await upsertRows(
+        client,
+        spec,
+        good.map((r) => r.row)
+      );
+      await client.query('release savepoint projection_batch');
+      return;
+    } catch {
+      // Пачка не прошла — виновата одна или несколько строк; ниже они находятся поимённо.
+      await client.query('rollback to savepoint projection_batch');
+    }
+    for (const { id, row } of good) {
+      await this.projectSafely(client, tenantId, id, () => upsertRows(client, spec, [row]));
+    }
+  }
+
+  /** Один шаг проекции в своей точке сохранения; отказ — в журнал сверки, снимок не страдает. */
+  private async projectSafely(
+    client: PoolClient,
+    tenantId: string,
+    documentId: string | null,
+    step: () => Promise<void>
+  ): Promise<void> {
+    await client.query('savepoint projection_row');
+    try {
+      await step();
+      await client.query('release savepoint projection_row');
+    } catch (error) {
+      // Отказ одного документа не должен откатить снимок (РМ35): шаг откатывается до точки
+      // сохранения, а причина уходит в журнал сверки projection_failed и в лог.
+      await client.query('rollback to savepoint projection_row');
+      await this.logProjectionFailure(tenantId, documentId, error);
+    }
+  }
+
+  private async logProjectionFailure(
+    tenantId: string,
+    documentId: string | null,
+    error: unknown
+  ): Promise<void> {
+    const message = error instanceof Error ? error.message : String(error);
+    this.logger.warn(
+      `Проекция документа ${documentId ?? '*'} центра ${tenantId} не записана: ${message}`
+    );
+    await this.logReconciliationIssue(tenantId, {
+      issueType: 'projection_failed',
+      collection: 'generatedDocuments',
+      entityId: documentId,
+      details: { message }
     });
   }
 

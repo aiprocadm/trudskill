@@ -10,7 +10,12 @@ import {
   emptyContext,
   projectEntity
 } from './normalized-projection.js';
-import { loadCounterpartyIds, loadUserIds, upsertRow } from './normalized-upsert.js';
+import {
+  loadCounterpartyIds,
+  loadGeneratedDocumentContext,
+  loadUserIds,
+  upsertRow
+} from './normalized-upsert.js';
 import { DatabaseService } from '../../../../infrastructure/database/database.service.js';
 
 import type {
@@ -255,41 +260,14 @@ export class NormalizedBackfillService {
       ctx.counterparties = await loadCounterpartyIds(client, tenantId, field('counterpartyId'));
     }
     if (collection === 'generatedDocuments') {
-      const enrollmentIds = rows
-        .map((r) => r.data as Record<string, unknown>)
-        .filter((d) => d?.sourceEntityType === 'enrollment' && typeof d.sourceEntityId === 'string')
-        .map((d) => d.sourceEntityId as string);
-      const groupIds = new Set(
+      // Тот же загрузчик, что у проекции при сохранении снимка документов (срез 5a).
+      return loadGeneratedDocumentContext(
+        client,
+        tenantId,
         rows
-          .map((r) => r.data as Record<string, unknown>)
-          .filter((d) => d?.sourceEntityType === 'group' && typeof d.sourceEntityId === 'string')
-          .map((d) => d.sourceEntityId as string)
+          .map((r) => r.data)
+          .filter((d): d is Record<string, unknown> => !!d && typeof d === 'object')
       );
-      if (enrollmentIds.length > 0) {
-        const found = await client.query<{ id: string; group_id: string; learner_id: string }>(
-          'select id, group_id, learner_id from learning.enrollments where tenant_id = $1 and id = any($2::text[])',
-          [tenantId, enrollmentIds]
-        );
-        for (const e of found.rows) {
-          ctx.enrollments.set(e.id, { groupId: e.group_id, learnerId: e.learner_id });
-          groupIds.add(e.group_id);
-        }
-      }
-      if (groupIds.size > 0) {
-        const found = await client.query<{ id: string; counterparty_id: string | null }>(
-          'select id, counterparty_id from learning.groups where tenant_id = $1 and id = any($2::text[])',
-          [tenantId, [...groupIds]]
-        );
-        for (const g of found.rows) ctx.groups.set(g.id, { counterpartyId: g.counterparty_id });
-      }
-      const fileIds = field('fileId');
-      if (fileIds.length > 0) {
-        const found = await client.query<{ id: string }>(
-          'select id from storage.files where tenant_id = $1 and id = any($2::text[])',
-          [tenantId, fileIds]
-        );
-        for (const f of found.rows) ctx.files.add(f.id);
-      }
     }
     return ctx;
   }

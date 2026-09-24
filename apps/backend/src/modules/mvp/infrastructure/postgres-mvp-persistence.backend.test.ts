@@ -604,6 +604,41 @@ describe('проекция зачислений и истории (Фаза 1, �
     expect(state.examResults).toHaveLength(1);
   });
 
+  it('удаление слушателя и группы (срез 5a): документы отвязываются до удаления строки', async () => {
+    const all: Array<{ sql: string; params: unknown[] }> = [];
+    const client = {
+      query: vi.fn(async (sql: string, params: unknown[] = []) => {
+        all.push({ sql: sql.trimStart(), params });
+        return { rows: [], rowCount: 1 };
+      })
+    };
+    const db = {
+      query: vi.fn(async () => []),
+      withTransaction: async (fn: (c: typeof client) => Promise<unknown>) => fn(client)
+    };
+    const backend = new PostgresMvpPersistenceBackend(db as never);
+    const state = new InMemoryMvpState();
+    state.setRawSnapshot(snapshot(), (_c, raw) => [...raw]);
+    state.examResults.splice(0, 1);
+    state.enrollmentStatusHistory.splice(0, 1);
+    state.enrollments.splice(0, 1);
+    state.groupCourses.splice(0, 1);
+    state.groups.splice(0, 1);
+    state.learners.splice(0, 1);
+
+    await backend.writeLegacy('tenant_demo', state);
+
+    const detach = all.filter((q) => q.sql.startsWith('update documents.generated_documents'));
+    expect(detach.map((q) => [/set (\w+) = null/.exec(q.sql)?.[1], q.params])).toEqual([
+      ['group_id', ['tenant_demo', ['g1']]],
+      ['learner_id', ['tenant_demo', ['l1']]]
+    ]);
+    const order = all.map((q) => q.sql.split(/\s+/).slice(0, 3).join(' '));
+    expect(order.indexOf('update documents.generated_documents')).toBeLessThan(
+      order.indexOf('delete from learning.groups')
+    );
+  });
+
   it('удаление группы целиком: результаты → история → зачисления → курсы группы → группа', async () => {
     const { db, writes } = makeDb();
     const backend = new PostgresMvpPersistenceBackend(db as never);
