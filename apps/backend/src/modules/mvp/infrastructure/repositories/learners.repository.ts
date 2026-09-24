@@ -1,3 +1,4 @@
+import type { LearnerRegistryDetails, LearnersListQuery } from './learners-registry.js';
 import type { LookupItem, RegistryListPage, RegistryListQuery } from './registry-list-query.js';
 import type { Learner } from '../../mvp.types.js';
 
@@ -13,7 +14,12 @@ import type { Learner } from '../../mvp.types.js';
 export const LEARNERS_REPOSITORY = Symbol('LEARNERS_REPOSITORY');
 
 export interface LearnersRepository {
-  list(tenantId: string, query: RegistryListQuery): Promise<RegistryListPage<Learner>>;
+  list(tenantId: string, query: LearnersListQuery): Promise<RegistryListPage<Learner>>;
+  /** МГ-C3.2 (срез 11.1, РМ103): сведения реестра по идентификаторам страницы — компания, группа, вход, согласие. */
+  registryDetails(
+    tenantId: string,
+    learnerIds: readonly string[]
+  ): Promise<Map<string, LearnerRegistryDetails>>;
   get(tenantId: string, id: string): Promise<Learner | null>;
   lookup(tenantId: string, query: RegistryListQuery): Promise<RegistryListPage<LookupItem>>;
   /** Все слушатели центра с этим СНИЛС (по слепому индексу; вход в любом написании). */

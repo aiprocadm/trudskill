@@ -1,7 +1,9 @@
+import { CURRENT_ENROLLMENT_STATUSES } from './learners-registry.js';
 import { looksLikeSnils } from './postgres-learners.repository.js';
 import { snilsBlindIndex } from '../../../../infrastructure/crypto/pii-crypto.js';
 import { normalizeSnils } from '../../snils.util.js';
 
+import type { LearnerRegistryDetails, LearnersListQuery } from './learners-registry.js';
 import type { LearnersRepository } from './learners.repository.js';
 import type { LookupItem, RegistryListPage, RegistryListQuery } from './registry-list-query.js';
 import type { Learner } from '../../mvp.types.js';
@@ -13,15 +15,82 @@ import type { Learner } from '../../mvp.types.js';
  * так и «как в таблице» — шифртекстом со слепым индексом `snilsHash`: тогда СНИЛС сравнивается
  * по индексу, как в SQL. `decryptLearnerPiiAtRest` в сервисе чтения пропускает открытые значения.
  */
+/** Сведения реестра для режима без базы (тесты): зачисления, компании, входы, согласия — по образцу SQL. */
+export interface InMemoryRegistrySeeds {
+  groupsByLearner?: Map<
+    string,
+    Array<{
+      groupId: string;
+      groupName: string;
+      groupStatus: string;
+      status: string;
+      enrolledAt: string;
+    }>
+  >;
+  companyNames?: Map<string, string>;
+  /** Последний вход по идентификатору учётки. */
+  lastLogins?: Map<string, string>;
+  consents?: Map<string, boolean>;
+}
+
+const CURRENT = new Set<string>(CURRENT_ENROLLMENT_STATUSES);
+
 export class InMemoryLearnersRepository implements LearnersRepository {
   constructor(
     private readonly rows: Learner[],
     /** `learnerId → контрагенты групп, куда он зачислен` — скоуп представителя заказчика. */
-    private readonly learnerCounterparties: Map<string, string[]> = new Map()
+    private readonly learnerCounterparties: Map<string, string[]> = new Map(),
+    private readonly seeds: InMemoryRegistrySeeds = {}
   ) {}
 
-  async list(tenantId: string, query: RegistryListQuery): Promise<RegistryListPage<Learner>> {
+  async registryDetails(
+    tenantId: string,
+    learnerIds: readonly string[]
+  ): Promise<Map<string, LearnerRegistryDetails>> {
+    const result = new Map<string, LearnerRegistryDetails>();
+    for (const id of learnerIds) {
+      const row = this.rows.find((r) => r.tenantId === tenantId && r.id === id);
+      if (!row) continue;
+      const details: LearnerRegistryDetails = {};
+      const company = row.counterpartyId
+        ? this.seeds.companyNames?.get(row.counterpartyId)
+        : undefined;
+      if (company) details.companyName = company;
+      const current = (this.seeds.groupsByLearner?.get(id) ?? [])
+        .filter((g) => CURRENT.has(g.status))
+        .sort((a, b) => b.enrolledAt.localeCompare(a.enrolledAt))[0];
+      if (current) {
+        details.currentGroupId = current.groupId;
+        details.currentGroupName = current.groupName;
+        details.currentGroupStatus = current.groupStatus;
+      }
+      const login = row.linkedIamUserId
+        ? this.seeds.lastLogins?.get(row.linkedIamUserId)
+        : undefined;
+      if (login) details.lastLoginAt = login;
+      details.consentGranted = this.seeds.consents?.get(id) ?? false;
+      result.set(id, details);
+    }
+    return result;
+  }
+
+  async list(tenantId: string, query: LearnersListQuery): Promise<RegistryListPage<Learner>> {
     let items = this.rows.filter((row) => row.tenantId === tenantId);
+    /* МГ-C3.2 (срез 11.1): те же фильтры, что в SQL. */
+    if (query.companyId) items = items.filter((row) => row.counterpartyId === query.companyId);
+    if (query.groupId) {
+      items = items.filter((row) =>
+        (this.seeds.groupsByLearner?.get(row.id) ?? []).some(
+          (g) => g.groupId === query.groupId && CURRENT.has(g.status)
+        )
+      );
+    }
+    if (query.noEmail) items = items.filter((row) => !row.email);
+    if (query.neverLoggedIn) {
+      items = items.filter(
+        (row) => !row.linkedIamUserId || !this.seeds.lastLogins?.has(row.linkedIamUserId)
+      );
+    }
     if (query.counterpartyId) {
       items = items.filter((row) =>
         (this.learnerCounterparties.get(row.id) ?? []).includes(query.counterpartyId!)

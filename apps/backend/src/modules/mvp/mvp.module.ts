@@ -63,6 +63,14 @@ import { InMemoryRegistryRepository } from './infrastructure/repositories/in-mem
 import { LEARNERS_REPOSITORY } from './infrastructure/repositories/learners.repository.js';
 import { PostgresCounterpartiesRepository } from './infrastructure/repositories/postgres-counterparties.repository.js';
 import { LearnerPdfCardService } from './learner-pdf-card.service.js';
+import { LearnerFieldsSettingsService } from './learners/learner-fields-settings.service.js';
+import { LearnerFilesSettingsService } from './learners/learner-files-settings.service.js';
+import {
+  LEARNER_FILES_REPOSITORY,
+  PostgresLearnerFilesRepository
+} from './learners/learner-files.repository.js';
+import { LearnerFilesService } from './learners/learner-files.service.js';
+import { LearnerHistoryService } from './learners/learner-history.service.js';
 import { LearnersBulkImportService } from './learners-bulk-import.service.js';
 import { PlatformLibraryController } from './library/platform-library.controller.js';
 import { PlatformLibraryService } from './library/platform-library.service.js';
@@ -169,14 +177,7 @@ import { PostgresGroupCoursesRepository } from './infrastructure/repositories/po
 import { PostgresGroupsRepository } from './infrastructure/repositories/postgres-groups.repository.js';
 import { PostgresLearnersRepository } from './infrastructure/repositories/postgres-learners.repository.js';
 import { LearnerAccessService } from './learners/learner-access.service.js';
-import { LearnerFieldsSettingsService } from './learners/learner-fields-settings.service.js';
-import { LearnerFilesSettingsService } from './learners/learner-files-settings.service.js';
-import {
-  LEARNER_FILES_REPOSITORY,
-  PostgresLearnerFilesRepository
-} from './learners/learner-files.repository.js';
-import { LearnerFilesService } from './learners/learner-files.service.js';
-import { LearnerHistoryService } from './learners/learner-history.service.js';
+import { LearnersRegistryExportService } from './learners/learners-registry-export.service.js';
 
 @Module({
   imports: [
@@ -468,6 +469,8 @@ import { LearnerHistoryService } from './learners/learner-history.service.js';
     { provide: LearnerFilesService, scope: Scope.REQUEST, useClass: LearnerFilesService },
     /* МГ-C2.1 (срез 9.3): «Выслать доступ» читает слушателя из состояния запроса. */
     { provide: LearnerAccessService, scope: Scope.REQUEST, useClass: LearnerAccessService },
+    /* МГ-C3.2 (срез 11.1): выгрузка реестра слушателей — без состояния, синглтон. */
+    LearnersRegistryExportService,
     {
       provide: LearnersBulkImportService,
       scope: Scope.REQUEST,
