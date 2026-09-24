@@ -140,6 +140,11 @@ export interface LearnerDiploma {
 export interface Direction extends BaseEntity {
   code: string;
   name: string;
+  /** МГ-E1.1 (срез 15.1): вложенность — родительское направление этого же центра. */
+  parentDirectionId?: string;
+  /** Порядок внутри родителя: меньше — выше. */
+  sortOrder?: number;
+  note?: string;
 }
 
 export interface Course extends BaseEntity {
@@ -147,6 +152,8 @@ export interface Course extends BaseEntity {
   title: string;
   description?: string;
   isArchived: boolean;
+  /** МГ-E1.1 (срез 15.1): направление обучения — дерево курсов, как в CDOPROF. */
+  directionId?: string;
 }
 
 export interface CourseVersion extends BaseEntity, ProgramMeta {

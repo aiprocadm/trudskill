@@ -37,6 +37,8 @@ import { CounterpartyRepresentativeService } from './counterparty-people/counter
 import { CreateCounterpartyExtendedRequest } from './create-counterparty-extended.dto.js';
 import { ManagerDashboardService } from './dashboards/manager-dashboard.service.js';
 import { MethodistDashboardService } from './dashboards/methodist-dashboard.service.js';
+import { CreateDirectionRequest, UpdateDirectionRequest } from './directions/direction.dto.js';
+import { SimpleSignatureService } from './esignature/simple-signature.service.js';
 import { ExamOutcomeService } from './exam/exam-outcome.service.js';
 import { GroupSettingsService } from './groups/group-settings.service.js';
 import { GroupWizardRequest } from './groups/group-wizard.dto.js';
@@ -47,7 +49,6 @@ import {
   UpdateGroupRequest
 } from './groups/group.dto.js';
 import { backendEnv } from '../../env.js';
-import { SimpleSignatureService } from './esignature/simple-signature.service.js';
 import { IdentityPolicyService } from './identity/identity-policy.service.js';
 import { LearnerDossierService } from './identity/learner-dossier.service.js';
 import { MvpNormalizedReadsService } from './infrastructure/mvp-normalized-reads.service.js';
@@ -1016,7 +1017,7 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('directions.write')
   createDirection(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
-    const b = assertValidDto(CreateSimpleRegistryRequest, raw);
+    const b = assertValidDto(CreateDirectionRequest, raw);
     return this.mvpService.createDirection(c.tenantId!, c.userId, b, c);
   }
   @Put('directions/:id')
@@ -1027,7 +1028,7 @@ export class MvpController {
     @Param('id') id: string,
     @Body() raw: unknown
   ) {
-    const b = assertValidDto(UpdateSimpleRegistryRequest, raw);
+    const b = assertValidDto(UpdateDirectionRequest, raw);
     return this.mvpService.updateDirection(c.tenantId!, c.userId, id, b, c);
   }
 

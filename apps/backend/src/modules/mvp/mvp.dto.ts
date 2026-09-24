@@ -54,6 +54,8 @@ export interface BaseFilterQuery {
   group_id?: string;
   learner_id?: string;
   course_id?: string;
+  /** МГ-E1.1: курсы одного направления (фильтр списка курсов). */
+  direction_id?: string;
   course_version_id?: string;
   /** Phase 9 Plan B — фильтр по компании-заказчику (group.counterpartyId); в реестре слушателей — компания-работодатель. */
   client_id?: string;
@@ -143,6 +145,12 @@ export class CreateCourseRequest {
   @IsOptional()
   @IsString()
   description?: string;
+
+  /** МГ-E1.1 (срез 15.1): направление курса — его и шлёт мастер курса. */
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  directionId?: string;
 }
 
 export class UpdateCourseRequest {
@@ -163,6 +171,13 @@ export class UpdateCourseRequest {
   @IsOptional()
   @IsString()
   status?: string;
+
+  /** МГ-E1.1: направление курса; `null` — убрать из направления. */
+  @IsOptional()
+  @ValidateIf((_: unknown, value: unknown) => value !== null)
+  @IsString()
+  @MinLength(1)
+  directionId?: string | null;
 }
 
 export class CreateModuleRequest {
