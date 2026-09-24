@@ -24,6 +24,15 @@ import { IsString, ValidateIf } from 'class-validator';
 import { AddTestQuestionRequest, ReorderTestQuestionRequest } from './add-test-question.dto.js';
 import { ConsentService } from './consents/consent.service.js';
 import { CounterpartySuggestService } from './counterparties/counterparty-suggest.service.js';
+import {
+  BulkCounterpartyEmployeesRequest,
+  CreateCounterpartyContactRequest,
+  CreateCounterpartyEmployeeRequest,
+  ListCounterpartyEmployeesQuery,
+  UpdateCounterpartyContactRequest,
+  UpdateCounterpartyEmployeeRequest
+} from './counterparty-people/counterparty-people.dto.js';
+import { CounterpartyPeopleService } from './counterparty-people/counterparty-people.service.js';
 import { CreateCounterpartyExtendedRequest } from './create-counterparty-extended.dto.js';
 import { ManagerDashboardService } from './dashboards/manager-dashboard.service.js';
 import { MethodistDashboardService } from './dashboards/methodist-dashboard.service.js';
@@ -231,8 +240,22 @@ export class MvpController {
     /* МГ-D1.2 (срез 13.1): «Заполнить по ИНН» на форме контрагента. */
     @Optional()
     @Inject(CounterpartySuggestService)
-    private readonly counterpartySuggest?: CounterpartySuggestService
+    private readonly counterpartySuggest?: CounterpartySuggestService,
+    /* МГ-D2.1 (срез 14.1): контакты и сотрудники компании. */
+    @Optional()
+    @Inject(CounterpartyPeopleService)
+    private readonly counterpartyPeople?: CounterpartyPeopleService
   ) {}
+
+  private requireCounterpartyPeople(): CounterpartyPeopleService {
+    if (!this.counterpartyPeople) {
+      throw new ServiceUnavailableException({
+        code: 'counterparty_people_unavailable',
+        message: 'Контакты и сотрудники компании сейчас недоступны.'
+      });
+    }
+    return this.counterpartyPeople;
+  }
 
   private requireLearnerFiles(): LearnerFilesService {
     if (!this.learnerFiles) {
@@ -332,6 +355,89 @@ export class MvpController {
   ) {
     const b = assertValidDto(UpdateCounterpartyExtendedRequest, raw);
     return this.mvpService.updateCounterpartyExtended(c.tenantId!, c.userId, id, b, c);
+  }
+
+  /* МГ-D2.1 (срез 14.1): контактные лица компании. */
+  @Get('counterparties/:id/contacts')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('counterparties.read')
+  listCounterpartyContacts(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.requireCounterpartyPeople().listContacts(c.tenantId!, id, c);
+  }
+
+  @Post('counterparties/:id/contacts')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('counterparties.write')
+  createCounterpartyContact(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(CreateCounterpartyContactRequest, raw);
+    return this.requireCounterpartyPeople().createContact(c.tenantId!, id, b, c);
+  }
+
+  @Patch('counterparties/:id/contacts/:contactId')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('counterparties.write')
+  updateCounterpartyContact(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Param('contactId') contactId: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(UpdateCounterpartyContactRequest, raw);
+    return this.requireCounterpartyPeople().updateContact(c.tenantId!, id, contactId, b, c);
+  }
+
+  /* МГ-D2.1 (срез 14.1): сотрудники компании — те, кого учат. */
+  @Get('counterparties/:id/employees')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('counterparties.read')
+  listCounterpartyEmployees(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Query() raw: unknown
+  ) {
+    const q = assertValidDto(ListCounterpartyEmployeesQuery, raw);
+    return this.requireCounterpartyPeople().listEmployees(c.tenantId!, id, q, c);
+  }
+
+  @Post('counterparties/:id/employees/bulk')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('counterparties.write')
+  bulkCounterpartyEmployees(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(BulkCounterpartyEmployeesRequest, raw);
+    return this.requireCounterpartyPeople().bulkEmployees(c.tenantId!, id, b, c);
+  }
+
+  @Post('counterparties/:id/employees')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('counterparties.write')
+  createCounterpartyEmployee(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(CreateCounterpartyEmployeeRequest, raw);
+    return this.requireCounterpartyPeople().createEmployee(c.tenantId!, id, b, c);
+  }
+
+  @Patch('counterparties/:id/employees/:employeeId')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('counterparties.write')
+  updateCounterpartyEmployee(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Param('employeeId') employeeId: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(UpdateCounterpartyEmployeeRequest, raw);
+    return this.requireCounterpartyPeople().updateEmployee(c.tenantId!, id, employeeId, b, c);
   }
 
   // Phase 2 Plan C — сводный прогресс по всем группам компании-клиента.

@@ -1,6 +1,5 @@
 import { Module, Scope } from '@nestjs/common';
 
-import { CounterpartySuggestService } from './counterparties/counterparty-suggest.service.js';
 import {
   DaDataInnSuggestProvider,
   INN_SUGGEST_PROVIDER,
@@ -30,6 +29,11 @@ import { CONSENT_REPOSITORY } from './consents/consent.repository.js';
 import { ConsentService } from './consents/consent.service.js';
 import { InMemoryConsentRepository } from './consents/in-memory-consent.repository.js';
 import { PostgresConsentRepository } from './consents/postgres-consent.repository.js';
+import { CounterpartySuggestService } from './counterparties/counterparty-suggest.service.js';
+import { COUNTERPARTY_PEOPLE_REPOSITORY } from './counterparty-people/counterparty-people.repository.js';
+import { CounterpartyPeopleService } from './counterparty-people/counterparty-people.service.js';
+import { InMemoryCounterpartyPeopleRepository } from './counterparty-people/in-memory-counterparty-people.repository.js';
+import { PostgresCounterpartyPeopleRepository } from './counterparty-people/postgres-counterparty-people.repository.js';
 import { ManagerDashboardService } from './dashboards/manager-dashboard.service.js';
 import { MethodistDashboardService } from './dashboards/methodist-dashboard.service.js';
 import { EisotTestingRegistryController } from './eisot-testing-registry/eisot-testing-registry.controller.js';
@@ -484,6 +488,20 @@ import { LearnersRegistryExportService } from './learners/learners-registry-expo
           : new NoopInnSuggestProvider()
     },
     CounterpartySuggestService,
+    // МГ-D2.1 (срез 14.1): люди компании — в Postgres напрямую, в режиме памяти — в памяти (РМ116).
+    {
+      provide: COUNTERPARTY_PEOPLE_REPOSITORY,
+      useFactory: (db: DatabaseService) =>
+        backendEnv.ALLOW_IN_MEMORY_STATE
+          ? new InMemoryCounterpartyPeopleRepository()
+          : new PostgresCounterpartyPeopleRepository(db),
+      inject: [DatabaseService]
+    },
+    {
+      provide: CounterpartyPeopleService,
+      scope: Scope.REQUEST,
+      useClass: CounterpartyPeopleService
+    },
     /* МГ-C3.2 (срез 11.1): выгрузка реестра слушателей — без состояния, синглтон. */
     LearnersRegistryExportService,
     {
