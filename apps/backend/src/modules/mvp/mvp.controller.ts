@@ -23,6 +23,7 @@ import { IsString, ValidateIf } from 'class-validator';
 
 import { AddTestQuestionRequest, ReorderTestQuestionRequest } from './add-test-question.dto.js';
 import { ConsentService } from './consents/consent.service.js';
+import { CounterpartySuggestService } from './counterparties/counterparty-suggest.service.js';
 import { CreateCounterpartyExtendedRequest } from './create-counterparty-extended.dto.js';
 import { ManagerDashboardService } from './dashboards/manager-dashboard.service.js';
 import { MethodistDashboardService } from './dashboards/methodist-dashboard.service.js';
@@ -226,7 +227,11 @@ export class MvpController {
     /* МГ-C3.2 (срез 11.1): выгрузка реестра слушателей в XLSX. */
     @Optional()
     @Inject(LearnersRegistryExportService)
-    private readonly learnersExport?: LearnersRegistryExportService
+    private readonly learnersExport?: LearnersRegistryExportService,
+    /* МГ-D1.2 (срез 13.1): «Заполнить по ИНН» на форме контрагента. */
+    @Optional()
+    @Inject(CounterpartySuggestService)
+    private readonly counterpartySuggest?: CounterpartySuggestService
   ) {}
 
   private requireLearnerFiles(): LearnerFilesService {
@@ -257,6 +262,21 @@ export class MvpController {
     return isNormalizedRead('counterparties')
       ? this.normalizedReads.lookupCounterparties(c.tenantId!, q)
       : this.mvpService.lookupCounterparties(c.tenantId!, q);
+  }
+  /* МГ-D1.2 (срез 13.1): реквизиты по ИНН для формы. Под `write`: подсказка нужна тому, кто
+     заводит или правит карточку, и каждый вызов платного провайдера — его действие. Объявлена
+     выше `counterparties/:id`, иначе «suggest» ушёл бы туда как идентификатор. */
+  @Get('counterparties/suggest')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('counterparties.write')
+  suggestCounterpartyByInn(@Query('inn') inn: string | undefined) {
+    if (!this.counterpartySuggest) {
+      throw new ServiceUnavailableException({
+        code: 'inn_suggest_unavailable',
+        message: 'Подстановка реквизитов по ИНН сейчас недоступна.'
+      });
+    }
+    return this.counterpartySuggest.suggest(inn);
   }
   @Get('counterparties/:id')
   @UseGuards(PermissionGuard)

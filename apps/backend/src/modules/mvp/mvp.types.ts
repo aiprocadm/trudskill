@@ -28,6 +28,30 @@ export interface Counterparty extends BaseEntity {
   legalAddress?: string;
   /** Phase 2 Plan C — заметка для админа (не показывается клиенту). */
   note?: string;
+  /* МГ-D1.1 (срез 13.1): реквизиты CDOPROF — колонки миграции 0106. */
+  shortName?: string;
+  ogrn?: string;
+  okpo?: string;
+  okato?: string;
+  oktmo?: string;
+  okogu?: string;
+  okopf?: string;
+  okved?: string;
+  postalAddress?: string;
+  actualAddress?: string;
+  region?: string;
+  city?: string;
+  postalCode?: string;
+  fax?: string;
+  directorName?: string;
+  directorPosition?: string;
+  /** Менеджер (куратор) контрагента — идентификатор сотрудника центра (РМ114). */
+  managerUserId?: string;
+  contractNumber?: string;
+  /** Дата договора, `YYYY-MM-DD`. */
+  contractDate?: string;
+  externalId?: string;
+  sourceSystem?: string;
 }
 
 /**

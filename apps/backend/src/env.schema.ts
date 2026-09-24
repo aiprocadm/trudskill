@@ -121,6 +121,11 @@ export const backendEnvSchema = z
      * Секрет ручки вебхука отдельный: по нему Telegram доказывает, что запрос от него.
      */
     TELEGRAM_BOT_TOKEN: z.string().default(''),
+    /**
+     * МГ-D1.2: ключ DaData для «Заполнить по ИНН» на форме контрагента. Пусто — подстановка
+     * выключена, реквизиты вводятся вручную (ручка отвечает 503 `inn_suggest_unavailable`).
+     */
+    DADATA_API_KEY: z.string().default(''),
     TELEGRAM_WEBHOOK_SECRET: z.string().default(''),
     TELEGRAM_BOT_USERNAME: z.string().default(''),
     RENTAL_YOOKASSA_SHOP_ID: z.string().default(''),
