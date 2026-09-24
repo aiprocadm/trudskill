@@ -41,4 +41,4 @@
 
 **Files:** Create миграция 0115, `consents/consent-paper.service.test.ts`, `learners/learner-consent-block.tsx`; Modify `consents/{consent.ts, consent.repository.ts, postgres-consent.repository.ts, consent.service.ts, consent.controller.ts}`, фронт `consents/{types,api,hooks}.ts`, `learners/learner-profile-section.tsx`, `audit/labels.ts`, `lib/errors/error-text.ts`, снимок MET-001.
 
-- [ ] Миграция; служба с тестом; ручки; карточка; сторожа; документация §5.597 (МГ-C5.1 ✅); `pnpm ci:check`, PR, слияние.
+- [x] Миграция; служба с тестом; ручки; карточка; сторожа; документация §5.597 (МГ-C5.1 ✅); `pnpm ci:check`, PR, слияние. Отклонение: значение источника переноса — `imported`, а не имя прежней системы (сторож BR-020).
