@@ -32,21 +32,23 @@
 
 **Files:** Create `apps/backend/src/modules/mvp/groups/group-status.ts` (+ `.test.ts`): `GROUP_STATUSES`, `normalizeGroupStatus`, `assertGroupStatusTransition` (соседи, `cancelled`, `archived`), `isGroupLocked`, `GROUP_QUICK_FILTERS`, `filterGroups(groups, query, today)` (общая семантика для снимка и памяти); `groups/group-code.ts` (+ `.test.ts`): `DEFAULT_GROUP_CODE_PATTERN`, `isoWeek`, `renderGroupCode`, `generateGroupCode`; `groups/group-defaults.ts` (+ `.test.ts`): ключи настроек, `resolveGroupDefaults`, `resolveGroupCodePattern`, `applyGroupDefaults`.
 
-- [ ] Commit `feat(backend): статусы, автономер и значения по умолчанию группы — чистые модули (Фаза 2, срез 8.1)`.
+- [x] Вошло в один коммит вместе с Task 2 и 3 (отклонение: один коммит вместо трёх — типы не сходятся по частям).
 
 ### Task 2: сущность, DTO, сервис, контроллер
 
 **Files:** Modify `mvp.types.ts` (`GroupEntity` + поля §4, тип `GroupStatus`), Create `mvp/groups/group.dto.ts` (`CreateGroupRequest`, `UpdateGroupRequest`, `SetGroupStatusRequest`), `mvp/groups/group-settings.service.ts` (настройки центра → шаблон и значения по умолчанию, `@Optional() TenantService`), Modify `mvp.service.ts` (`createGroup` с генерацией кода и валидацией, `updateGroup` с проверкой перехода и блокировкой закрытой, `setGroupStatus`, `archiveGroup`, `listGroups` с `filterGroups`), `mvp.controller.ts` (DTO, `POST groups/:id/status`, `POST groups/:id/archive`, `GroupSettingsService` последним), `mvp.module.ts`, `mvp.learner-documents.controller.test.ts`, `mvp.service.test.ts`, `mvp.dto-validation.test.ts`.
 
-- [ ] Commit `feat(backend): модель, статусы и автономер группы в сервисе и ручках (Фаза 2, срез 8.1)`.
+- [x] См. Task 1.
 
 ### Task 3: проекция и SQL-фильтры
 
 **Files:** Modify `normalized-projection.ts` (`TABLE_SPECS.groups` — все колонки 0104, `projectGroup`, скрытые `starts_at/ends_at/materials_access_until`, пометки `__synthesized` для `is_dot/remote_signature/require_identity`), `normalized-projection.test.ts`, `repositories/groups.repository.ts` (`GroupListQuery`), `postgres-groups.repository.ts` (`parseGroupListQuery`, фильтры по колонкам, быстрые отборы), Create `repositories/in-memory-groups.repository.ts`, Modify `mvp-normalized-reads.service.ts`, `mvp.module.ts`, `mvp.domains.http.integration.test.ts`, `mvp-normalized-reads.service.test.ts`, `repositories.integration.test.ts`.
 
-- [ ] Commit `feat(backend): поля группы в таблице и серверные отборы реестра (Фаза 2, срез 8.1)`.
+- [x] См. Task 1.
 
 ### Task 4: документация 8.1
+
+- [x] Сделано (§5.572). Отклонение: 33 файла в PR (27 кода и тестов + план + 5 документов).
 
 handoff §5.572, трекер (позиция 8 🔄, МГ-B1.1/B1.2/B3.1 🔄→✅ по бэкенду, B3.2 бэкенд ✅ / фронт 8.3, РМ45–РМ47), README, CLAUDE, журнал (PUT vs PATCH §16; `{direction.code}` без источника; подписи статусов на фронте — до 8.3). `pnpm ci:check`, PR.
 
