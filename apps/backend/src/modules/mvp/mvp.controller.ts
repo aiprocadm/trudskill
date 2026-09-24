@@ -1047,8 +1047,13 @@ export class MvpController {
   @Get('courses/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('courses.read')
-  getCourse(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.mvpService.getCourse(c.tenantId!, id);
+  async getCourse(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    const course = this.mvpService.getCourse(c.tenantId!, id);
+    // МГ-E2.1 (срез 16.3): ответственный на карточке — по ФИО, не идентификатором.
+    return {
+      ...course,
+      responsibleName: await this.userNames.nameOf(c.tenantId!, course.responsibleUserId)
+    };
   }
   @Post('courses')
   @UseGuards(PermissionGuard)

@@ -1,4 +1,4 @@
-import type { CourseDetails } from './courses/course-details.js';
+import type { CourseDetails } from './courses/course-details.types.js';
 import type { ExamPurpose } from './exam/retake-policy.js';
 import type { RegistryReadinessReport } from './registry-readiness.js';
 import type { ExportSignatureStatus } from '../../infrastructure/export-signature/export-signature.provider.js';

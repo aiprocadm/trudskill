@@ -99,6 +99,9 @@ export const useDirectionsList = (query: BaseFilterQuery) =>
 export const useCoursesList = (query: BaseFilterQuery) =>
   useMvpQuery('courses', query, (s) => mvpApi.listCourses(s, query));
 export const useCourse = (id: string) => useMvpQuery('course', id, (s) => mvpApi.getCourse(s, id));
+/** МГ-E2.1: виды документов ФИС ФРДО — выбор у курса. */
+export const useFrdoDocumentKinds = () =>
+  useMvpQuery('frdoDocumentKinds', null, (s) => mvpApi.listFrdoDocumentKinds(s));
 export const useCourseVersions = (courseId: string) =>
   useMvpQuery('courseVersions', courseId, (s) => mvpApi.listCourseVersions(s, courseId));
 export const useModules = (courseVersionId?: string) =>

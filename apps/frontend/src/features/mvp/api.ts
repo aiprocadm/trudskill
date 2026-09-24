@@ -18,12 +18,14 @@ import type {
   CourseDocumentSetEntry,
   CourseDocumentSetEntryDraft,
   CourseModule,
+  CoursePayload,
   CourseVersion,
   Direction,
   Enrollment,
   EnrollmentCertificateRow,
   EnrollmentResultCode,
   ExamResult,
+  FrdoDocumentKind,
   Group,
   GroupCourse,
   GroupPayload,
@@ -171,6 +173,15 @@ export const mvpApi = {
       body: payload,
       ...withAuth(session)
     }),
+  /** МГ-E2.1 (срез 16.3): «Основное» курса — поля карточки CDOPROF. */
+  updateCourse: (session: UserSession, id: string, payload: CoursePayload) =>
+    apiRequest<Course>(`/courses/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: payload,
+      ...withAuth(session)
+    }),
+  listFrdoDocumentKinds: (session: UserSession) =>
+    apiRequest<{ items: FrdoDocumentKind[] }>('/frdo-document-kinds', withAuth(session)),
   publishCourse: (session: UserSession, id: string) =>
     apiRequest<Course>(`/courses/${id}/publish`, { method: 'POST', ...withAuth(session) }),
   archiveCourse: (session: UserSession, id: string) =>

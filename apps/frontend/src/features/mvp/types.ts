@@ -131,6 +131,45 @@ export interface Course extends BaseEntity {
   isArchived: boolean;
   /** МГ-E1.1: направление курса. */
   directionId?: string;
+  /* МГ-E2.1 (срез 16.3): поля карточки курса CDOPROF. */
+  presentationTitle?: string;
+  sortNo?: number;
+  price?: number;
+  responsibleUserId?: string;
+  /** ФИО ответственного — подставляет сервер в `GET /courses/:id`. */
+  responsibleName?: string | null;
+  note?: string;
+  periodDaysDefault?: number;
+  frdoDocumentKind?: string;
+  certificateNumberParts?: string[];
+  docExtraFields?: Array<{ key: string; label: string; value: string }>;
+}
+
+/** Тело `PUT /courses/:id` для раздела «Основное» (`null` — очистить). */
+export interface CoursePayload {
+  code?: string;
+  title?: string;
+  description?: string;
+  directionId?: string | null;
+  presentationTitle?: string | null;
+  sortNo?: number | null;
+  price?: number | null;
+  responsibleUserId?: string | null;
+  note?: string | null;
+  periodDaysDefault?: number | null;
+  frdoDocumentKind?: string | null;
+  certificateNumberParts?: string[] | null;
+  docExtraFields?: Array<{ key: string; label: string; value: string }> | null;
+}
+
+/** Вид документа ФИС ФРДО (`GET /frdo-document-kinds`). */
+export interface FrdoDocumentKind {
+  code: string;
+  templateType: string;
+  frdoKind: string;
+  educationLevel: string;
+  exactName: string;
+  isActive: boolean;
 }
 
 export interface CourseVersion extends BaseEntity {
