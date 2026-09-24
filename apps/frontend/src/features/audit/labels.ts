@@ -237,6 +237,8 @@ const PHRASES: Record<string, string> = {
   'learning.learner_file_attached': 'Файл добавлен в личное дело',
   'learning.learner_file_removed': 'Файл удалён из личного дела',
   'learning.learner_access_sent': 'Слушателю выслана ссылка для входа',
+  /* МГ-C5.1 (срез 12.1): бумажное согласие, отмеченное сотрудником. */
+  'learning.consent_paper_marked': 'Отмечено бумажное согласие слушателя',
   /* МГ-H4.1 (срез 11.3): представления реестров. */
   'reports.saved_view_created': 'Представление реестра сохранено',
   'reports.saved_view_deleted': 'Представление реестра удалено',

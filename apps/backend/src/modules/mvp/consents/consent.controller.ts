@@ -8,7 +8,7 @@ import {
   Post,
   UseGuards
 } from '@nestjs/common';
-import { IsString, MinLength } from 'class-validator';
+import { IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 
 import { type ConsentKind, isConsentKind } from './consent.js';
 import { ConsentService } from './consent.service.js';
@@ -25,6 +25,18 @@ class SaveConsentDocumentDto {
   @IsString()
   @MinLength(20)
   body!: string;
+}
+
+/** МГ-C5.1 (срез 12.1): бумажное согласие — дата подписи и скан из личного дела. */
+class MarkPaperConsentDto {
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  signedAt!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  fileId?: string;
 }
 
 /**
@@ -99,5 +111,27 @@ export class ConsentController {
   @RequirePermissions('identity.read')
   forLearner(@CurrentContext() c: RequestContext, @Param('learnerId') learnerId: string) {
     return this.consents.getStatus(c.tenantId!, learnerId);
+  }
+
+  /** МГ-C5.1 (срез 12.1, РМ110): то же состояние для карточки слушателя — под правом карточки. */
+  @Get('learners/:learnerId/status')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learners.read')
+  statusForCard(@CurrentContext() c: RequestContext, @Param('learnerId') learnerId: string) {
+    return this.consents.getStatus(c.tenantId!, learnerId);
+  }
+
+  /** Бумажное согласие получено — отмечает сотрудник, который ведёт слушателей (РМ109). */
+  @Post('learners/:learnerId/:kind/paper')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learners.write')
+  markPaper(
+    @CurrentContext() c: RequestContext,
+    @Param('learnerId') learnerId: string,
+    @Param('kind') kind: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(MarkPaperConsentDto, raw);
+    return this.consents.markPaper(c.tenantId!, learnerId, this.assertKind(kind), b, c);
   }
 }

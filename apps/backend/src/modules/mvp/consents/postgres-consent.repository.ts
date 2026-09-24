@@ -4,7 +4,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 
-import type { ConsentKind } from './consent.js';
+import type { ConsentKind, ConsentSource } from './consent.js';
 import type {
   ConsentDocumentRow,
   ConsentFactRow,
@@ -31,10 +31,13 @@ interface FactDbRow {
   revoked_at: string | null;
   ip: string | null;
   user_agent: string | null;
+  source: string | null;
+  actor_user_id: string | null;
+  evidence_file_id: string | null;
 }
 
 const FACT_COLUMNS =
-  'id, tenant_id, learner_id, kind, document_version, body_hash, granted_at, revoked_at, ip, user_agent';
+  'id, tenant_id, learner_id, kind, document_version, body_hash, granted_at, revoked_at, ip, user_agent, source, actor_user_id, evidence_file_id';
 
 @Injectable()
 export class PostgresConsentRepository implements ConsentRepository {
@@ -62,7 +65,10 @@ export class PostgresConsentRepository implements ConsentRepository {
       grantedAt: row.granted_at,
       ...(row.revoked_at ? { revokedAt: row.revoked_at } : {}),
       ...(row.ip ? { ip: row.ip } : {}),
-      ...(row.user_agent ? { userAgent: row.user_agent } : {})
+      ...(row.user_agent ? { userAgent: row.user_agent } : {}),
+      ...(row.source ? { source: row.source as ConsentSource } : {}),
+      ...(row.actor_user_id ? { actorUserId: row.actor_user_id } : {}),
+      ...(row.evidence_file_id ? { evidenceFileId: row.evidence_file_id } : {})
     };
   }
 
@@ -125,8 +131,8 @@ export class PostgresConsentRepository implements ConsentRepository {
   ): Promise<ConsentFactRow> {
     const rows = await this.db.query<FactDbRow>(
       `insert into learning.consent_facts
-         (id, tenant_id, learner_id, kind, document_version, body_hash, granted_at, revoked_at, ip, user_agent)
-       values ($1, $2, $3, $4, $5, $6, coalesce($7::timestamptz, now()), $8, $9, $10)
+         (id, tenant_id, learner_id, kind, document_version, body_hash, granted_at, revoked_at, ip, user_agent, source, actor_user_id, evidence_file_id)
+       values ($1, $2, $3, $4, $5, $6, coalesce($7::timestamptz, now()), $8, $9, $10, $11, $12, $13)
        returning ${FACT_COLUMNS}`,
       [
         `cfact_${randomUUID()}`,
@@ -139,7 +145,10 @@ export class PostgresConsentRepository implements ConsentRepository {
         input.grantedAt ?? null,
         input.revokedAt ?? null,
         input.ip ?? null,
-        input.userAgent ?? null
+        input.userAgent ?? null,
+        input.source ?? 'self',
+        input.actorUserId ?? null,
+        input.evidenceFileId ?? null
       ]
     );
     return this.toFact(rows[0]!);
