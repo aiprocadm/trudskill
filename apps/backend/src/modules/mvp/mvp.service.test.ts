@@ -1831,6 +1831,80 @@ function makeService(): MvpService {
 }
 
 describe('MvpService — commissions (Plan A §5.2)', () => {
+  /* Фаза 1, срез 6.0 (журнал 625): код группы и контрагента уникален в центре — как в таблицах. */
+  describe('уникальность кода группы и контрагента (срез 6.0)', () => {
+    it('группа: занятый код — 409, тот же код в другом центре — можно, свой код при переименовании — не конфликт', () => {
+      const service = makeService();
+      const g1 = service.createGroup(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'G-1', name: 'Первая' },
+        ctx
+      );
+      expect(() =>
+        service.createGroup('tenant_demo', ctx.userId, { code: 'G-1', name: 'Дубль' }, ctx)
+      ).toThrow(ConflictException);
+      expect(() =>
+        service.createGroup('tenant_other', ctx.userId, { code: 'G-1', name: 'Чужая' }, ctx)
+      ).not.toThrow();
+      const g2 = service.createGroup(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'G-2', name: 'Вторая' },
+        ctx
+      );
+      expect(() =>
+        service.updateGroup('tenant_demo', ctx.userId, g2.id, { code: 'G-1' }, ctx)
+      ).toThrow(/Код «G-1» уже используется/);
+      expect(
+        service.updateGroup('tenant_demo', ctx.userId, g1.id, { code: 'G-1', name: 'Та же' }, ctx)
+          .name
+      ).toBe('Та же');
+    });
+
+    it('контрагент: простой и расширенный создание и правка кода — 409 на занятый код', () => {
+      const service = makeService();
+      const cp1 = service.createCounterparty(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'CP-1', name: 'Ромашка' },
+        ctx
+      );
+      expect(() =>
+        service.createCounterpartyExtended(
+          'tenant_demo',
+          ctx.userId,
+          { code: ' CP-1 ', name: 'Дубль' },
+          ctx
+        )
+      ).toThrow(ConflictException);
+      const cp2 = service.createCounterpartyExtended(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'CP-2', name: 'Лютик', inn: '7707083893' },
+        ctx
+      );
+      expect(() =>
+        service.updateCounterparty('tenant_demo', ctx.userId, cp2.id, { code: 'CP-1' }, ctx)
+      ).toThrow(ConflictException);
+      expect(() =>
+        service.updateCounterpartyExtended('tenant_demo', ctx.userId, cp2.id, { code: 'CP-1' }, ctx)
+      ).toThrow(ConflictException);
+      expect(
+        service.updateCounterpartyExtended(
+          'tenant_demo',
+          ctx.userId,
+          cp2.id,
+          { name: 'Лютик+' },
+          ctx
+        ).name
+      ).toBe('Лютик+');
+      expect(
+        service.updateCounterparty('tenant_demo', ctx.userId, cp1.id, { code: 'CP-1' }, ctx).code
+      ).toBe('CP-1');
+    });
+  });
+
   describe('createCommission', () => {
     it('creates active commission with provided code and name', () => {
       const service = makeService();
