@@ -54,6 +54,8 @@ handoff §5.572, трекер (позиция 8 🔄, МГ-B1.1/B1.2/B3.1 🔄�
 
 ## PR 8.2 — сканер (план после 8.1)
 
+- [x] Сделано (§5.573): сканер + планировщик + env + тесты, О10 владельцу (включение флага).
+
 `mvp/groups/group-status.scanner.service.ts` (чистый `scanTenant(asOf, state)`: `recruiting → in_progress` в `startDate` при ≥1 активном зачислении; `in_progress → exam` в `examAccessFrom`/`examDate`), `group-status.scheduler.service.ts` (`GROUP_STATUS_SCAN_ENABLED`, `GROUP_STATUS_CRON_SCHEDULE`, замок `528_498`, `runWithTenantStateAndSave`, `declareScheduler`), env, тесты по образцу `expired-attempts`.
 
 ## PR 8.3 — экраны (план после 8.2)

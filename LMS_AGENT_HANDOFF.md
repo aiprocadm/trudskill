@@ -5553,6 +5553,22 @@ PR #493 построил `LearnersListScreen`, но его не импортир
 сверена после правок: вид не изменился (surface-muted и neutral-100 в светлой палитре
 совпадают побитово).
 
+### 5.573 ТЗ перехода с CDOPROF, позиция 8 (Фаза 2, срез 8.2): ежедневный сканер автопереходов статусов групп (МГ-B3.1)
+
+**Зачем.** Вторая часть среза 8 по плану `docs/superpowers/plans/2026-09-24-cdoprof-migration-phase-2-slice-1-group-model.md`: машина состояний (8.1) без автопереходов — статусы менялись бы только руками, как в CDOPROF, где статуса нет вовсе. ТЗ §6.1 требует ежедневный сканер «как `reminders-scheduler`».
+
+**Что сделано.**
+
+- `mvp/groups/group-status.scanner.service.ts` — `GroupStatusScanner.scanTenant(tenantId, asOf, state)`: `recruiting → in_progress` в день начала (`startDate ≤ сегодня` в поясе центра) при хотя бы одном активном зачислении; `in_progress → exam` с момента `examAccessFrom` или в день `examDate`. Старые `scheduled/active` трактуются как соседи (РМ45). Переходы `exam → documents` и `documents → closed` — вручную до Фазы 3 (РМ46). Аудит `learning.group_status_auto` с актором `system`, `oldValues/newValues` статуса.
+- `group-status.scheduler.service.ts` — по образцу `expired-attempts`: `@Cron(GROUP_STATUS_CRON_SCHEDULE)` (UTC, по умолчанию `0 2 * * *` — до обхода напоминаний в 03:00, чтобы те видели новые статусы), выключен по умолчанию (`GROUP_STATUS_SCAN_ENABLED=false`, «ships dormant»), `declareScheduler('group-status-scan')`, advisory-замок `528_498` (свободный по сторожу `scheduler-locks`), `runWithTenantStateAndSave` (сохранение снимка → проекция в `learning.groups`), сбой центра не прерывает остальные, `recordSchedulerRun`.
+- Схема env + тест, `.env.example`, `docs/environment-and-config.md`; провайдеры в `mvp.module.ts`. Русская фраза для `learning.group_status_auto` уже добавлена в 8.1.
+
+**Файлы.** 9: сканер и планировщик (+ 2 теста), `mvp.module.ts`, `env.schema.ts`, `env.test.ts`, `.env.example`, `environment-and-config.md` (+ документация).
+
+**Тесты.** `group-status.scanner.service.test.ts` (3: дозревшие группы своего центра и аудит; «сегодня» в поясе центра — в 22:30 UTC в Москве уже завтра; повторный прогон идемпотентен), `group-status.scheduler.service.test.ts` (4: обход под замком, пропуск без замка, частичный успех, выключен по умолчанию), `env.test.ts` (+2); сторожа `scheduler-locks`, `scheduler-declaration`, DI, HTTP-домены: 38 файлов, 254 ✅; `pnpm ci:check` — см. PR.
+
+**Дальше.** PR 8.3 — экраны: подписи и тона восьми статусов (UI-023), фильтр статусов и быстрые отборы в реестре, поля §4 в форме создания/дровере и в «Сводке» карточки, ручки статуса и архива в «…».
+
 ### 5.572 ТЗ перехода с CDOPROF, позиция 8 (Фаза 2, срез 8.1): модель, статусы, автономер и отборы группы (МГ-B1.1, B1.2, B3.1, B3.2 — бэкенд)
 
 **Зачем.** Позиция 8 — Фаза 2 «домен CDOPROF». Первый срез по таблице приоритетов §19 ТЗ — модель и статусы группы (размер M, зависит только от закрытой Фазы 1). Разведка: колонки для всех полей §4 уже есть (0104), CHECK статусов уже включает восемь целевых и три старых значения — миграции не нужно; не было сущности, DTO, машины состояний, автономера, значений по умолчанию и серверных отборов. План — `docs/superpowers/plans/2026-09-24-cdoprof-migration-phase-2-slice-1-group-model.md` (три PR: 8.1 бэкенд, 8.2 сканер, 8.3 экраны).
