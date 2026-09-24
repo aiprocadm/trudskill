@@ -38,9 +38,9 @@
 
 **Files:** Modify `infrastructure/crypto/pii-crypto.ts` (+ тест), `mvp/mvp.types.ts`, `mvp/update-learner-extended.dto.ts`, `mvp/mvp.service.ts` (`updateLearnerExtended`), `mvp/pii-masking.ts` (+ тест), `mvp/pii/learner-pii.service.ts`, `mvp/pii/learner-pii.util.ts`, `audit/audit.service.ts`, `migration/backfill/normalized/normalized-projection.ts` (+ тест), `mvp/infrastructure/repositories/postgres-learners.repository.ts`, `mvp/mvp.dto-validation.test.ts`.
 
-- [ ] Тесты → код → lint/typecheck → бэкенд тесты + интеграция проекции → commit.
+- [x] Тесты → код → lint/typecheck → бэкенд тесты + интеграция проекции → commit. Отклонения: jsonb-колонки проецируются сразу (РМ77 уточнён — тип `json` уже поддерживался); индекс паспорта считается по объекту, не по JSON-строке.
 
-## Task 2: документация 8.12a — handoff §5.584, трекер (РМ76–РМ79, МГ-C1.1 🔄), README, CLAUDE, журнал (дата рождения без маски; PDF-карточка с полным СНИЛС). `pnpm ci:check`, PR, слияние.
+## Task 2: документация 8.12a — [x] сделано (§5.584) — handoff §5.584, трекер (РМ76–РМ79, МГ-C1.1 🔄), README, CLAUDE, журнал (дата рождения без маски; PDF-карточка с полным СНИЛС). `pnpm ci:check`, PR, слияние.
 
 ## Task 3: фронт (PR 8.12b)
 
