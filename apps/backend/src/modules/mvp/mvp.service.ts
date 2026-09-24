@@ -94,6 +94,7 @@ import {
   applyCounterpartyRequisites
 } from './counterparties/counterparty-requisites.js';
 
+import type { CreateDirectionRequest, UpdateDirectionRequest } from './directions/direction.dto.js';
 import type {
   CreateGroupRequest,
   SetGroupStatusRequest,
@@ -1361,18 +1362,33 @@ export class MvpService {
   createDirection(
     tenantId: string,
     actorId: string | undefined,
-    request: CreateSimpleRegistryRequest,
+    request: CreateDirectionRequest,
     context: RequestContext
   ): Direction {
+    const code = request.code.trim();
+    this.assertRegistryCodeFree(
+      this.state.directions,
+      tenantId,
+      code,
+      undefined,
+      'направления',
+      'другого'
+    );
     const entity: Direction = {
       id: this.id('direction'),
       tenantId,
-      code: request.code,
-      name: request.name,
-      status: request.status ?? 'active',
+      code,
+      name: request.name.trim(),
+      status: 'active',
+      sortOrder: request.sortOrder ?? 0,
       createdAt: this.now(),
       updatedAt: this.now()
     };
+    if (request.parentDirectionId) {
+      this.assertDirectionParent(tenantId, entity.id, request.parentDirectionId);
+      entity.parentDirectionId = request.parentDirectionId;
+    }
+    if (request.note?.trim()) entity.note = request.note.trim();
     this.state.directions.push(entity);
     this.audit(
       tenantId,
@@ -1391,14 +1407,49 @@ export class MvpService {
     tenantId: string,
     actorId: string | undefined,
     id: string,
-    request: UpdateSimpleRegistryRequest,
+    request: UpdateDirectionRequest,
     context: RequestContext
   ): Direction {
     const current = this.getById(this.state.directions, tenantId, id);
     const oldValues = { ...current };
-    if (typeof request.code === 'string') current.code = request.code;
-    if (typeof request.name === 'string') current.name = request.name;
-    if (typeof request.status === 'string') current.status = request.status;
+    if (request.code !== undefined) {
+      const code = request.code.trim();
+      this.assertRegistryCodeFree(
+        this.state.directions,
+        tenantId,
+        code,
+        id,
+        'направления',
+        'другого'
+      );
+      current.code = code;
+    }
+    if (request.name !== undefined) current.name = request.name.trim();
+    if (request.parentDirectionId !== undefined) {
+      if (request.parentDirectionId === null) delete current.parentDirectionId;
+      else {
+        this.assertDirectionParent(tenantId, id, request.parentDirectionId);
+        current.parentDirectionId = request.parentDirectionId;
+      }
+    }
+    if (request.sortOrder !== undefined) current.sortOrder = request.sortOrder;
+    if (request.note !== undefined) {
+      if (request.note === null || !request.note.trim()) delete current.note;
+      else current.note = request.note.trim();
+    }
+    if (request.status === 'archived' && current.status !== 'archived') {
+      // РМ122: сначала вложенные — иначе в дереве останутся действующие ветви без корня.
+      const activeChild = this.state.directions.find(
+        (d) => d.tenantId === tenantId && d.parentDirectionId === id && d.status !== 'archived'
+      );
+      if (activeChild) {
+        throw new ConflictException({
+          code: 'direction_has_active_children',
+          message: `В направлении есть действующее вложенное «${activeChild.name}» — сначала отправьте в архив его.`
+        });
+      }
+    }
+    if (request.status !== undefined) current.status = request.status;
     current.updatedAt = this.now();
     this.audit(
       tenantId,
@@ -1429,6 +1480,14 @@ export class MvpService {
     request: CreateCourseRequest,
     context: RequestContext
   ): Course {
+    this.assertRegistryCodeFree(
+      this.state.courses,
+      tenantId,
+      request.code,
+      undefined,
+      'курса',
+      'другого'
+    );
     const entity: Course = {
       id: this.id('course'),
       tenantId,
@@ -1440,6 +1499,10 @@ export class MvpService {
       createdAt: this.now(),
       updatedAt: this.now()
     };
+    if (request.directionId) {
+      this.assertCourseDirection(tenantId, request.directionId);
+      entity.directionId = request.directionId;
+    }
     this.state.courses.push(entity);
     this.audit(
       tenantId,
@@ -1469,11 +1532,28 @@ export class MvpService {
       });
     }
     const oldValues = { ...current };
-    if (typeof request.code === 'string') current.code = request.code;
+    if (typeof request.code === 'string') {
+      this.assertRegistryCodeFree(
+        this.state.courses,
+        tenantId,
+        request.code,
+        id,
+        'курса',
+        'другого'
+      );
+      current.code = request.code;
+    }
     if (typeof request.title === 'string') current.title = request.title;
     if (typeof request.description === 'string' || request.description === null)
       current.description = request.description ?? undefined;
     if (typeof request.status === 'string') current.status = request.status;
+    if (request.directionId !== undefined) {
+      if (request.directionId === null) delete current.directionId;
+      else {
+        this.assertCourseDirection(tenantId, request.directionId);
+        current.directionId = request.directionId;
+      }
+    }
     current.updatedAt = this.now();
     this.audit(
       tenantId,
@@ -7272,6 +7352,11 @@ export class MvpService {
         (item) => String((item as Record<string, unknown>).courseId ?? '') === query.course_id
       );
     }
+    if (query.direction_id) {
+      items = items.filter(
+        (item) => String((item as Record<string, unknown>).directionId ?? '') === query.direction_id
+      );
+    }
     if (query.course_version_id) {
       items = items.filter(
         (item) =>
@@ -7972,7 +8057,9 @@ export class MvpService {
     tenantId: string,
     code: string,
     exceptId: string | undefined,
-    what: string
+    what: string,
+    /** Род слова: «у другой группы», но «у другого курса». */
+    other = 'другой'
   ): void {
     const taken = source.some(
       (item) => item.tenantId === tenantId && item.code === code && item.id !== exceptId
@@ -7980,7 +8067,56 @@ export class MvpService {
     if (taken) {
       throw new ConflictException({
         code: 'conflict',
-        message: `Код «${code}» уже используется у другой ${what} этого центра. Укажите другой код.`
+        message: `Код «${code}» уже используется у ${other} ${what} этого центра. Укажите другой код.`
+      });
+    }
+  }
+
+  /**
+   * МГ-E1.1 (РМ122): родитель — направление этого центра, не архивное, и не сам потомок:
+   * иначе дерево замкнулось бы в кольцо и перестало бы иметь корень.
+   */
+  private assertDirectionParent(tenantId: string, id: string, parentId: string): void {
+    const parent = this.state.directions.find((d) => d.tenantId === tenantId && d.id === parentId);
+    if (!parent) {
+      throw new NotFoundException({
+        code: 'not_found',
+        message: 'Родительское направление не найдено'
+      });
+    }
+    if (parent.status === 'archived') {
+      throw new BadRequestException({
+        code: 'direction_parent_invalid',
+        message: `Направление «${parent.name}» в архиве — вложить в него нельзя.`
+      });
+    }
+    let cursor: Direction | undefined = parent;
+    for (let depth = 0; cursor && depth < 100; depth += 1) {
+      if (cursor.id === id) {
+        throw new BadRequestException({
+          code: 'direction_parent_invalid',
+          message: 'Направление нельзя вложить в само себя или в своё вложенное.'
+        });
+      }
+      const nextId: string | undefined = cursor.parentDirectionId;
+      cursor = nextId
+        ? this.state.directions.find((d) => d.tenantId === tenantId && d.id === nextId)
+        : undefined;
+    }
+  }
+
+  /** МГ-E1.1: направление курса — этого центра и действующее. */
+  private assertCourseDirection(tenantId: string, directionId: string): void {
+    const direction = this.state.directions.find(
+      (d) => d.tenantId === tenantId && d.id === directionId
+    );
+    if (!direction) {
+      throw new NotFoundException({ code: 'not_found', message: 'Направление не найдено' });
+    }
+    if (direction.status === 'archived') {
+      throw new BadRequestException({
+        code: 'direction_archived',
+        message: `Направление «${direction.name}» в архиве — выберите действующее.`
       });
     }
   }
