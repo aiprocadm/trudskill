@@ -9,6 +9,8 @@ import {
   ValidateIf
 } from 'class-validator';
 
+import { CounterpartyRequisitesRequest } from './counterparties/counterparty-requisites.dto.js';
+
 /**
  * Phase 2 Plan C — PATCH расширенной компании-заказчика.
  * Симметрично `UpdateLearnerExtendedRequest` из Plan B.
@@ -17,7 +19,7 @@ import {
  * clearable полей (legalName/inn/kpp/contactEmail/contactPhone/legalAddress/note)
  * = «очистить».
  */
-export class UpdateCounterpartyExtendedRequest {
+export class UpdateCounterpartyExtendedRequest extends CounterpartyRequisitesRequest {
   @IsOptional()
   @IsString()
   @MinLength(1)

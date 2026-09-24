@@ -51,6 +51,41 @@ describe('проекция снимка в колонки (Фаза 1, срез 
     expect(row.payload).toEqual({ inn: '12-34', sourceStatus: 'blocked', extra: 'x' });
   });
 
+  it('контрагент: реквизиты (МГ-D1.1) идут в колонки 0106, кривая дата договора — в payload', () => {
+    const row = projectEntity(
+      'counterparties',
+      T,
+      {
+        ...base,
+        code: 'CP-2',
+        name: 'Ромашка',
+        shortName: 'ООО «Ромашка»',
+        ogrn: '1027700132195',
+        managerUserId: 'u-1',
+        contractDate: '2026-03-01',
+        directorName: 'Иванов И. И.'
+      },
+      emptyContext()
+    );
+    expect(row.columns).toMatchObject({
+      short_name: 'ООО «Ромашка»',
+      ogrn: '1027700132195',
+      manager_user_id: 'u-1',
+      contract_date: '2026-03-01',
+      director_name: 'Иванов И. И.'
+    });
+    expect(row.payload).toEqual({});
+
+    const imported = projectEntity(
+      'counterparties',
+      T,
+      { ...base, code: 'CP-3', name: 'Лютик', contractDate: '2025-02-31' },
+      emptyContext()
+    );
+    expect(imported.columns.contract_date).toBeNull();
+    expect(imported.payload).toEqual({ contractDate: '2025-02-31' });
+  });
+
   it('контрагент без кода — понятная ошибка данных, а не падение сервиса', () => {
     expect(() =>
       projectEntity('counterparties', T, { ...base, name: 'Без кода' }, emptyContext())

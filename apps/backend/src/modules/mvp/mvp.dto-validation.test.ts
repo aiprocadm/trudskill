@@ -1260,3 +1260,41 @@ describe('UpdateLearnerExtendedRequest — личное дело', () => {
     ).not.toHaveLength(0);
   });
 });
+
+describe('реквизиты контрагента (МГ-D1.1, срез 13.1)', () => {
+  const validate = (raw: unknown) => {
+    const instance = plainToInstance(UpdateCounterpartyExtendedRequest, raw);
+    return validateSync(instance, { whitelist: true, forbidNonWhitelisted: true });
+  };
+
+  it('принимает полные реквизиты и null — «очистить»', () => {
+    expect(
+      validate({
+        shortName: 'ООО «Ромашка»',
+        ogrn: '1027700132195',
+        okpo: '00032537',
+        okato: '45286565000',
+        oktmo: '45382000',
+        okogu: '4210014',
+        okopf: '12267',
+        okved: '85.42.9',
+        postalCode: '101000',
+        directorName: 'Иванов И. И.',
+        managerUserId: 'u-1',
+        contractNumber: 'Д-17',
+        contractDate: '2026-03-01',
+        fax: null,
+        region: null
+      })
+    ).toHaveLength(0);
+  });
+
+  it('отклоняет код с лишней цифрой, индекс из 5 цифр и несуществующую дату договора', () => {
+    const fields = (raw: unknown) => validate(raw).map((e) => e.property);
+    expect(fields({ ogrn: '10277001321950' })).toEqual(['ogrn']);
+    expect(fields({ okved: '85-42' })).toEqual(['okved']);
+    expect(fields({ postalCode: '10100' })).toEqual(['postalCode']);
+    expect(fields({ contractDate: '2025-02-31' })).toEqual(['contractDate']);
+    expect(fields({ contractDate: '01.03.2026' })).toEqual(['contractDate']);
+  });
+});

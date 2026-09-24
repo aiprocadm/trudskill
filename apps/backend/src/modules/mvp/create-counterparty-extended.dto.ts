@@ -1,11 +1,13 @@
 import { IsEmail, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 
+import { CounterpartyRequisitesRequest } from './counterparties/counterparty-requisites.dto.js';
+
 /**
  * Phase 2 Plan C — POST расширенной компании-заказчика.
  * Симметрично `createLearnerExtended` из Plan A. Существующий POST /counterparties
  * остаётся под `CreateSimpleRegistryRequest` (code + name) — counterparty-as-справочник.
  */
-export class CreateCounterpartyExtendedRequest {
+export class CreateCounterpartyExtendedRequest extends CounterpartyRequisitesRequest {
   @IsString()
   @MinLength(1)
   @MaxLength(60)

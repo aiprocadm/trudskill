@@ -22,7 +22,11 @@ export const COUNTERPARTY_SORT_COLUMNS: Record<string, string> = {
 
 const COLUMNS =
   'id, tenant_id, created_at, updated_at, code, name, legal_name, inn, kpp, contact_email, ' +
-  'contact_phone, legal_address, note, status, external_id, source_system, payload';
+  'contact_phone, legal_address, note, status, external_id, source_system, ' +
+  // МГ-D1.1 (срез 13.1): реквизиты — колонки миграции 0106.
+  'short_name, ogrn, okpo, okato, oktmo, okogu, okopf, okved, postal_address, actual_address, ' +
+  'region, city, postal_code, fax, director_name, director_position, manager_user_id, ' +
+  'contract_number, contract_date, payload';
 
 /**
  * Контрагенты из `crm.counterparties` (Фаза 1, срез 1b). Каждый запрос — с `tenant_id`; список
@@ -90,8 +94,12 @@ export class PostgresCounterpartiesRepository implements CounterpartiesRepositor
     if (query.q) {
       params.push(likePattern(query.q));
       const p = `$${params.length}`;
+      // МГ-D1.1: краткое название, номер договора и ОГРН переехали из payload в колонки 0106 —
+      // поиск обязан видеть их там, иначе «найти по номеру договора» молча перестаёт работать.
       conditions.push(
-        `(code ilike ${p} or name ilike ${p} or coalesce(legal_name, '') ilike ${p} or coalesce(inn, '') ilike ${p} or payload::text ilike ${p})`
+        `(code ilike ${p} or name ilike ${p} or coalesce(legal_name, '') ilike ${p} or coalesce(inn, '') ilike ${p}` +
+          ` or coalesce(short_name, '') ilike ${p} or coalesce(contract_number, '') ilike ${p} or coalesce(ogrn, '') ilike ${p}` +
+          ` or payload::text ilike ${p})`
       );
     }
     return { extra: conditions.map((c) => `and ${c}`).join(' '), params };

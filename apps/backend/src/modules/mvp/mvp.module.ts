@@ -1,5 +1,11 @@
 import { Module, Scope } from '@nestjs/common';
 
+import { CounterpartySuggestService } from './counterparties/counterparty-suggest.service.js';
+import {
+  DaDataInnSuggestProvider,
+  INN_SUGGEST_PROVIDER,
+  NoopInnSuggestProvider
+} from './counterparties/inn-suggest.provider.js';
 import { GroupStatusScanner } from './groups/group-status.scanner.service.js';
 import { GroupStatusSchedulerService } from './groups/group-status.scheduler.service.js';
 import { GroupWizardService } from './groups/group-wizard.service.js';
@@ -469,6 +475,15 @@ import { LearnersRegistryExportService } from './learners/learners-registry-expo
     { provide: LearnerFilesService, scope: Scope.REQUEST, useClass: LearnerFilesService },
     /* МГ-C2.1 (срез 9.3): «Выслать доступ» читает слушателя из состояния запроса. */
     { provide: LearnerAccessService, scope: Scope.REQUEST, useClass: LearnerAccessService },
+    // МГ-D1.2 (срез 13.1): подстановка по ИНН — DaData при ключе, иначе честное «не подключено» (РМ113).
+    {
+      provide: INN_SUGGEST_PROVIDER,
+      useFactory: () =>
+        backendEnv.DADATA_API_KEY
+          ? new DaDataInnSuggestProvider(backendEnv.DADATA_API_KEY)
+          : new NoopInnSuggestProvider()
+    },
+    CounterpartySuggestService,
     /* МГ-C3.2 (срез 11.1): выгрузка реестра слушателей — без состояния, синглтон. */
     LearnersRegistryExportService,
     {

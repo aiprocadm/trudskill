@@ -89,6 +89,10 @@ import { AuditService } from '../audit/audit.service.js';
 import { DocumentsService } from '../documents/documents.service.js';
 import { FilesService } from '../files/files.service.js';
 import { LicensesService } from '../org/licenses.service.js';
+import {
+  type CounterpartyRequisitesPatch,
+  applyCounterpartyRequisites
+} from './counterparties/counterparty-requisites.js';
 
 import type {
   CreateGroupRequest,
@@ -585,7 +589,7 @@ export class MvpService {
       legalAddress?: string;
       note?: string;
       status?: string;
-    },
+    } & CounterpartyRequisitesPatch,
     context: RequestContext
   ): Counterparty {
     this.assertRegistryCodeFree(
@@ -611,6 +615,7 @@ export class MvpService {
     if (request.contactPhone?.trim()) entity.contactPhone = request.contactPhone.trim();
     if (request.legalAddress?.trim()) entity.legalAddress = request.legalAddress.trim();
     if (request.note?.trim()) entity.note = request.note.trim();
+    applyCounterpartyRequisites(entity, request);
     this.state.counterparties.push(entity);
     this.audit(
       tenantId,
@@ -645,7 +650,7 @@ export class MvpService {
       legalAddress?: string | null;
       note?: string | null;
       status?: string;
-    },
+    } & CounterpartyRequisitesPatch,
     context: RequestContext
   ): Counterparty {
     const current = this.getById(this.state.counterparties, tenantId, counterpartyId);
@@ -673,6 +678,7 @@ export class MvpService {
       current.legalAddress = request.legalAddress?.trim() || undefined;
     if (request.note !== undefined) current.note = request.note?.trim() || undefined;
     if (request.status !== undefined) current.status = request.status;
+    applyCounterpartyRequisites(current, request);
 
     current.updatedAt = this.now();
 

@@ -3637,6 +3637,46 @@ describe('MvpService — Counterparty extended + group linking (Phase 2 Plan C �
     expect(updated.inn).toBe('7707083893');
   });
 
+  it('МГ-D1.1: реквизиты сохраняются при создании, правка null очищает только своё поле', () => {
+    const { service } = makeService();
+    const cp = service.createCounterpartyExtended(
+      'tenant_demo',
+      'admin-1',
+      {
+        code: 'REQ',
+        name: 'Ромашка',
+        shortName: ' ООО «Ромашка» ',
+        ogrn: '1027700132195',
+        okved: '85.42',
+        postalCode: '101000',
+        directorName: 'Иванов Иван Иванович',
+        directorPosition: 'Генеральный директор',
+        managerUserId: 'u-curator',
+        contractNumber: 'Д-17',
+        contractDate: '2026-03-01',
+        fax: '   '
+      },
+      ctx
+    );
+    expect(cp.shortName).toBe('ООО «Ромашка»');
+    expect(cp.ogrn).toBe('1027700132195');
+    expect(cp.contractDate).toBe('2026-03-01');
+    expect(cp.managerUserId).toBe('u-curator');
+    expect('fax' in cp).toBe(false);
+
+    const updated = service.updateCounterpartyExtended(
+      'tenant_demo',
+      'admin-1',
+      cp.id,
+      { directorName: null, city: 'Москва' },
+      ctx
+    );
+    expect('directorName' in updated).toBe(false);
+    expect(updated.directorPosition).toBe('Генеральный директор');
+    expect(updated.city).toBe('Москва');
+    expect(updated.ogrn).toBe('1027700132195');
+  });
+
   it('updateCounterpartyExtended toggles status archived/active', async () => {
     const { service, audit } = makeService();
     const cp = service.createCounterpartyExtended(

@@ -77,7 +77,27 @@ export const TABLE_SPECS: Record<HotCollection, TableSpec> = {
       note: 'text',
       status: 'text',
       external_id: 'text',
-      source_system: 'text'
+      source_system: 'text',
+      // МГ-D1.1 (срез 13.1): реквизиты — колонки миграции 0106.
+      short_name: 'text',
+      ogrn: 'text',
+      okpo: 'text',
+      okato: 'text',
+      oktmo: 'text',
+      okogu: 'text',
+      okopf: 'text',
+      okved: 'text',
+      postal_address: 'text',
+      actual_address: 'text',
+      region: 'text',
+      city: 'text',
+      postal_code: 'text',
+      fax: 'text',
+      director_name: 'text',
+      director_position: 'text',
+      manager_user_id: 'text',
+      contract_number: 'text',
+      contract_date: 'date'
     }
   },
   learners: {
@@ -325,6 +345,36 @@ const DOCUMENT_STATUSES = new Set([
 ]);
 const INN_FORMAT = /^(\d{10}|\d{12})$/;
 
+/** Поля реквизитов контрагента, у которых есть колонка (МГ-D1.1, миграция 0106). */
+const COUNTERPARTY_REQUISITE_COLUMNS_FIELDS = [
+  'shortName',
+  'ogrn',
+  'okpo',
+  'okato',
+  'oktmo',
+  'okogu',
+  'okopf',
+  'okved',
+  'postalAddress',
+  'actualAddress',
+  'region',
+  'city',
+  'postalCode',
+  'fax',
+  'directorName',
+  'directorPosition',
+  'managerUserId',
+  'contractNumber',
+  'contractDate'
+];
+
+/** `YYYY-MM-DD`, и такая дата есть в календаре (не «2025-02-31»). */
+const isCalendarDate = (value: string): boolean => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+};
+
 /** Поля сущности, которые никогда не идут в payload: у них есть колонка или они служебные. */
 const SERVICE_FIELDS = new Set(['id', 'tenantId', 'createdAt', 'updatedAt']);
 
@@ -386,6 +436,10 @@ const projectCounterparty = (entity: Entity, tenantId: string): ProjectedRow => 
   const { status, extra } = safeStatus(entity.status, ENTITY_STATUS_TRIPLE, 'inactive');
   const inn = str(entity.inn);
   const innOk = inn === null || INN_FORMAT.test(inn);
+  // Импортная дата договора бывает «31.02.2025» — колонка `date` её не примет; значение
+  // уходит в payload, как кривой ИНН, а строка снимка не падает.
+  const contractDate = str(entity.contractDate);
+  const contractDateOk = contractDate === null || isCalendarDate(contractDate);
   return assemble(
     entity,
     tenantId,
@@ -401,7 +455,26 @@ const projectCounterparty = (entity: Entity, tenantId: string): ProjectedRow => 
       note: str(entity.note),
       status,
       external_id: str(entity.externalId),
-      source_system: str(entity.sourceSystem)
+      source_system: str(entity.sourceSystem),
+      short_name: str(entity.shortName),
+      ogrn: str(entity.ogrn),
+      okpo: str(entity.okpo),
+      okato: str(entity.okato),
+      oktmo: str(entity.oktmo),
+      okogu: str(entity.okogu),
+      okopf: str(entity.okopf),
+      okved: str(entity.okved),
+      postal_address: str(entity.postalAddress),
+      actual_address: str(entity.actualAddress),
+      region: str(entity.region),
+      city: str(entity.city),
+      postal_code: str(entity.postalCode),
+      fax: str(entity.fax),
+      director_name: str(entity.directorName),
+      director_position: str(entity.directorPosition),
+      manager_user_id: str(entity.managerUserId),
+      contract_number: str(entity.contractNumber),
+      contract_date: contractDateOk ? contractDate : null
     },
     [
       'code',
@@ -415,9 +488,14 @@ const projectCounterparty = (entity: Entity, tenantId: string): ProjectedRow => 
       'note',
       'status',
       'externalId',
-      'sourceSystem'
+      'sourceSystem',
+      ...COUNTERPARTY_REQUISITE_COLUMNS_FIELDS
     ],
-    { ...extra, ...(innOk ? {} : { inn }) }
+    {
+      ...extra,
+      ...(innOk ? {} : { inn }),
+      ...(contractDateOk ? {} : { contractDate })
+    }
   );
 };
 
