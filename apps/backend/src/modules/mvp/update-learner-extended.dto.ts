@@ -1,12 +1,62 @@
+import { Type } from 'class-transformer';
 import {
   IsEmail,
   IsIn,
+  IsObject,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   MinLength,
-  ValidateIf
+  ValidateIf,
+  ValidateNested
 } from 'class-validator';
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Паспорт (МГ-C1.1, РМ76): серия и номер обязательны внутри объекта, формат не жёсткий (иностранные паспорта). */
+export class LearnerPassportDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(10)
+  series!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(20)
+  number!: string;
+
+  @IsOptional()
+  @Matches(DATE_RE, { message: 'дата выдачи — в формате ГГГГ-ММ-ДД' })
+  issuedAt?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  issuedBy?: string;
+}
+
+export class LearnerDiplomaDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  series?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  number?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  institution?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  surnameInDiploma?: string;
+}
 
 /**
  * Phase 2 Plan B — расширенный PATCH для учётки слушателя.
@@ -93,4 +143,70 @@ export class UpdateLearnerExtendedRequest {
   @ValidateIf((_, v) => v !== null)
   @IsString()
   linkedIamUserId?: string | null;
+
+  /* ---- Личное дело (ТЗ перехода §4, МГ-C1.1): null — очистить поле. ---- */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @ValidateNested()
+  @Type(() => LearnerPassportDto)
+  passport?: LearnerPassportDto | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsIn(['m', 'f'])
+  gender?: 'm' | 'f' | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(200)
+  birthPlace?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(100)
+  citizenship?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(500)
+  registrationAddress?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(120)
+  educationLevel?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @ValidateNested()
+  @Type(() => LearnerDiplomaDto)
+  diploma?: LearnerDiplomaDto | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(100)
+  trackingNumber?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(100)
+  deliveryMethod?: string | null;
+
+  /** Значения именованных полей центра (ключи задаст C1.3); объект «ключ → строка». */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsObject()
+  extraFields?: Record<string, string> | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(100)
+  counterpartyId?: string | null;
 }

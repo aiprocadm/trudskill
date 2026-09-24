@@ -62,11 +62,12 @@ export class LearnerPiiService {
     learnerId: string,
     reason: string | undefined,
     context: RequestContext
-  ): Promise<{ snils?: string; passport?: string; birthDate?: string }> {
+  ): Promise<{ snils?: string; passport?: unknown; birthDate?: string }> {
     const learner = this.requireLearner(tenantId, learnerId) as LearnerLike & {
       snils?: string;
-      passport?: string;
+      passport?: unknown;
       birthDate?: string;
+      dateOfBirth?: string;
     };
 
     await this.auditService.writeCritical({
@@ -90,7 +91,10 @@ export class LearnerPiiService {
     return {
       ...(learner.snils ? { snils: learner.snils } : {}),
       ...(learner.passport ? { passport: learner.passport } : {}),
-      ...(learner.birthDate ? { birthDate: learner.birthDate } : {})
+      /* Поле карточки — `dateOfBirth`; `birthDate` — прежнее имя в ответе (РМ78). */
+      ...((learner.dateOfBirth ?? learner.birthDate)
+        ? { birthDate: (learner.dateOfBirth ?? learner.birthDate) as string }
+        : {})
     };
   }
 
@@ -138,6 +142,15 @@ export class LearnerPiiService {
         email: learner.email,
         phone: learner.phone,
         position: learner.position,
+        /* Личное дело (МГ-C1.1): выгрузка по запросу субъекта отдаёт всё, что о нём хранится. */
+        passport: learner.passport,
+        gender: learner.gender,
+        birthPlace: learner.birthPlace,
+        citizenship: learner.citizenship,
+        registrationAddress: learner.registrationAddress,
+        educationLevel: learner.educationLevel,
+        diploma: learner.diploma,
+        extraFields: learner.extraFields,
         status: learner.status,
         createdAt: learner.createdAt,
         updatedAt: learner.updatedAt,

@@ -72,6 +72,45 @@ export interface Learner extends BaseEntity {
    * email — фактом изменения карточки, а не отдельной записью.
    */
   phone?: string;
+  /* ---- Личное дело (ТЗ перехода §4, МГ-C1.1; срез 8.12, РМ76–РМ77; колонки 0106/0102) ---- */
+  /** Паспорт: шифруется целиком при хранении, в списках и аудите маскируется. */
+  passport?: LearnerPassport;
+  gender?: 'm' | 'f';
+  birthPlace?: string;
+  citizenship?: string;
+  registrationAddress?: string;
+  educationLevel?: string;
+  diploma?: LearnerDiploma;
+  trackingNumber?: string;
+  deliveryMethod?: string;
+  /** Именованные дополнительные поля центра (значения; ключи — настройка, C1.3). */
+  extraFields?: Record<string, string>;
+  consentStatus?: string;
+  photoFileId?: string;
+  /** Логин для входа по паролю (МГ-C4.1); до него — только ссылка на почту. */
+  login?: string;
+  /** Текущий работодатель (контрагент) и его сотрудник (МГ-D2). */
+  counterpartyId?: string;
+  counterpartyEmployeeId?: string;
+  positionId?: string;
+  /** Импорт из CDOPROF (0102, K5): внешний ключ, источник, старый логин. */
+  externalId?: string;
+  sourceSystem?: string;
+  legacyLogin?: string;
+}
+
+export interface LearnerPassport {
+  series?: string;
+  number?: string;
+  issuedAt?: string;
+  issuedBy?: string;
+}
+
+export interface LearnerDiploma {
+  series?: string;
+  number?: string;
+  institution?: string;
+  surnameInDiploma?: string;
 }
 
 export interface Direction extends BaseEntity {

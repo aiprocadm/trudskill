@@ -24,7 +24,13 @@ const SENSITIVE_FIELDS = new Set([
   'phoneNumber',
   'phone',
   'birthDate',
-  'birth_date'
+  'birth_date',
+  /* МГ-C1.1 (РМ78): поле карточки называется dateOfBirth; паспорт и адрес — личное дело. */
+  'dateOfBirth',
+  'date_of_birth',
+  'passportHash',
+  'registrationAddress',
+  'birthPlace'
 ]);
 
 function maskPii(values: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
