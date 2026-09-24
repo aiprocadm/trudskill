@@ -82,11 +82,15 @@ export const BulkImportScreen = () => {
   const invalidCount = classified.length - validRows.length;
   const selectedGroup = groups.data?.items.find((g) => g.id === groupId);
 
-  const canSubmit =
-    Boolean(groupId) && validRows.length > 0 && !mutation.isSubmitting && !mutation.outcome;
+  /* МГ-C3.1 (РМ102): без группы — только заведение; группа нужна, когда людей ещё и зачисляют. */
+  const canSubmit = validRows.length > 0 && !mutation.isSubmitting && !mutation.outcome;
 
   const onSubmit = async () => {
-    const result = await mutation.submit({ idempotencyKey, groupId, rows: validRows });
+    const result = await mutation.submit({
+      idempotencyKey,
+      ...(groupId ? { groupId } : {}),
+      rows: validRows
+    });
     if (result) setStep('result');
   };
 
@@ -108,7 +112,7 @@ export const BulkImportScreen = () => {
     <PageContainer>
       <PageHeader
         title="Зачисление списком"
-        subtitle="Файл из Excel: система заведёт недостающих слушателей и зачислит их в выбранную группу"
+        subtitle="Файл из Excel: система заведёт недостающих слушателей и, если выбрана группа, зачислит их"
       />
 
       <WizardSteps
@@ -183,7 +187,7 @@ export const BulkImportScreen = () => {
               <label className="ui-field">
                 <span className="ui-field-label">Учебная группа</span>
                 <select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
-                  <option value="">— выберите группу —</option>
+                  <option value="">Только завести, без зачисления</option>
                   {groups.data.items.map((g) => (
                     <option key={g.id} value={g.id}>
                       {g.name} ({g.code})
@@ -191,7 +195,8 @@ export const BulkImportScreen = () => {
                   ))}
                 </select>
                 <p className="ui-field-hint">
-                  Все подходящие строки файла попадут в эту группу одним действием.
+                  Все подходящие строки файла попадут в эту группу одним действием. Без группы люди
+                  только заведутся в реестре — зачислить можно позже из карточки группы.
                 </p>
               </label>
             ) : (
@@ -222,8 +227,12 @@ export const BulkImportScreen = () => {
                 disabled={!canSubmit}
               >
                 {mutation.isSubmitting
-                  ? 'Зачисляем…'
-                  : `Зачислить ${validRows.length} в группу${selectedGroup ? ` «${selectedGroup.name}»` : ''}`}
+                  ? groupId
+                    ? 'Зачисляем…'
+                    : 'Заводим…'
+                  : groupId
+                    ? `Зачислить ${validRows.length} в группу${selectedGroup ? ` «${selectedGroup.name}»` : ''}`
+                    : `Завести ${validRows.length} без зачисления`}
               </button>
             </div>
           </SectionCard>
@@ -234,8 +243,10 @@ export const BulkImportScreen = () => {
         <SectionCard title="Что получилось">
           <OperationOutcome
             outcome={outcome}
-            successVerb="Зачислено"
-            failuresTitle="Не зачислены — построчно:"
+            successVerb={mutation.outcome?.groupId ? 'Зачислено' : 'Заведено'}
+            failuresTitle={
+              mutation.outcome?.groupId ? 'Не зачислены — построчно:' : 'Не заведены — построчно:'
+            }
           >
             {outcome.failures.length > 0 ? (
               <>

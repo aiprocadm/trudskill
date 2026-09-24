@@ -100,3 +100,42 @@ describe('classifyParsedRows', () => {
     expect(classifyParsedRows([])).toEqual([]);
   });
 });
+
+// МГ-C3.1 (срез 10.2): зеркало серверных правил для колонок личного дела.
+describe('колонки личного дела (МГ-C3.1)', () => {
+  it('кривая дата, пол, телефон, паспорт наполовину, образование и ИНН — отказ поимённо; ФИО из частей проходит', () => {
+    const rows = classifyParsedRows([
+      {
+        rowNumber: 2,
+        fullName: '',
+        lastName: 'Иванов',
+        firstName: 'Иван',
+        email: 'a@x.ru',
+        dateOfBirth: '31.02.1990',
+        gender: 'да',
+        phone: '12',
+        passportSeries: '45 12',
+        educationLevel: 'ПТУ',
+        companyInn: '123'
+      },
+      {
+        rowNumber: 3,
+        fullName: '',
+        lastName: 'Петрова',
+        firstName: 'Анна',
+        email: 'b@x.ru',
+        gender: 'ж'
+      }
+    ]);
+    expect(rows[0]?.classification).toBe('invalid');
+    expect(rows[0]?.errors.map((e) => e.field)).toEqual([
+      'dateOfBirth',
+      'gender',
+      'phone',
+      'passport',
+      'educationLevel',
+      'companyInn'
+    ]);
+    expect(rows[1]?.classification).toBe('valid');
+  });
+});

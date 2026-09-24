@@ -111,3 +111,37 @@ describe('итог массовой загрузки', () => {
     expect(outcome.failures).toEqual([{ label: 'Строка 99', reason: 'Что-то не так' }]);
   });
 });
+
+// МГ-C3.1 (срез 10.2): без группы «заведён», предупреждение сервера — рядом со статусом.
+describe('итог без группы и предупреждения', () => {
+  it('созданный без зачисления — «заведён», предупреждение про ИНН видно', () => {
+    const rows = successfulRows(
+      [
+        {
+          row: { rowNumber: 2, fullName: 'Иванов Иван', email: 'a@x.ru' },
+          classification: 'valid',
+          errors: []
+        }
+      ],
+      {
+        idempotencyKey: 'k',
+        total: 1,
+        created: 1,
+        reused: 0,
+        enrolled: 0,
+        failed: 0,
+        rows: [
+          {
+            rowNumber: 2,
+            status: 'created',
+            learnerId: 'l1',
+            warnings: ['Компания с ИНН 9999999999 не найдена — слушатель заведён без компании']
+          }
+        ]
+      }
+    );
+    expect(rows[0]?.status).toBe(
+      'заведён — Компания с ИНН 9999999999 не найдена — слушатель заведён без компании'
+    );
+  });
+});
