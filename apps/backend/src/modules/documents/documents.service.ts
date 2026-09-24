@@ -35,6 +35,13 @@ import {
 } from './documents.dto.js';
 import { InMemoryDocumentsState } from './in-memory-documents.state.js';
 import {
+  type NumberingFacts,
+  factTokensOf,
+  formatRuleNumber,
+  isDerivedPattern,
+  missingFacts
+} from './numbering-format.js';
+import {
   type PublicVerifyResult,
   buildPublicVerifyResult,
   maskFullName
@@ -872,7 +879,8 @@ export class DocumentsService {
     return this.getReservation(tenantId, task.numberReservationId).reservedNumber;
   }
 
-  startTask(tenantId: string, id: string) {
+  /** `facts` — данные группы для номера (МГ-F3.1), их собирает вызывающий вне блокировки. */
+  startTask(tenantId: string, id: string, facts: NumberingFacts = {}) {
     const task = this.getDocumentTask(tenantId, id);
     if (task.status === 'completed' || task.status === 'failed')
       throw new BadRequestException({
@@ -887,7 +895,10 @@ export class DocumentsService {
       queue: 'documents_generation'
     });
     if (!task.numberReservationId) {
-      task.numberReservationId = this.reserveNumber(tenantId, task.documentType, task.kindCode).id;
+      task.numberReservationId = this.reserveNumber(tenantId, task.documentType, task.kindCode, {
+        groupId: task.groupId,
+        ...facts
+      }).id;
     }
     this.writeTaskAudit(task, 'documents.task.started');
     return task;
@@ -1132,7 +1143,9 @@ export class DocumentsService {
         suffix: rule.suffix,
         pattern: rule.pattern,
         resetPeriod: rule.resetPeriod,
-        currentCounter: rule.currentCounter
+        currentCounter: rule.currentCounter,
+        series: rule.series,
+        parts: rule.parts
       },
       requestId: ctx?.requestId,
       correlationId: ctx?.correlationId,
@@ -1159,6 +1172,8 @@ export class DocumentsService {
       tenantId,
       documentType: req.documentType,
       ...(req.kindCode ? { kindCode: req.kindCode } : {}),
+      ...(req.series ? { series: req.series } : {}),
+      ...(req.parts?.length ? { parts: req.parts } : {}),
       prefix: req.prefix ?? '',
       suffix: req.suffix ?? '',
       pattern: req.pattern ?? this.defaultNumberingPattern(req.resetPeriod ?? 'none'),
@@ -1195,7 +1210,9 @@ export class DocumentsService {
       suffix: row.suffix,
       pattern: row.pattern,
       resetPeriod: row.resetPeriod,
-      currentCounter: row.currentCounter
+      currentCounter: row.currentCounter,
+      series: row.series,
+      parts: row.parts
     };
     // ФТ-A4.1: startCounter — это «следующий выдаваемый номер», а во внутреннем
     // счётчике хранится «последний выданный». Поле служебное: в сущность правила
@@ -1272,8 +1289,8 @@ export class DocumentsService {
    * МГ-F3.1 (срез 19.1): у документа с видом сначала ищется правило вида, затем — правило типа
    * (общий счётчик, РМ124). Документ без вида правилом вида не нумеруется никогда.
    */
-  reserveNumber(tenantId: string, documentType: string, kindCode?: string) {
-    let rule =
+  private findActiveNumberingRule(tenantId: string, documentType: string, kindCode?: string) {
+    return (
       (kindCode
         ? this.state.numberingRules.find(
             (x) => x.tenantId === tenantId && x.kindCode === kindCode && x.isActive
@@ -1282,7 +1299,89 @@ export class DocumentsService {
       this.state.numberingRules.find(
         (x) =>
           x.tenantId === tenantId && x.documentType === documentType && !x.kindCode && x.isActive
-      );
+      )
+    );
+  }
+
+  /**
+   * МГ-F3.1 (срез 19.2): нужны ли номеру задачи данные группы — код, порядок слушателя. Их
+   * собирают вне блокировки документов (они в MVP-состоянии), поэтому спрашивают заранее.
+   */
+  numberingNeedsFacts(tenantId: string, task: DocumentGenerationTaskEntity): boolean {
+    if (task.numberReservationId) return false;
+    const rule = this.findActiveNumberingRule(tenantId, task.documentType, task.kindCode);
+    return rule ? factTokensOf(rule.pattern).length > 0 : false;
+  }
+
+  /**
+   * Номер протокола группы для «номер удостоверения = номер протокола + порядок» (МГ-F3.1).
+   *
+   * Протокол — задача выпуска типа «протокол» этой группы (самая поздняя живая). Номер у неё
+   * есть — берём его. Номера ещё нет (удостоверение пошло в работу раньше протокола) — при
+   * `reserve` номер выдаётся протоколу сейчас же: удостоверение не падает из-за очереди, а
+   * протокол потом получит ровно этот номер. Предпросмотр ничего не выдаёт (`reserve: false`).
+   */
+  private protocolNumberOfGroup(
+    tenantId: string,
+    groupId: string | undefined,
+    groupCode: string | undefined,
+    reserve: boolean
+  ): string | undefined {
+    if (!groupId) return undefined;
+    const protocolTask = this.state.tasks
+      .filter(
+        (t) =>
+          t.tenantId === tenantId &&
+          t.documentType === 'protocol' &&
+          t.status !== 'cancelled' &&
+          t.status !== 'failed' &&
+          (t.groupId === groupId ||
+            (t.sourceEntityType === 'group' && t.sourceEntityId === groupId))
+      )
+      .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))[0];
+    if (!protocolTask) return undefined;
+    if (protocolTask.numberReservationId) {
+      return this.state.reservations.find(
+        (r) => r.tenantId === tenantId && r.id === protocolTask.numberReservationId
+      )?.reservedNumber;
+    }
+    if (!reserve) return undefined;
+    // Правило протокола, само ссылающееся на номер протокола, — ошибка настройки, а не повод
+    // зациклиться: номера нет, выпуск получит понятный отказ.
+    const protocolRule = this.findActiveNumberingRule(tenantId, 'protocol', protocolTask.kindCode);
+    if (protocolRule?.pattern.includes('{protocol.number}')) return undefined;
+    const reserved = this.reserveNumber(tenantId, 'protocol', protocolTask.kindCode, {
+      groupId,
+      groupCode
+    });
+    protocolTask.numberReservationId = reserved.id;
+    return reserved.reservedNumber;
+  }
+
+  /** Шаблон с периодом: при сбросе по году/месяцу номер без периода повторился бы. */
+  private patternWithPeriod(rule: NumberingRuleEntity): string {
+    if (rule.resetPeriod === 'none' || rule.pattern.includes('{period}')) return rule.pattern;
+    const running = ['{counter}', '{seq.year}', '{parts}'].find((t) => rule.pattern.includes(t));
+    return running ? rule.pattern.replace(running, `{period}-${running}`) : rule.pattern;
+  }
+
+  private assertNumberingFacts(rule: NumberingRuleEntity, facts: NumberingFacts) {
+    const missing = missingFacts(rule.pattern, facts);
+    if (missing.length > 0) {
+      throw new BadRequestException({
+        code: 'numbering_context_missing',
+        message: `Для номера не хватает: ${missing.join(', ')}. Номер этого вида собирается из данных группы — выпустите документ из учебной группы.`
+      });
+    }
+  }
+
+  reserveNumber(
+    tenantId: string,
+    documentType: string,
+    kindCode?: string,
+    facts: NumberingFacts = {}
+  ) {
+    let rule = this.findActiveNumberingRule(tenantId, documentType, kindCode);
     if (!rule) {
       // Default-rule с documentType в префиксе — иначе разные типы документов
       // в рамках одного tenant'а коллидируют по reservedNumber ('000001').
@@ -1302,77 +1401,148 @@ export class DocumentsService {
       };
       this.state.numberingRules.push(rule);
     }
-    const periodKey = this.periodKey(rule.resetPeriod);
+    const activeRule = rule;
+    const usesFacts = factTokensOf(activeRule.pattern).length > 0;
+    const fullFacts: NumberingFacts = activeRule.pattern.includes('{protocol.number}')
+      ? {
+          ...facts,
+          protocolNumber:
+            facts.protocolNumber ??
+            this.protocolNumberOfGroup(tenantId, facts.groupId, facts.groupCode, true)
+        }
+      : facts;
+    if (usesFacts) this.assertNumberingFacts(activeRule, fullFacts);
+    const periodKey = this.periodKey(activeRule.resetPeriod);
     // ФТ-A4.2: номер, освобождённый упавшей задачей, возвращается в оборот раньше,
     // чем счётчик выдаст следующий — иначе в реестре остаётся дыра, а дыра в
     // регулируемой нумерации у проверяющего равносильна утраченному документу.
     // Границу периода не пересекаем: маска содержит период (см. periodKey).
-    const reusable = this.state.reservations.find(
-      (x) =>
-        x.tenantId === tenantId &&
-        x.ruleId === rule.id &&
-        x.status === 'released' &&
-        (rule.resetPeriod === 'none' || x.periodKey === periodKey)
-    );
-    if (reusable) {
-      reusable.status = 'reserved';
-      reusable.reservedAt = this.now();
-      delete reusable.documentId;
-      delete reusable.usedAt;
-      return reusable;
-    }
+    // Номер из данных группы (МГ-F3.1) переиспользуется только ТОТ ЖЕ — ниже, после сборки.
+    const reusable = usesFacts
+      ? undefined
+      : this.state.reservations.find(
+          (x) =>
+            x.tenantId === tenantId &&
+            x.ruleId === activeRule.id &&
+            x.status === 'released' &&
+            (activeRule.resetPeriod === 'none' || x.periodKey === periodKey)
+        );
+    if (reusable) return this.reuseReservation(reusable);
     // Period rollover (new year/month) restarts the sequence at 1. Compute the
     // next value WITHOUT committing it yet — a failed reservation below must not
     // burn a counter value and leave a gap in a regulated register.
-    const rolledOver = rule.periodKey !== undefined && rule.periodKey !== periodKey;
-    const nextCounter = rolledOver ? 1 : rule.currentCounter + 1;
-    const counter = `${nextCounter}`.padStart(6, '0');
+    const rolledOver = activeRule.periodKey !== undefined && activeRule.periodKey !== periodKey;
+    const nextCounter = rolledOver ? 1 : activeRule.currentCounter + 1;
     // {period} keeps reset numbers globally unique: after a rollover the counter
     // resets, so without the period the new period's #1 collides with the prior
     // period's #1 (the silent-failure источник). Legacy rules that reset by period
     // but omit {period} from their pattern are qualified here so issuance never
     // silently fails on rollover.
-    const periodToken = rule.resetPeriod === 'none' ? '' : periodKey;
-    const pattern =
-      rule.resetPeriod !== 'none' && !rule.pattern.includes('{period}')
-        ? rule.pattern.replace('{counter}', '{period}-{counter}')
-        : rule.pattern;
-    const formatted = pattern
-      .replace('{prefix}', rule.prefix)
-      .replace('{period}', periodToken)
-      .replace('{suffix}', rule.suffix)
-      .replace('{counter}', counter);
+    const periodToken = activeRule.resetPeriod === 'none' ? '' : periodKey;
+    const formatted = formatRuleNumber(
+      { ...activeRule, pattern: this.patternWithPeriod(activeRule) },
+      nextCounter,
+      periodToken,
+      fullFacts
+    );
     // РМ125: номер уникален в пределах вида правила — «номер приказа = код группы» и
     // «номер протокола = код группы» не мешают друг другу, дубль внутри вида запрещён.
-    const numberScope = rule.kindCode ?? '';
-    if (
-      this.state.reservations.some(
+    const numberScope = activeRule.kindCode ?? '';
+    const sameNumber = (x: NumberReservationEntity) =>
+      x.tenantId === tenantId &&
+      x.reservedNumber === formatted &&
+      (x.kindCode ?? '') === numberScope;
+    if (usesFacts) {
+      const released = this.state.reservations.find(
         (x) =>
           x.tenantId === tenantId &&
-          x.reservedNumber === formatted &&
-          (x.kindCode ?? '') === numberScope
-      )
-    ) {
+          sameNumber(x) &&
+          x.ruleId === activeRule.id &&
+          x.status === 'released'
+      );
+      if (released) return this.reuseReservation(released);
+    }
+    if (this.state.reservations.some((x) => x.tenantId === tenantId && sameNumber(x))) {
       throw new ConflictException({
         code: 'document_number_taken',
-        message: `Reservation number ${formatted} already exists`
+        message: `Номер ${formatted} уже выдан документу этого вида.`
       });
     }
-    // Commit the sequence advance only after the uniqueness check passed.
-    rule.currentCounter = nextCounter;
-    rule.periodKey = periodKey;
+    // Commit the sequence advance only after the uniqueness check passed. Номер только из
+    // данных группы счётчик не расходует — «выдано» на экране нумерации не врёт.
+    if (!isDerivedPattern(activeRule.pattern)) activeRule.currentCounter = nextCounter;
+    activeRule.periodKey = periodKey;
     const reservation: NumberReservationEntity = {
       id: this.id('nres'),
       tenantId,
-      ruleId: rule.id,
+      ruleId: activeRule.id,
       reservedNumber: formatted,
       reservedAt: this.now(),
       status: 'reserved',
       periodKey,
-      ...(rule.kindCode ? { kindCode: rule.kindCode } : {})
+      ...(activeRule.kindCode ? { kindCode: activeRule.kindCode } : {})
     };
     this.state.reservations.push(reservation);
     return reservation;
+  }
+
+  private reuseReservation(reservation: NumberReservationEntity) {
+    reservation.status = 'reserved';
+    reservation.reservedAt = this.now();
+    delete reservation.documentId;
+    delete reservation.usedAt;
+    return reservation;
+  }
+
+  /**
+   * МГ-F3.1 (срез 19.2): «следующий номер будет …» — тем же кодом, что выпуск, но без выдачи:
+   * счётчик не двигается, протоколу номер не выдаётся. Нет данных для токена — вместо номера
+   * список того, чего не хватает; порядок слушателя в предпросмотре — первый.
+   */
+  previewNumber(
+    tenantId: string,
+    documentType: string,
+    kindCode: string | undefined,
+    facts: NumberingFacts
+  ): { next: string | null; missing: string[]; ruleId?: string } {
+    const rule = this.findActiveNumberingRule(tenantId, documentType, kindCode);
+    if (!rule) {
+      return { next: `${documentType.toUpperCase()}-000001`, missing: [] };
+    }
+    const previewFacts: NumberingFacts = {
+      ...facts,
+      seqGroup: facts.seqGroup ?? 1,
+      protocolNumber:
+        facts.protocolNumber ??
+        this.protocolNumberOfGroup(tenantId, facts.groupId, facts.groupCode, false)
+    };
+    const missing = missingFacts(rule.pattern, previewFacts);
+    if (missing.length > 0) return { next: null, missing, ruleId: rule.id };
+    const periodKey = this.periodKey(rule.resetPeriod);
+    // Выпуск сначала возвращает в оборот освобождённый номер (ФТ-A4.2) — предпросмотр тоже.
+    if (factTokensOf(rule.pattern).length === 0) {
+      const released = this.state.reservations.find(
+        (x) =>
+          x.tenantId === tenantId &&
+          x.ruleId === rule.id &&
+          x.status === 'released' &&
+          (rule.resetPeriod === 'none' || x.periodKey === periodKey)
+      );
+      if (released) return { next: released.reservedNumber, missing: [], ruleId: rule.id };
+    }
+    const rolledOver = rule.periodKey !== undefined && rule.periodKey !== periodKey;
+    const nextCounter = rolledOver ? 1 : rule.currentCounter + 1;
+    const periodToken = rule.resetPeriod === 'none' ? '' : periodKey;
+    return {
+      next: formatRuleNumber(
+        { ...rule, pattern: this.patternWithPeriod(rule) },
+        nextCounter,
+        periodToken,
+        previewFacts
+      ),
+      missing: [],
+      ruleId: rule.id
+    };
   }
   getReservation(tenantId: string, reservationId: string) {
     return this.must(this.state.reservations, tenantId, reservationId);
@@ -1712,6 +1882,9 @@ export class DocumentsService {
       templateId: original.templateId,
       templateVersionId: original.templateVersionId,
       documentType: original.documentType,
+      // Журнал 657: перевыпуск терял вид документа (срез 18.1) — книга выдачи и пакет группы
+      // не узнавали замену.
+      ...(original.kindCode ? { kindCode: original.kindCode } : {}),
       name: `${original.documentType} ${newNumber}`,
       sourceEntityType: original.sourceEntityType,
       sourceEntityId: original.sourceEntityId,

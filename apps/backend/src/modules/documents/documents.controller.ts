@@ -6,6 +6,7 @@ import {
   Get,
   Header,
   Inject,
+  Optional,
   Param,
   Patch,
   Post,
@@ -16,7 +17,8 @@ import {
   UseInterceptors
 } from '@nestjs/common';
 
-import { DOCUMENT_KINDS } from './document-kinds.js';
+import { DOCUMENT_KINDS, assertDocumentKindKnown } from './document-kinds.js';
+import { DocumentVariablesBuilder } from './document-variables.builder.js';
 import { DocumentsEnqueueService } from './documents-enqueue.service.js';
 import {
   CloseGroupDto,
@@ -31,6 +33,7 @@ import {
   GenerateDocumentDto,
   GenerateDocumentsBatchDto,
   IssueGroupOrderDto,
+  NumberingPreviewQueryDto,
   SetCurrentVersionDto,
   TenantImageSlotDto,
   UpdateNumberingRuleDto,
@@ -106,7 +109,11 @@ export class DocumentsController {
     private readonly issuanceReadiness: IssuanceReadinessService,
     /* Фаза 1, срез 5b: чтение документов из таблицы под флагом. Параметр ПОСЛЕДНИЙ (журнал 526). */
     @Inject(DocumentsNormalizedReadsService)
-    private readonly normalizedReads: DocumentsNormalizedReadsService
+    private readonly normalizedReads: DocumentsNormalizedReadsService,
+    /* МГ-F3.1 (срез 19.2): данные группы для предпросмотра номера. Параметр ПОСЛЕДНИЙ (журнал 526). */
+    @Optional()
+    @Inject(DocumentVariablesBuilder)
+    private readonly variables?: DocumentVariablesBuilder
   ) {}
 
   /**
@@ -617,6 +624,29 @@ export class DocumentsController {
   createRule(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
     const b = assertValidDto(CreateNumberingRuleDto, raw);
     return this.documentsService.createNumberingRule(c.tenantId!, b, c.userId, c);
+  }
+  /**
+   * МГ-F3.1 (срез 19.2): «следующий номер будет …» тем же кодом, что выпуск, но без выдачи.
+   * Объявлен РАНЬШЕ `numbering-rules/:id`, иначе слово `preview` приняли бы за идентификатор.
+   */
+  @Get('numbering-rules/preview')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.read')
+  async previewRule(@CurrentContext() c: RequestContext, @Query() raw: unknown) {
+    const q = assertValidDto(NumberingPreviewQueryDto, raw);
+    const kind = q.kindCode ? assertDocumentKindKnown(q.kindCode) : undefined;
+    const documentType = kind?.templateType ?? q.documentType;
+    if (!documentType) {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'Укажите вид документа или тип документа.'
+      });
+    }
+    const facts =
+      q.groupId && this.variables
+        ? await this.variables.numberingFacts(c.tenantId!, { groupId: q.groupId })
+        : {};
+    return this.documentsService.previewNumber(c.tenantId!, documentType, q.kindCode, facts);
   }
   @Get('numbering-rules/:id')
   @UseGuards(PermissionGuard)

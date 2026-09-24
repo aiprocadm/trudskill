@@ -172,6 +172,18 @@ export const documentKindOf = (code: string | undefined | null): DocumentKind | 
  * Вид есть в каталоге и подходит шаблону по типу: удостоверение на бланке приказа выпустило бы
  * документ с чужой нумерацией и чужими переменными.
  */
+/** Вид есть в справочнике — иначе понятный отказ `document_kind_unknown`. */
+export function assertDocumentKindKnown(kindCode: string): DocumentKind {
+  const kind = documentKindOf(kindCode);
+  if (!kind) {
+    throw new BadRequestException({
+      code: 'document_kind_unknown',
+      message: `Вида документа «${kindCode}» нет в справочнике видов.`
+    });
+  }
+  return kind;
+}
+
 /**
  * МГ-F3.1 (срез 19.1): правило нумерации вида заводится с тем же типом документа, что у вида —
  * иначе счётчик «приказа о зачислении» мог бы нумеровать удостоверения.

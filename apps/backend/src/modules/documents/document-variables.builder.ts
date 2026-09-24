@@ -10,6 +10,7 @@ import {
   resolveTenantVariables
 } from './entity-variables.js';
 import {
+  groupLearnerOrder,
   resolveCommissionVariables,
   resolveDocumentVariables,
   resolveEnrollmentVariables,
@@ -32,6 +33,7 @@ import { LicensesService } from '../org/licenses.service.js';
 import { TenantService } from '../tenant/tenant.service.js';
 
 import type { DocumentGenerationTaskEntity, GeneratedDocumentEntity } from './documents.types.js';
+import type { NumberingFacts } from './numbering-format.js';
 import type { InMemoryMvpState } from '../mvp/infrastructure/in-memory-mvp.state.js';
 import type { Commission, CommissionMember, Enrollment, Learner } from '../mvp/mvp.types.js';
 import type { TrainingLicense } from '../org/licenses.types.js';
@@ -81,6 +83,53 @@ export class DocumentVariablesBuilder {
    * вызова. При рендере его ещё нет, поэтому категория `document.*` дозаполняется
    * из задачи и зарезервированного номера.
    */
+  /**
+   * МГ-F3.1 (срез 19.2): данные группы для номера документа — код группы и порядок слушателя
+   * (тот же, что строка таблицы протокола). Группа — из задачи, из записи слушателя или сама
+   * задача «на группу». Нет состояния или группы — пусто: выпуск получит понятный отказ
+   * «не хватает кода группы», а не номер с дыркой.
+   */
+  async numberingFacts(
+    tenantId: string,
+    task: { groupId?: string | undefined; sourceEntityType?: string; sourceEntityId?: string }
+  ): Promise<NumberingFacts> {
+    try {
+      return await this.mvpRunner.runWithTenantState(tenantId, async (state) => {
+        const scoped = <T extends { tenantId: string }>(items: T[]): T[] =>
+          items.filter((item) => item.tenantId === tenantId);
+        const enrollment =
+          task.sourceEntityType === 'enrollment'
+            ? scoped(state.enrollments).find((item) => item.id === task.sourceEntityId)
+            : undefined;
+        const groupId =
+          task.groupId ??
+          enrollment?.groupId ??
+          (task.sourceEntityType === 'group' ? task.sourceEntityId : undefined);
+        const group = groupId
+          ? scoped(state.groups).find((item) => item.id === groupId)
+          : undefined;
+        if (!group) return {};
+        const order = groupLearnerOrder({
+          learners: scoped(state.learners),
+          enrollments: scoped(state.enrollments).filter((item) => item.groupId === group.id)
+        });
+        const position = enrollment ? order.indexOf(enrollment.learnerId) : -1;
+        return {
+          groupId: group.id,
+          ...(group.code ? { groupCode: group.code } : {}),
+          ...(position >= 0 ? { seqGroup: position + 1 } : {})
+        };
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Numbering facts unavailable for ${tenantId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+      return {};
+    }
+  }
+
   async build(params: {
     tenantId: string;
     task: DocumentGenerationTaskEntity;

@@ -1,3 +1,7 @@
+// `@Type` читает метаданные: файл грузят и тесты без Nest — подключаем сами (МГ-F3.1).
+import 'reflect-metadata';
+
+import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayNotEmpty,
@@ -12,7 +16,8 @@ import {
   Max,
   MaxLength,
   Min,
-  MinLength
+  MinLength,
+  ValidateNested
 } from 'class-validator';
 
 /**
@@ -420,6 +425,34 @@ export class GenerateDocumentsBatchDto {
  * (это записано в самом интерфейсе `UpdateNumberingRuleRequest`). Здесь проверяется лишь
  * форма: неотрицательное целое; «только вперёд» решает сервис, у него есть текущее значение.
  */
+/** МГ-F3.1 (срез 19.2): часть номера CDOPROF — старт и «растёт сама» (РМ126). */
+export class NumberPartDto {
+  @IsInt({ message: 'parts.start: ожидается целое число' })
+  @Min(0, { message: 'parts.start: номер не бывает отрицательным' })
+  start!: number;
+
+  @IsBoolean()
+  auto!: boolean;
+}
+
+/** МГ-F3.1 (срез 19.2): «следующий номер будет …» — вид или тип, и группа для токенов. */
+export class NumberingPreviewQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  documentType?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  kindCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  groupId?: string;
+}
+
 export class CreateNumberingRuleDto {
   @IsString()
   @MinLength(1)
@@ -430,6 +463,18 @@ export class CreateNumberingRuleDto {
   @IsString()
   @MaxLength(64)
   kindCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  series?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(3, { message: 'parts: у номера не больше трёх частей' })
+  @ValidateNested({ each: true })
+  @Type(() => NumberPartDto)
+  parts?: NumberPartDto[];
 
   @IsOptional()
   @IsString()
@@ -457,6 +502,18 @@ export class CreateNumberingRuleDto {
 }
 
 export class UpdateNumberingRuleDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  series?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(3, { message: 'parts: у номера не больше трёх частей' })
+  @ValidateNested({ each: true })
+  @Type(() => NumberPartDto)
+  parts?: NumberPartDto[];
+
   @IsOptional()
   @IsString()
   @MaxLength(32)

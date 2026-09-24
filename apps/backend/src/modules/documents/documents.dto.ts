@@ -135,6 +135,10 @@ export interface CreateNumberingRuleRequest {
   documentType: string;
   /** МГ-F3.1: правило вида документа; вид обязан относиться к `documentType`. */
   kindCode?: string;
+  /** МГ-F3.1 (срез 19.2): серия бланка для токена `{series}`. */
+  series?: string;
+  /** МГ-F3.1: до трёх частей номера для токена `{parts}`. */
+  parts?: Array<{ start: number; auto: boolean }>;
   prefix?: string;
   suffix?: string;
   pattern?: string;
@@ -143,6 +147,8 @@ export interface CreateNumberingRuleRequest {
   startCounter?: number;
 }
 export interface UpdateNumberingRuleRequest {
+  series?: string;
+  parts?: Array<{ start: number; auto: boolean }>;
   prefix?: string;
   suffix?: string;
   pattern?: string;
