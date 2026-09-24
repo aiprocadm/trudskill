@@ -5,6 +5,7 @@ import {
   INN_SUGGEST_PROVIDER,
   NoopInnSuggestProvider
 } from './counterparties/inn-suggest.provider.js';
+import { CourseHistoryService } from './courses/course-history.service.js';
 import { GroupStatusScanner } from './groups/group-status.scanner.service.js';
 import { GroupStatusSchedulerService } from './groups/group-status.scheduler.service.js';
 import { GroupWizardService } from './groups/group-wizard.service.js';
@@ -480,6 +481,8 @@ import { LearnersRegistryExportService } from './learners/learners-registry-expo
     { provide: LearnerFilesService, scope: Scope.REQUEST, useClass: LearnerFilesService },
     /* МГ-C2.1 (срез 9.3): «Выслать доступ» читает слушателя из состояния запроса. */
     { provide: LearnerAccessService, scope: Scope.REQUEST, useClass: LearnerAccessService },
+    // МГ-E2.3 (срез 16.4): история курса.
+    { provide: CourseHistoryService, scope: Scope.REQUEST, useClass: CourseHistoryService },
     // МГ-D1.2 (срез 13.1): подстановка по ИНН — DaData при ключе, иначе честное «не подключено» (РМ113).
     {
       provide: INN_SUGGEST_PROVIDER,
