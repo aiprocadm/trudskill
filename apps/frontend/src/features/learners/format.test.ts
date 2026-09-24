@@ -145,3 +145,44 @@ describe('buildUpdatePayload — только разница', () => {
     });
   });
 });
+
+// МГ-C1.3 (срез 8.14b, РМ87): именованные поля — только изменённые ключи, пустая строка = удалить.
+describe('buildUpdatePayload — именованные поля центра', () => {
+  it('уходят только изменённые ключи; нетронутые (в том числе legacy_N) не отправляются', () => {
+    const initial = toEditFormState({
+      id: 'l1',
+      tenantId: 't',
+      firstName: 'Иван',
+      lastName: 'Иванов',
+      status: 'active' as const,
+      createdAt: '',
+      updatedAt: '',
+      extraFields: { legacy_1: 'старое', otdel: 'Цех 1' }
+    });
+    expect(initial.extraFields).toEqual({ legacy_1: 'старое', otdel: 'Цех 1' });
+    expect(buildUpdatePayload({ ...initial }, initial)).toEqual({});
+    const form = {
+      ...initial,
+      extraFields: { ...initial.extraFields, otdel: ' Цех 2 ', start: '2026-03-01' }
+    };
+    expect(buildUpdatePayload(form, initial)).toEqual({
+      extraFields: { otdel: 'Цех 2', start: '2026-03-01' }
+    });
+    const cleared = { ...initial, extraFields: { legacy_1: 'старое', otdel: '' } };
+    expect(buildUpdatePayload(cleared, initial)).toEqual({ extraFields: { otdel: '' } });
+  });
+
+  it('без исходной формы (заведение) уходят только непустые значения', () => {
+    expect(
+      buildUpdatePayload({
+        ...EMPTY_LEARNER_FORM,
+        firstName: 'И',
+        lastName: 'И',
+        extraFields: { a: '1', b: '' }
+      }).extraFields
+    ).toEqual({ a: '1' });
+    expect(
+      buildUpdatePayload({ ...EMPTY_LEARNER_FORM, firstName: 'И', lastName: 'И' }).extraFields
+    ).toBeUndefined();
+  });
+});

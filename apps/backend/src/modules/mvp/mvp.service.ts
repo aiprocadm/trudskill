@@ -62,6 +62,7 @@ import {
 import { IDENTITY_VERIFICATION_REJECTED_EVENT } from './identity-verification-rejected.event.js';
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from './infrastructure/mvp-state.token.js';
+import { mergeExtraFields } from './learners/learner-extra-fields.js';
 import { completionRate, examPassRate, isGenuinePass } from './learning-metrics.js';
 import { PRE_EXAM_AUTH_REQUESTED_EVENT } from './pre-exam-auth-requested.event.js';
 import {
@@ -1300,10 +1301,8 @@ export class MvpService {
       current.diploma = Object.keys(diploma).length ? (diploma as LearnerDiploma) : undefined;
     }
     if (request.extraFields !== undefined) {
-      current.extraFields =
-        request.extraFields && Object.keys(request.extraFields).length
-          ? request.extraFields
-          : undefined;
+      /* МГ-C1.3 (РМ87): слияние по ключам — ключи переноса CDOPROF не стираются правкой карточки. */
+      current.extraFields = mergeExtraFields(current.extraFields, request.extraFields);
     }
 
     current.updatedAt = this.now();

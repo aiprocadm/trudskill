@@ -31,6 +31,12 @@ export const SETTINGS_LINK_SECTIONS: SettingsSection[] = [
     href: '/academy/requisites'
   },
   { id: 'users', title: 'Люди и доступ', hint: 'Сотрудники центра и их роли', href: '/users' },
+  /* МГ-C1.3 (срез 8.14b): свои поля карточки слушателя; раздел сам прячется без tenant.settings.write. */
+  {
+    id: 'learner-fields',
+    title: 'Поля личного дела',
+    hint: 'Свои поля в карточке слушателя и в документах'
+  },
   { id: 'payments', title: 'Оплата', hint: 'Платёжный провайдер центра' },
   { id: 'notifications', title: 'Уведомления', hint: 'Кому дублировать письма' },
   { id: 'webinars', title: 'Вебинары', hint: 'Площадка для занятий' },

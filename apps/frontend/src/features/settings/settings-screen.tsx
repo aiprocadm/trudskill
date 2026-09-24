@@ -4,6 +4,7 @@ import { SettingsLayout, TabPanel, isEmbeddedSection } from '@trudskill/ui';
 import Link from 'next/link';
 import { useEffect } from 'react';
 
+import { LearnerFieldsSettingsSection } from './learner-fields-section';
 import { visibleSettingsSections } from './sections';
 import { ProfileCard } from '../../components/profile-card';
 import { PageContainer, PageHeader, SectionCard } from '../../components/state-wrappers';
@@ -79,6 +80,10 @@ export function SettingsScreen() {
 
       <SettingsLayout sections={sections} activeId={activeId} onSelect={setActiveId} link={Link}>
         {/* Открыт ровно один раздел: остальные не рисуются вовсе, а не прячутся стилем. */}
+        {/* МГ-C1.3: секция сама скрывается без права tenant.settings.write. */}
+        <TabPanel id="learner-fields" activeId={activeId}>
+          <LearnerFieldsSettingsSection />
+        </TabPanel>
         <TabPanel id="payments" activeId={activeId}>
           <PaymentProviderSettingsSection />
         </TabPanel>

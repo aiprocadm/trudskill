@@ -125,3 +125,22 @@ export const resolveExtraFieldVariables = (
   }
   return out;
 };
+
+/**
+ * Слияние значений при правке карточки (РМ87): присланные ключи перекрывают текущие, пустая
+ * строка удаляет ключ, `null` очищает всё. Ключи, которых в запросе нет (например `legacy_N`
+ * из переноса CDOPROF), остаются нетронутыми — правка одного поля не стирает остальные.
+ */
+export const mergeExtraFields = (
+  current: Record<string, string> | undefined,
+  patch: Record<string, string> | null
+): Record<string, string> | undefined => {
+  if (patch === null) return undefined;
+  const next: Record<string, string> = { ...(current ?? {}) };
+  for (const [key, raw] of Object.entries(patch)) {
+    const value = typeof raw === 'string' ? raw.trim() : raw == null ? '' : String(raw);
+    if (value) next[key] = value;
+    else delete next[key];
+  }
+  return Object.keys(next).length ? next : undefined;
+};
