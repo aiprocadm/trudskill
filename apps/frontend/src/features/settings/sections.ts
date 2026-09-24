@@ -37,6 +37,8 @@ export const SETTINGS_LINK_SECTIONS: SettingsSection[] = [
     title: 'Поля личного дела',
     hint: 'Свои поля в карточке слушателя и в документах'
   },
+  /* МГ-F5.1 (срез 20.2): что проверять перед выпуском; раздел сам прячется без tenant.settings.write. */
+  { id: 'document-issue', title: 'Выпуск документов', hint: 'Что проверять перед выпуском' },
   { id: 'payments', title: 'Оплата', hint: 'Платёжный провайдер центра' },
   { id: 'notifications', title: 'Уведомления', hint: 'Кому дублировать письма' },
   { id: 'webinars', title: 'Вебинары', hint: 'Площадка для занятий' },

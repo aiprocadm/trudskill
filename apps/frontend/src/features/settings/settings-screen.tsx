@@ -4,6 +4,7 @@ import { SettingsLayout, TabPanel, isEmbeddedSection } from '@trudskill/ui';
 import Link from 'next/link';
 import { useEffect } from 'react';
 
+import { DocumentIssueSettingsSection } from './document-issue-section';
 import { LearnerFieldsSettingsSection } from './learner-fields-section';
 import { visibleSettingsSections } from './sections';
 import { ProfileCard } from '../../components/profile-card';
@@ -83,6 +84,9 @@ export function SettingsScreen() {
         {/* МГ-C1.3: секция сама скрывается без права tenant.settings.write. */}
         <TabPanel id="learner-fields" activeId={activeId}>
           <LearnerFieldsSettingsSection />
+        </TabPanel>
+        <TabPanel id="document-issue" activeId={activeId}>
+          <DocumentIssueSettingsSection />
         </TabPanel>
         <TabPanel id="payments" activeId={activeId}>
           <PaymentProviderSettingsSection />

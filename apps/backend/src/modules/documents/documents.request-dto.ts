@@ -453,6 +453,29 @@ export class NumberingPreviewQueryDto {
   groupId?: string;
 }
 
+/** МГ-F5.1 (срез 20.2): образец документа группы — шаблон, группа, слушатель по желанию. */
+export class DocumentSampleDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(128)
+  templateId!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(128)
+  groupId!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  enrollmentId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  kindCode?: string;
+}
+
 /** МГ-F3.1 (срез 19.3): сброс счётчика — подтверждение и номер, с которого начать. */
 export class ResetNumberingRuleDto {
   @IsString()

@@ -170,6 +170,46 @@ export class DocumentsService {
     });
     return entity;
   }
+  /**
+   * МГ-F5.1 (срез 20.2): «образец документа» на настоящих данных группы или слушателя без
+   * номера. Задача собирается только в памяти — для сборщика переменных: она не попадает в
+   * очередь, не сохраняется и номер не резервирует, поэтому образец можно смотреть сколько
+   * угодно раз без дыр в нумерации.
+   */
+  sampleTask(
+    tenantId: string,
+    req: { templateId: string; groupId: string; enrollmentId?: string; kindCode?: string }
+  ): { task: DocumentGenerationTaskEntity; fileId: string; templateName: string } {
+    const template = this.getTemplate(tenantId, req.templateId);
+    const version = this.state.versions.find(
+      (v) => v.tenantId === tenantId && v.templateId === template.id && v.isActive
+    );
+    if (!version) {
+      throw new BadRequestException({
+        code: 'template_version_missing',
+        message: `У шаблона «${template.name}» нет загруженного бланка — загрузите файл .docx в настройке шаблона.`
+      });
+    }
+    if (req.kindCode) {
+      assertDocumentKindFitsTemplate(req.kindCode, template.templateType, template.name);
+    }
+    const task: DocumentGenerationTaskEntity = {
+      id: 'sample',
+      tenantId,
+      templateId: template.id,
+      templateVersionId: version.id,
+      documentType: template.templateType,
+      taskType: 'sample',
+      sourceEntityType: req.enrollmentId ? 'enrollment' : 'group',
+      sourceEntityId: req.enrollmentId ?? req.groupId,
+      groupId: req.groupId,
+      status: 'queued',
+      requestedAt: this.now(),
+      ...(req.kindCode ? { kindCode: req.kindCode } : {})
+    };
+    return { task, fileId: version.fileId, templateName: template.name };
+  }
+
   getTemplate(tenantId: string, id: string) {
     return this.must(this.state.templates, tenantId, id);
   }

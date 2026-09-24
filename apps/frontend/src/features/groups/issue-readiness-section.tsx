@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { readinessSummary, useIssueReadiness } from './issue-readiness';
 import { SectionCard, SectionError } from '../../components/state-wrappers';
 
+import type { ReactNode } from 'react';
+
 /**
  * «Что мешает выпустить документы» (МГ-F5.1, срез 20.1).
  *
@@ -14,7 +16,14 @@ import { SectionCard, SectionError } from '../../components/state-wrappers';
  * не было (журнал 659). Теперь карточка сама показывает все три уровня: центр, группа, слушатели
  * поимённо — с тем, что исправить.
  */
-export function IssueReadinessSection({ groupId }: { groupId: string }) {
+export function IssueReadinessSection({
+  groupId,
+  children
+}: {
+  groupId: string;
+  /** МГ-F5.1 (срез 20.2): «Образец документа» — рядом с тем, что мешает выпуску. */
+  children?: ReactNode;
+}) {
   const query = useIssueReadiness(groupId);
   const report = query.data;
 
@@ -76,6 +85,7 @@ export function IssueReadinessSection({ groupId }: { groupId: string }) {
           )}
         </div>
       ) : null}
+      {children}
     </SectionCard>
   );
 }
