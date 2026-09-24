@@ -37,6 +37,20 @@ import {
   summarizeCounterpartyProgress,
   summarizeGroupProgress
 } from './group-progress-summary.service.js';
+import { generateGroupCode } from './groups/group-code.js';
+import {
+  DEFAULT_GROUP_CREATION_SETTINGS,
+  type GroupCreationSettings,
+  applyGroupDefaults
+} from './groups/group-defaults.js';
+import {
+  type GroupStatus,
+  assertGroupStatusTransition,
+  filterGroups,
+  isGroupLocked,
+  normalizeGroupStatus,
+  parseGroupFilter
+} from './groups/group-status.js';
 import {
   type EffectiveIdentityPolicy,
   isPhotoVerificationFresh,
@@ -66,6 +80,7 @@ import { ReportXlsxWriter } from './report-builder/report-xlsx.writer.js';
 import { aggregateReviewerQueue } from './reviewer-queue.service.js';
 import { type SearchSource, search } from './search/global-search.js';
 import { isValidSnilsChecksum, normalizeSnils } from './snils.util.js';
+import { addDays } from '../../common/utils/date-math.util.js';
 import { todayIn } from '../../common/utils/tenant-calendar.js';
 import { backendEnv } from '../../env.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
@@ -74,6 +89,11 @@ import { DocumentsService } from '../documents/documents.service.js';
 import { FilesService } from '../files/files.service.js';
 import { LicensesService } from '../org/licenses.service.js';
 
+import type {
+  CreateGroupRequest,
+  SetGroupStatusRequest,
+  UpdateGroupRequest
+} from './groups/group.dto.js';
 import type { BulkImportOutcome } from './learners-bulk-import.types.js';
 import type {
   AddCommissionMemberRequest,
@@ -1819,10 +1839,16 @@ export class MvpService {
     actor?: { counterpartyId?: string }
   ): ListResponse<GroupEntity> {
     const scope = this.counterpartyScopeOf(actor);
-    const source = scope.restricted
+    const scoped = scope.restricted
       ? this.state.groups.filter((g) => scopeAllows(scope, g.counterpartyId))
       : this.state.groups;
-    return this.list(source, tenantId, query);
+    // МГ-B3.2: статусы (несколько, включая старые), быстрые отборы, даты — одной функцией со снимком в памяти и SQL.
+    const source = filterGroups(
+      scoped,
+      parseGroupFilter(query as Record<string, unknown>),
+      this.todayForTenant()
+    );
+    return this.list(source, tenantId, { ...query, status: undefined });
   }
   getGroup(tenantId: string, id: string): GroupEntity {
     return this.getById(this.state.groups, tenantId, id);
@@ -1830,22 +1856,115 @@ export class MvpService {
   lookupGroups(tenantId: string, query: BaseFilterQuery): ListResponse<LookupItem> {
     return this.lookup(this.state.groups, tenantId, query, (item) => item.name);
   }
+
+  /** Поля группы, которые нельзя менять у закрытой/архивной/отменённой (МГ-B4.1). */
+  private static readonly GROUP_LOCKED_FIELDS: ReadonlyArray<keyof UpdateGroupRequest> = [
+    'code',
+    'counterpartyId',
+    'startDate',
+    'endDate',
+    'examDate',
+    'examAccessFrom',
+    'examAccessTo',
+    'materialsAccessUntil',
+    'practiceFrom',
+    'practiceTo'
+  ];
+
+  /** Необязательные поля группы, переносимые из тела как есть (`null` в правке — очистить). */
+  private static readonly GROUP_OPTIONAL_FIELDS: ReadonlyArray<
+    keyof CreateGroupRequest & keyof GroupEntity
+  > = [
+    'counterpartyId',
+    'responsibleUserId',
+    'startDate',
+    'endDate',
+    'examDate',
+    'examAccessFrom',
+    'examAccessTo',
+    'materialsAccessUntil',
+    'practiceFrom',
+    'practiceTo',
+    'studyForm',
+    'isDot',
+    'educationFormAtPpo',
+    'accessMode',
+    'enrollmentMode',
+    'remoteSignature',
+    'requireIdentity',
+    'comment',
+    'learnerMessage',
+    'notifyOnPass',
+    'externalId',
+    'sourceSystem',
+    'legacyNumber'
+  ];
+
+  /** Проверки дат §4: конец не раньше начала, экзамен — от начала до конца + 30 дней. */
+  private assertGroupDates(group: Pick<GroupEntity, 'startDate' | 'endDate' | 'examDate'>): void {
+    const { startDate, endDate, examDate } = group;
+    if (startDate && endDate && endDate < startDate) {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'Дата окончания не может быть раньше даты начала.'
+      });
+    }
+    if (examDate) {
+      if (startDate && examDate < startDate) {
+        throw new BadRequestException({
+          code: 'validation_error',
+          message: 'Дата экзамена не может быть раньше даты начала обучения.'
+        });
+      }
+      if (endDate && examDate > addDays(endDate, 30)) {
+        throw new BadRequestException({
+          code: 'validation_error',
+          message: 'Дата экзамена не может быть позже окончания обучения более чем на 30 дней.'
+        });
+      }
+    }
+  }
+
+  private todayForTenant(): string {
+    return todayIn(this.state.tenantTimezone, new Date(this.now()));
+  }
+
   createGroup(
     tenantId: string,
     actorId: string | undefined,
-    request: CreateSimpleRegistryRequest,
-    context: RequestContext
+    request: CreateGroupRequest,
+    context: RequestContext,
+    settings: GroupCreationSettings = DEFAULT_GROUP_CREATION_SETTINGS
   ): GroupEntity {
-    this.assertRegistryCodeFree(this.state.groups, tenantId, request.code, undefined, 'группы');
+    const status =
+      request.status === undefined || request.status === ''
+        ? 'draft'
+        : assertGroupStatusTransition(request.status, request.status);
+    const code =
+      request.code?.trim() ||
+      generateGroupCode({
+        pattern: settings.codePattern,
+        at: new Date(this.now()),
+        timezone: this.state.tenantTimezone,
+        existingCodes: this.state.groups.filter((g) => g.tenantId === tenantId).map((g) => g.code)
+      });
+    this.assertRegistryCodeFree(this.state.groups, tenantId, code, undefined, 'группы');
     const entity: GroupEntity = {
       id: this.id('group'),
       tenantId,
-      code: request.code,
-      name: request.name,
-      status: request.status ?? 'draft',
+      code,
+      name: request.name?.trim() || code,
+      status,
       createdAt: this.now(),
       updatedAt: this.now()
     };
+    for (const key of MvpService.GROUP_OPTIONAL_FIELDS) {
+      const value = (request as unknown as Record<string, unknown>)[key];
+      if (value !== undefined && value !== null)
+        (entity as unknown as Record<string, unknown>)[key] = value;
+    }
+    applyGroupDefaults(entity, settings.defaults);
+    this.assertGroupDates(entity);
     this.state.groups.push(entity);
     this.audit(
       tenantId,
@@ -1863,22 +1982,110 @@ export class MvpService {
     tenantId: string,
     actorId: string | undefined,
     id: string,
-    request: UpdateSimpleRegistryRequest,
+    request: UpdateGroupRequest,
     context: RequestContext
   ): GroupEntity {
     const current = this.getById(this.state.groups, tenantId, id);
+    if (isGroupLocked(current.status)) {
+      const touched = MvpService.GROUP_LOCKED_FIELDS.filter(
+        (key) => (request as unknown as Record<string, unknown>)[key] !== undefined
+      );
+      if (touched.length > 0) {
+        throw new ConflictException({
+          code: 'group_closed',
+          message:
+            'Группа закрыта: даты, код и контрагента менять нельзя. Разрешены комментарий, сообщение слушателям и название.'
+        });
+      }
+    }
     if (typeof request.code === 'string') {
       this.assertRegistryCodeFree(this.state.groups, tenantId, request.code, id, 'группы');
     }
     const oldValues = { ...current };
     if (typeof request.code === 'string') current.code = request.code;
     if (typeof request.name === 'string') current.name = request.name;
-    if (typeof request.status === 'string') current.status = request.status;
+    if (typeof request.status === 'string' && request.status !== current.status) {
+      this.applyGroupStatus(current, assertGroupStatusTransition(current.status, request.status));
+    }
+    for (const key of MvpService.GROUP_OPTIONAL_FIELDS) {
+      const value = (request as unknown as Record<string, unknown>)[key];
+      if (value === undefined) continue;
+      if (value === null) delete (current as unknown as Record<string, unknown>)[key];
+      else (current as unknown as Record<string, unknown>)[key] = value;
+    }
+    this.assertGroupDates(current);
     current.updatedAt = this.now();
     this.audit(
       tenantId,
       actorId,
       'learning.group_updated',
+      'learning.group',
+      current.id,
+      oldValues,
+      current,
+      context
+    );
+    return current;
+  }
+
+  /** Смена статуса с отметками времени закрытия и архивации. */
+  private applyGroupStatus(group: GroupEntity, status: GroupStatus): void {
+    group.status = status;
+    if (status === 'closed') group.closedAt = this.now();
+    if (status === 'archived') group.archivedAt = this.now();
+  }
+
+  /** `POST /groups/:id/status` (МГ-B3.1): только соседний переход, иначе 409 с перечнем доступных. */
+  setGroupStatus(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    request: SetGroupStatusRequest,
+    context: RequestContext
+  ): GroupEntity {
+    const current = this.getById(this.state.groups, tenantId, id);
+    const target = assertGroupStatusTransition(current.status, request.status);
+    if (target === current.status) return current;
+    const oldValues = { ...current };
+    this.applyGroupStatus(current, target);
+    current.updatedAt = this.now();
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.group_status_changed',
+      'learning.group',
+      current.id,
+      oldValues,
+      current,
+      context,
+      request.reason ? { reason: request.reason } : undefined
+    );
+    return current;
+  }
+
+  /** `POST /groups/:id/archive` (МГ-B6.2): только из закрытой или отменённой. */
+  archiveGroup(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    context: RequestContext
+  ): GroupEntity {
+    const current = this.getById(this.state.groups, tenantId, id);
+    const status = normalizeGroupStatus(current.status);
+    if (status === 'archived') return current;
+    if (status !== 'closed' && status !== 'cancelled') {
+      throw new ConflictException({
+        code: 'group_archive_not_allowed',
+        message: 'В архив можно отправить только закрытую или отменённую группу.'
+      });
+    }
+    const oldValues = { ...current };
+    this.applyGroupStatus(current, 'archived');
+    current.updatedAt = this.now();
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.group_archived',
       'learning.group',
       current.id,
       oldValues,

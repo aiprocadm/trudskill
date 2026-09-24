@@ -127,7 +127,12 @@ describe('проекция снимка в колонки (Фаза 1, срез 
     );
     expect(bad.columns.status).toBe('draft');
     expect(bad.columns.counterparty_id).toBeNull();
-    expect(bad.payload).toEqual({ sourceStatus: 'whatever', counterpartyId: 'cp_missing' });
+    expect(bad.payload).toEqual({
+      sourceStatus: 'whatever',
+      counterpartyId: 'cp_missing',
+      // Флаги NOT NULL (0104) подставлены и помечены выдуманными (срез 8.1).
+      __synthesized: ['isDot', 'remoteSignature', 'requireIdentity']
+    });
   });
 
   it('зачисление: завершённое без completedAt получает дату из updatedAt; ссылки на группу и слушателя не обнуляются', () => {
@@ -449,6 +454,46 @@ describe('круговой проход: projectEntity → rowToEntity возв�
         asDbRow(projectEntity('generatedDocuments', T, revoked, ctx))
       )
     ).toEqual(revoked);
+  });
+
+  it('группа с полями CDOPROF (срез 8.1): даты в колонках-моментах не возвращаются, всё остальное — как в снимке', () => {
+    const source = {
+      ...base,
+      code: 'G-8',
+      name: 'Восьмая',
+      status: 'recruiting',
+      startDate: '2026-11-05',
+      endDate: '2026-12-18',
+      examDate: '2026-12-18',
+      examAccessFrom: '2026-12-18T00:00:00.000Z',
+      examAccessTo: '2026-12-18T23:59:59.000Z',
+      materialsAccessUntil: '2027-01-18',
+      practiceFrom: '2026-12-01',
+      practiceTo: '2026-12-10',
+      studyForm: 'distance',
+      isDot: true,
+      accessMode: 'normal',
+      enrollmentMode: 'auto',
+      remoteSignature: false,
+      requireIdentity: false,
+      responsibleUserId: 'u_curator',
+      comment: 'вечерняя смена',
+      learnerMessage: 'Добро пожаловать',
+      notifyOnPass: { email: true, inApp: false },
+      closedAt: '2026-12-20T10:00:00.000Z'
+    };
+    const row = projectEntity('groups', T, source, emptyContext());
+    expect(row.columns.starts_at).toBe('2026-11-05');
+    expect(row.columns.exam_date).toBe('2026-12-18');
+    expect(row.columns.is_dot).toBe(true);
+    expect(row.columns.notify_on_pass).toEqual({ email: true, inApp: false });
+    expect(row.payload.__synthesized).toBeUndefined();
+    const dbRow: Record<string, unknown> = asDbRow(row);
+    // База отдаёт моменты как Date, даты как Date, json как объект.
+    dbRow.starts_at = new Date('2026-11-05T00:00:00.000Z');
+    dbRow.ends_at = new Date('2026-12-18T00:00:00.000Z');
+    dbRow.exam_date = new Date('2026-12-18T00:00:00.000Z');
+    expect(rowToEntity('groups', dbRow)).toEqual(source);
   });
 
   it('история статусов: created_at нужен базе, но у сущности снимка его нет — обратно не возвращается', () => {

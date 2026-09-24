@@ -154,11 +154,42 @@ export interface VideoAsset extends BaseEntity {
   errorMessage?: string;
 }
 
+/**
+ * Группа CDOPROF (ТЗ перехода §4, §6.1; Фаза 2, срез 8.1). Статус — из `GROUP_STATUSES`
+ * (`mvp/groups/group-status.ts`); старые `scheduled/active/completed` в данных остаются и
+ * трактуются как соседи по цепочке (РМ45). Даты `*Date`, `practice*`, `materialsAccessUntil` —
+ * `YYYY-MM-DD`; `examAccess*`, `closedAt`, `archivedAt` — ISO-момент.
+ */
 export interface GroupEntity extends BaseEntity {
   code: string;
   name: string;
   /** Phase 2 Plan C — опциональная привязка группы к компании-заказчику (FK на crm.counterparties). */
   counterpartyId?: string;
+  responsibleUserId?: string;
+  startDate?: string;
+  endDate?: string;
+  examDate?: string;
+  examAccessFrom?: string;
+  examAccessTo?: string;
+  materialsAccessUntil?: string;
+  practiceFrom?: string;
+  practiceTo?: string;
+  studyForm?: string;
+  isDot?: boolean;
+  educationFormAtPpo?: string;
+  accessMode?: string;
+  enrollmentMode?: string;
+  remoteSignature?: boolean;
+  /** Значение по умолчанию для курсов группы; у курса группы — своё `requiresIdentityVerification`. */
+  requireIdentity?: boolean;
+  comment?: string;
+  learnerMessage?: string;
+  notifyOnPass?: { email?: boolean; inApp?: boolean };
+  externalId?: string;
+  sourceSystem?: string;
+  legacyNumber?: string;
+  closedAt?: string;
+  archivedAt?: string;
 }
 
 export interface GroupCourse extends BaseEntity {

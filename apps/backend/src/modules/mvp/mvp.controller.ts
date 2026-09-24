@@ -25,6 +25,12 @@ import { CreateCounterpartyExtendedRequest } from './create-counterparty-extende
 import { ManagerDashboardService } from './dashboards/manager-dashboard.service.js';
 import { MethodistDashboardService } from './dashboards/methodist-dashboard.service.js';
 import { ExamOutcomeService } from './exam/exam-outcome.service.js';
+import { GroupSettingsService } from './groups/group-settings.service.js';
+import {
+  CreateGroupRequest,
+  SetGroupStatusRequest,
+  UpdateGroupRequest
+} from './groups/group.dto.js';
 import { backendEnv } from '../../env.js';
 import { SimpleSignatureService } from './esignature/simple-signature.service.js';
 import { IdentityPolicyService } from './identity/identity-policy.service.js';
@@ -173,7 +179,10 @@ export class MvpController {
     /* Фаза 1 перехода с CDOPROF (срез 1b): чтение контрагентов и групп из нормализованных
        таблиц под флагом LMS_NORMALIZED_COLLECTIONS. Параметр ПОСЛЕДНИЙ (журнал 526). */
     @Inject(MvpNormalizedReadsService)
-    private readonly normalizedReads: MvpNormalizedReadsService
+    private readonly normalizedReads: MvpNormalizedReadsService,
+    /* Фаза 2, срез 8.1: настройки группы центра. Параметр ПОСЛЕДНИЙ (журнал 526). */
+    @Inject(GroupSettingsService)
+    private readonly groupSettings: GroupSettingsService
   ) {}
 
   @Get('counterparties')
@@ -859,15 +868,36 @@ export class MvpController {
   @RequirePermissions('groups.write')
   async createGroup(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
     await this.tenantUsage.assertCanStartGroup(c.tenantId!);
-    const b = assertValidDto(CreateSimpleRegistryRequest, raw);
-    return this.mvpService.createGroup(c.tenantId!, c.userId, b, c);
+    const b = assertValidDto(CreateGroupRequest, raw);
+    // МГ-B1.1/B1.2: шаблон кода и значения по умолчанию — из настроек центра.
+    const settings = await this.groupSettings.forTenant(c.tenantId!);
+    return this.mvpService.createGroup(c.tenantId!, c.userId, b, c, settings);
   }
   @Put('groups/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('groups.write')
   updateGroup(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() raw: unknown) {
-    const b = assertValidDto(UpdateSimpleRegistryRequest, raw);
+    const b = assertValidDto(UpdateGroupRequest, raw);
     return this.mvpService.updateGroup(c.tenantId!, c.userId, id, b, c);
+  }
+  /** МГ-B3.1: ручной переход статуса — только на соседний по цепочке. */
+  @Post('groups/:id/status')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('groups.write')
+  setGroupStatus(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(SetGroupStatusRequest, raw);
+    return this.mvpService.setGroupStatus(c.tenantId!, c.userId, id, b, c);
+  }
+  /** МГ-B6.2: в архив — только закрытую или отменённую. */
+  @Post('groups/:id/archive')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('groups.write')
+  archiveGroup(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.mvpService.archiveGroup(c.tenantId!, c.userId, id, c);
   }
 
   // Phase 2 Plan C — привязать/отвязать группу к компании-клиенту.

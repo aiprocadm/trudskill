@@ -5,6 +5,7 @@ import { MvpNormalizedReadsService } from './mvp-normalized-reads.service.js';
 import { InMemoryEnrollmentsRepository } from './repositories/in-memory-enrollments.repository.js';
 import { InMemoryExamResultsRepository } from './repositories/in-memory-exam-results.repository.js';
 import { InMemoryGroupCoursesRepository } from './repositories/in-memory-group-courses.repository.js';
+import { InMemoryGroupsRepository } from './repositories/in-memory-groups.repository.js';
 import { InMemoryLearnersRepository } from './repositories/in-memory-learners.repository.js';
 import { InMemoryRegistryRepository } from './repositories/in-memory-registry.repository.js';
 import { encryptLearnerPiiAtRest } from '../../../infrastructure/crypto/pii-crypto.js';
@@ -166,7 +167,7 @@ const examResults = [
 const makeService = () =>
   new MvpNormalizedReadsService(
     new InMemoryRegistryRepository(counterparties, 'id'),
-    new InMemoryRegistryRepository(groups, 'counterpartyId'),
+    new InMemoryGroupsRepository(groups as never),
     new InMemoryLearnersRepository(
       learners,
       new Map([

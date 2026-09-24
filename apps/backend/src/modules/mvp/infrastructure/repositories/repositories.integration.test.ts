@@ -33,6 +33,7 @@ import {
   projectEntity
 } from '../../../migration/backfill/normalized/normalized-projection.js';
 import { upsertRows } from '../../../migration/backfill/normalized/normalized-upsert.js';
+import { parseGroupFilter } from '../../groups/group-status.js';
 
 import type { DatabaseService } from '../../../../infrastructure/database/database.service.js';
 
@@ -156,11 +157,17 @@ async function seed(db: Db): Promise<void> {
   });
 }
 
+/** «Сегодня» для быстрых отборов групп (срез 8.1): четверг 24.09.2026, ISO-неделя 21–27.09. */
+const TODAY = '2026-09-24';
 const q = (
   query: Record<string, unknown>,
   scope?: { counterpartyId?: string },
   sortColumns = GROUP_SORT_COLUMNS
-) => parseRegistryListQuery(query as never, sortColumns, scope);
+) => ({
+  ...parseRegistryListQuery(query as never, sortColumns, scope),
+  ...parseGroupFilter(query),
+  today: TODAY
+});
 
 describe.skipIf(!dockerAvailable)('SQL-репозитории контрагентов и групп (Фаза 1, срез 1b)', () => {
   it('списки, поиск, статус, сортировка, страницы, изоляция и скоуп — на живой базе', async () => {
@@ -246,6 +253,120 @@ describe.skipIf(!dockerAvailable)('SQL-репозитории контраген
       expect((await groupsRepo.lookup(T, q({ q: 'охрана' }))).items).toEqual([
         { id: 'g1', label: 'Охрана труда', status: 'active' }
       ]);
+    });
+  }, 180_000);
+
+  it('группы (срез 8.1): статусы со старыми синонимами, быстрые отборы, периоды дат, архив скрыт', async () => {
+    await withTestDb(TEST_DB, async (db) => {
+      await seed(db);
+      const groups = [
+        {
+          id: 'gq_learn',
+          tenantId: T,
+          ...at(1),
+          code: 'Q-1',
+          name: 'Учатся',
+          status: 'in_progress',
+          startDate: '2026-09-01',
+          endDate: '2026-10-10',
+          examDate: '2026-09-25'
+        },
+        {
+          id: 'gq_legacy',
+          tenantId: T,
+          ...at(2),
+          code: 'Q-2',
+          name: 'Старый active',
+          status: 'active',
+          startDate: '2026-09-01',
+          endDate: '2026-09-24'
+        },
+        {
+          id: 'gq_docs',
+          tenantId: T,
+          ...at(3),
+          code: 'Q-3',
+          name: 'Документы',
+          status: 'documents',
+          endDate: '2026-09-20',
+          examDate: '2026-09-20'
+        },
+        {
+          id: 'gq_exam',
+          tenantId: T,
+          ...at(4),
+          code: 'Q-4',
+          name: 'Экзамен',
+          status: 'exam',
+          examDate: '2026-09-28',
+          endDate: '2026-09-30',
+          responsibleUserId: 'u1'
+        },
+        {
+          id: 'gq_closed',
+          tenantId: T,
+          ...at(5),
+          code: 'Q-5',
+          name: 'Закрыта',
+          status: 'closed',
+          endDate: '2026-09-10',
+          examDate: '2026-09-22'
+        },
+        {
+          id: 'gq_arch',
+          tenantId: T,
+          ...at(6),
+          code: 'Q-6',
+          name: 'Архив',
+          status: 'archived',
+          endDate: '2026-08-01'
+        }
+      ];
+      await db.withTransaction(async (client) => {
+        await upsertRows(
+          client,
+          TABLE_SPECS.groups,
+          groups.map((g) => projectEntity('groups', T, g, emptyContext()))
+        );
+      });
+      const repo = new PostgresGroupsRepository(db as DatabaseService);
+      const ids = async (query: Record<string, unknown>) =>
+        (await repo.list(T, q(query))).items.map((g) => g.id).filter((id) => id.startsWith('gq_'));
+
+      expect(await ids({})).toEqual(['gq_learn', 'gq_legacy', 'gq_docs', 'gq_exam', 'gq_closed']);
+      expect(await ids({ quick: 'archive' })).toEqual(['gq_arch']);
+      expect(await ids({ include_archived: '1' })).toContain('gq_arch');
+      expect(await ids({ status: 'in_progress' })).toEqual(['gq_learn', 'gq_legacy']);
+      expect(await ids({ status: 'exam,completed' })).toEqual(['gq_exam', 'gq_closed']);
+      expect(await ids({ quick: 'learning' })).toEqual(['gq_learn', 'gq_legacy']);
+      expect(await ids({ quick: 'exam_this_week' })).toEqual(['gq_learn', 'gq_closed']);
+      expect(await ids({ quick: 'awaiting_documents' })).toEqual(['gq_docs']);
+      expect(await ids({ quick: 'ended_without_documents' })).toEqual(['gq_docs']);
+      expect(await ids({ quick: 'ends_today' })).toEqual(['gq_legacy']);
+      expect(await ids({ responsible_id: 'u1' })).toEqual(['gq_exam']);
+      expect(await ids({ exam_from: '2026-09-25', exam_to: '2026-09-30' })).toEqual([
+        'gq_learn',
+        'gq_exam'
+      ]);
+      expect(await ids({ end_from: '2026-09-24', end_to: '2026-09-30' })).toEqual([
+        'gq_legacy',
+        'gq_exam'
+      ]);
+      expect(await ids({ sort: 'examDate:desc' })).toEqual([
+        'gq_exam',
+        'gq_learn',
+        'gq_closed',
+        'gq_docs',
+        'gq_legacy'
+      ]);
+      // Форма ответа — как в снимке: даты строками, флаги без выдуманных значений.
+      const learn = (await repo.get(T, 'gq_learn'))!;
+      expect(learn).toMatchObject({
+        startDate: '2026-09-01',
+        endDate: '2026-10-10',
+        examDate: '2026-09-25'
+      });
+      expect('isDot' in learn).toBe(false);
     });
   }, 180_000);
 

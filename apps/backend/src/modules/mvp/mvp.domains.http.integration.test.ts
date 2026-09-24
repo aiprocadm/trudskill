@@ -195,6 +195,8 @@ describe('MVP HTTP integration (domain invariants)', () => {
       { InMemoryLearnersRepository },
       { ENROLLMENTS_REPOSITORY },
       { InMemoryEnrollmentsRepository },
+      { InMemoryGroupsRepository },
+      { GroupSettingsService },
       { GROUP_COURSES_REPOSITORY },
       { InMemoryGroupCoursesRepository },
       { EXAM_RESULTS_REPOSITORY },
@@ -251,6 +253,8 @@ describe('MVP HTTP integration (domain invariants)', () => {
       import('./infrastructure/repositories/in-memory-learners.repository.js'),
       import('./infrastructure/repositories/enrollments.repository.js'),
       import('./infrastructure/repositories/in-memory-enrollments.repository.js'),
+      import('./infrastructure/repositories/in-memory-groups.repository.js'),
+      import('./groups/group-settings.service.js'),
       import('./infrastructure/repositories/group-courses.repository.js'),
       import('./infrastructure/repositories/in-memory-group-courses.repository.js'),
       import('./infrastructure/repositories/exam-results.repository.js'),
@@ -357,10 +361,8 @@ describe('MVP HTTP integration (domain invariants)', () => {
         // Фаза 1 перехода с CDOPROF (срез 1b): чтение из нормализованных таблиц под флагом.
         // Флаг здесь выключен, репозитории — пустые реестры в памяти.
         { provide: COUNTERPARTIES_REPOSITORY, useValue: new InMemoryRegistryRepository([], 'id') },
-        {
-          provide: GROUPS_REPOSITORY,
-          useValue: new InMemoryRegistryRepository([], 'counterpartyId')
-        },
+        { provide: GROUPS_REPOSITORY, useValue: new InMemoryGroupsRepository([]) },
+        GroupSettingsService,
         { provide: LEARNERS_REPOSITORY, useValue: new InMemoryLearnersRepository([]) },
         { provide: ENROLLMENTS_REPOSITORY, useValue: new InMemoryEnrollmentsRepository([]) },
         { provide: GROUP_COURSES_REPOSITORY, useValue: new InMemoryGroupCoursesRepository([]) },

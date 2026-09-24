@@ -15,6 +15,7 @@ import type { ManagerDashboardService } from './dashboards/manager-dashboard.ser
 import type { MethodistDashboardService } from './dashboards/methodist-dashboard.service.js';
 import type { SimpleSignatureService } from './esignature/simple-signature.service.js';
 import type { ExamOutcomeService } from './exam/exam-outcome.service.js';
+import type { GroupSettingsService } from './groups/group-settings.service.js';
 import type { IdentityPolicyService } from './identity/identity-policy.service.js';
 import type { LearnerDossierService } from './identity/learner-dossier.service.js';
 import type { MvpNormalizedReadsService } from './infrastructure/mvp-normalized-reads.service.js';
@@ -166,7 +167,8 @@ function makeController(documents: GeneratedDocumentEntity[]) {
     // ТЗ 10.4 (Р9): итог проверки знаний. Маршрутам документов слушателя не нужен.
     unusedDependency<ExamOutcomeService>('ExamOutcomeService'),
     // Фаза 1 (срез 1b): чтение из нормализованных таблиц. Маршрутам документов не нужно.
-    unusedDependency<MvpNormalizedReadsService>('MvpNormalizedReadsService')
+    unusedDependency<MvpNormalizedReadsService>('MvpNormalizedReadsService'),
+    unusedDependency<GroupSettingsService>('GroupSettingsService')
   );
 
   return { controller, service, state };
