@@ -215,6 +215,11 @@ export interface NumberingRuleEntity {
   isActive: boolean;
   updatedAt: string;
   periodKey?: string;
+  /**
+   * МГ-F3.1 (срез 19.1, РМ125): правило конкретного вида документа (`document-kinds.ts`).
+   * Пусто — правило типа целиком, как было до среза. Номер уникален в пределах вида правила.
+   */
+  kindCode?: string;
 }
 
 export interface NumberReservationEntity {
@@ -223,6 +228,8 @@ export interface NumberReservationEntity {
   ruleId: string;
   documentId?: string;
   reservedNumber: string;
+  /** МГ-F3.1: вид правила, выдавшего номер, — область уникальности номера (РМ125). */
+  kindCode?: string;
   reservedAt: string;
   usedAt?: string;
   status: 'reserved' | 'used' | 'released' | 'failed';

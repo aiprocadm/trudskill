@@ -133,6 +133,8 @@ export interface GenerateDocumentsBatchRequest {
 
 export interface CreateNumberingRuleRequest {
   documentType: string;
+  /** МГ-F3.1: правило вида документа; вид обязан относиться к `documentType`. */
+  kindCode?: string;
   prefix?: string;
   suffix?: string;
   pattern?: string;

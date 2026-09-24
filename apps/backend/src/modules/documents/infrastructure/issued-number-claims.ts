@@ -8,7 +8,22 @@ const TABLE = 'documents.issued_number_claims';
 export interface NumberClaimInput {
   id: string;
   reservedNumber: string;
+  /** МГ-F3.1: вид правила, выдавшего номер; номер уникален в пределах вида (РМ125). */
+  kindCode?: string | undefined;
 }
+
+/** Разделитель «вид␟номер»: символ, которого нет ни в коде вида, ни в человеческом номере. */
+export const NUMBER_CLAIM_KIND_SEPARATOR = '\u241f';
+
+/**
+ * Ключ заявки (МГ-F3.1, срез 19.1, РМ125). Номер документа с видом заявляется вместе с видом —
+ * приказ и протокол группы 264501 не спорят за номер 264501. Номер без вида заявляется как
+ * раньше, поэтому ключ таблицы 0088 и старые заявки остаются как были.
+ */
+export const numberClaimKey = (claim: Pick<NumberClaimInput, 'reservedNumber' | 'kindCode'>) =>
+  claim.kindCode
+    ? `${claim.kindCode}${NUMBER_CLAIM_KIND_SEPARATOR}${claim.reservedNumber}`
+    : claim.reservedNumber;
 
 /**
  * Дубль номера документа: номер уже заявлен ДРУГИМ резервированием.
@@ -57,7 +72,7 @@ export async function claimIssuedNumbers(
   const values: unknown[] = [];
   const placeholders = claims.map((claim, index) => {
     const base = index * 3;
-    values.push(tenantId, claim.reservedNumber, claim.id);
+    values.push(tenantId, numberClaimKey(claim), claim.id);
     return `($${base + 1}, $${base + 2}, $${base + 3})`;
   });
 
@@ -71,14 +86,14 @@ export async function claimIssuedNumbers(
   const owners = await client.query<{ reserved_number: string; reservation_id: string }>(
     `select reserved_number, reservation_id from ${TABLE}
       where tenant_id = $1 and reserved_number = any($2::text[])`,
-    [tenantId, claims.map((claim) => claim.reservedNumber)]
+    [tenantId, claims.map((claim) => numberClaimKey(claim))]
   );
 
   const ownerByNumber = new Map(
     owners.rows.map((row) => [row.reserved_number, row.reservation_id])
   );
   for (const claim of claims) {
-    const owner = ownerByNumber.get(claim.reservedNumber);
+    const owner = ownerByNumber.get(numberClaimKey(claim));
     if (owner !== undefined && owner !== claim.id) {
       throw new DuplicateDocumentNumberError(tenantId, claim.reservedNumber);
     }
