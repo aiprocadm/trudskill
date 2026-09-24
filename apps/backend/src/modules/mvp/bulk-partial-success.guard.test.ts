@@ -31,6 +31,10 @@ const SRC = resolve(HERE, '..', '..');
  * законно там, где строки не независимы: одна настройка, один документ, одна проверка.
  */
 const DECIDED: Record<string, string> = {
+  'modules/mvp/infrastructure/repositories/in-memory-learners.repository.ts for (const id of learnerIds)':
+    'всё или ничего не грозит: цикл только СОБИРАЕТ сведения реестра (компания, группа, вход, ' +
+    'согласие) по идентификаторам страницы — ни одной записи он не делает, а слушатель другого ' +
+    'центра просто пропускается (МГ-C3.2, срез 11.1)',
   'modules/mvp/exam/exam-outcome.service.ts for (const questionId of wrongQuestionIds)':
     'всё или ничего не грозит: цикл только СОБИРАЕТ темы, в которых слушатель ошибся ' +
     '(ТЗ 10.4, Р9 пункт 4) — ни одной записи он не делает, а вопрос без темы просто не ' +
