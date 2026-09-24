@@ -198,7 +198,7 @@ export class UpdateLearnerExtendedRequest {
   @MaxLength(100)
   deliveryMethod?: string | null;
 
-  /** Значения именованных полей центра (ключи задаст C1.3); объект «ключ → строка». */
+  /** Значения именованных полей центра (C1.3): объект «ключ → строка», сливается по ключам — пустая строка удаляет ключ (РМ87). */
   @IsOptional()
   @ValidateIf((_, v) => v !== null)
   @IsObject()

@@ -4,6 +4,8 @@ import { KeyValueList, useConfirmDialog } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { learnersApi } from './api';
+import { undescribedExtraFieldLabel } from './extra-fields';
+import { useLearnerExtraFields } from './use-extra-fields';
 import { SectionCard, SectionError } from '../../components/state-wrappers';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
@@ -59,6 +61,24 @@ export function LearnerProfileSection({ learner }: { learner: LearnerProfile }) 
   const [revealError, setRevealError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const { data: counterparties } = useCounterpartiesList({ page: 1, page_size: 200 });
+  /*
+   * МГ-C1.3 (срез 8.14b): именованные поля центра — по описанию из настроек; значения без
+   * описания (перенос CDOPROF, удалённое поле) тоже показываются, но с русской подписью (РМ89).
+   */
+  const extraFieldDefs = useLearnerExtraFields();
+  const extraValues = learner.extraFields ?? {};
+  const extraFieldItems = [
+    ...extraFieldDefs.map((def) => {
+      const value = extraValues[def.key];
+      return {
+        label: def.label,
+        value: !value ? 'не указано' : def.type === 'date' ? formatDate(value) : value
+      };
+    }),
+    ...Object.entries(extraValues)
+      .filter(([key, value]) => value && !extraFieldDefs.some((def) => def.key === key))
+      .map(([key, value]) => ({ label: undescribedExtraFieldLabel(key), value }))
+  ];
   const companyName = learner.counterpartyId
     ? (counterparties?.items.find((item) => item.id === learner.counterpartyId)?.name ?? 'компания')
     : 'не указана';
@@ -123,7 +143,8 @@ export function LearnerProfileSection({ learner }: { learner: LearnerProfile }) 
               ]
                 .filter(Boolean)
                 .join(', ') || 'не указана'
-          }
+          },
+          ...extraFieldItems
         ]}
       />
       {canReveal && !revealed ? (

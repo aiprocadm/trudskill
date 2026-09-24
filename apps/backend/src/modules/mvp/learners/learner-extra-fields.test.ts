@@ -4,6 +4,7 @@ import {
   MAX_LEARNER_EXTRA_FIELDS,
   extraFieldVariableCode,
   learnerExtraFieldsFrom,
+  mergeExtraFields,
   resolveExtraFieldVariables,
   resolveLearnerExtraFields,
   validateLearnerExtraFields
@@ -79,5 +80,19 @@ describe('переменные документов (РМ86)', () => {
         'learner.full_name'
       ])
     ).toEqual({ 'learner.extra.otdel': 'Цех 2', 'learner.extra.n': '7', 'learner.extra.none': '' });
+  });
+});
+
+describe('mergeExtraFields (РМ87)', () => {
+  it('присланные ключи перекрывают, пустая строка удаляет, чужие ключи остаются, null — очистить всё', () => {
+    expect(
+      mergeExtraFields(
+        { legacy_1: 'старое', otdel: 'Цех 1' },
+        { otdel: 'Цех 2', start: ' 2026-03-01 ', gone: '' }
+      )
+    ).toEqual({ legacy_1: 'старое', otdel: 'Цех 2', start: '2026-03-01' });
+    expect(mergeExtraFields({ otdel: 'Цех 1' }, { otdel: '' })).toBeUndefined();
+    expect(mergeExtraFields({ otdel: 'Цех 1' }, null)).toBeUndefined();
+    expect(mergeExtraFields(undefined, { otdel: 'Цех 1' })).toEqual({ otdel: 'Цех 1' });
   });
 });

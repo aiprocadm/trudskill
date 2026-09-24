@@ -27,6 +27,8 @@ export interface LearnerProfileFields {
   trackingNumber?: string;
   deliveryMethod?: string;
   counterpartyId?: string;
+  /** Именованные поля центра (МГ-C1.3): ключ → значение; описание — в настройках. */
+  extraFields?: Record<string, string>;
 }
 
 export interface LearnerListItem extends LearnerProfileFields {
@@ -94,6 +96,8 @@ export interface LearnerEditFormState {
   trackingNumber: string;
   deliveryMethod: string;
   counterpartyId: string;
+  /** Именованные поля центра (МГ-C1.3): ключ → строка формы. */
+  extraFields: Record<string, string>;
 }
 
 /**
@@ -130,4 +134,6 @@ export interface UpdateLearnerProfilePayload {
   trackingNumber?: string | null;
   deliveryMethod?: string | null;
   counterpartyId?: string | null;
+  /** Только изменённые ключи: сервер сливает по ключам, пустая строка удаляет (РМ87). */
+  extraFields?: Record<string, string> | null;
 }

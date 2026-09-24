@@ -55,7 +55,8 @@ export const EMPTY_LEARNER_FORM: LearnerEditFormState = {
   diplomaSurname: '',
   trackingNumber: '',
   deliveryMethod: '',
-  counterpartyId: ''
+  counterpartyId: '',
+  extraFields: {}
 };
 
 /** Строки формы из карточки; маски сервера (`***-***-*** 95`, `**.**.1990`) остаются как есть — их не отправляют. */
@@ -88,9 +89,18 @@ export function toEditFormState(learner: LearnerListItem): LearnerEditFormState 
     diplomaSurname: learner.diploma?.surnameInDiploma ?? '',
     trackingNumber: learner.trackingNumber ?? '',
     deliveryMethod: learner.deliveryMethod ?? '',
-    counterpartyId: learner.counterpartyId ?? ''
+    counterpartyId: learner.counterpartyId ?? '',
+    extraFields: Object.fromEntries(
+      Object.entries(learner.extraFields ?? {}).map(([key, value]: [string, unknown]) => [
+        key,
+        typeof value === 'string' ? value : value == null ? '' : String(value)
+      ])
+    )
   };
 }
+
+/** Текстовые поля формы — всё, кроме объекта именованных полей. */
+type LearnerTextField = Exclude<keyof LearnerEditFormState, 'extraFields'>;
 
 /** Маска сервера в поле — значит, человек его не менял; такое в запрос не уходит. */
 const isMasked = (value: string): boolean => value.includes('*');
@@ -105,7 +115,7 @@ export function buildUpdatePayload(
   initial: LearnerEditFormState = form
 ): UpdateLearnerProfilePayload {
   const nullable = (v: string): string | null => (v.trim() ? v.trim() : null);
-  const changed = (key: keyof LearnerEditFormState): boolean =>
+  const changed = (key: LearnerTextField): boolean =>
     initial === form || form[key].trim() !== initial[key].trim();
   const payload: UpdateLearnerProfilePayload = {};
   if (changed('firstName')) payload.firstName = form.firstName.trim();
@@ -156,6 +166,24 @@ export function buildUpdatePayload(
       ...(form.diplomaSurname.trim() ? { surnameInDiploma: form.diplomaSurname.trim() } : {})
     };
     payload.diploma = Object.keys(diploma).length ? diploma : null;
+  }
+  /*
+   * Именованные поля (МГ-C1.3, РМ87): уходят только изменённые ключи — сервер сливает их с
+   * текущими, пустая строка удаляет ключ. Так ключи переноса CDOPROF не стираются правкой.
+   */
+  const extraKeys = new Set([
+    ...Object.keys(form.extraFields),
+    ...Object.keys(initial.extraFields)
+  ]);
+  const extraChanged = [...extraKeys].filter((key) =>
+    initial === form
+      ? (form.extraFields[key] ?? '').trim() !== ''
+      : (form.extraFields[key] ?? '').trim() !== (initial.extraFields[key] ?? '').trim()
+  );
+  if (extraChanged.length > 0) {
+    payload.extraFields = Object.fromEntries(
+      extraChanged.map((key) => [key, (form.extraFields[key] ?? '').trim()])
+    );
   }
   return payload;
 }

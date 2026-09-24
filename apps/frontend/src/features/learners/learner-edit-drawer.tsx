@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { STATUS_LABEL, buildUpdatePayload, passportFormHint, toEditFormState } from './format';
 import { useUpdateLearnerProfile } from './hooks';
 import { LearnerPiiPanel } from './learner-pii-panel';
+import { useLearnerExtraFields } from './use-extra-fields';
 import { isFormDirty } from '../../lib/forms/dirty';
 import { snilsInputHint } from '../../lib/snils';
 import { ClientSelect } from '../groups/group-picker';
@@ -59,10 +60,14 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
   const positionOptions = usePositionSuggestions(positionQuery);
   const countryOptions = useCountries();
   const educationLevels = useEducationLevels();
+  /* МГ-C1.3 (срез 8.14b): именованные поля центра — из настроек, по описанию строится ввод. */
+  const extraFieldDefs = useLearnerExtraFields();
 
   function setField<K extends keyof LearnerEditFormState>(key: K, value: LearnerEditFormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
+  const setExtraField = (key: string, value: string) =>
+    setForm((prev) => ({ ...prev, extraFields: { ...prev.extraFields, [key]: value } }));
 
   // Подсказка по СНИЛС считается на каждый ввод: правило одно на весь фронт (`lib/snils`)
   // и зеркалит серверное — сервер всё равно отклонит, но человек узнает об этом сразу.
@@ -442,6 +447,38 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
               onChange={(e) => setField('trackingNumber', e.target.value)}
             />
           </label>
+          {extraFieldDefs.length > 0 ? (
+            <fieldset className="ui-field">
+              <legend className="ui-field-label">Поля вашего центра</legend>
+              {extraFieldDefs.map((def) =>
+                def.type === 'list' ? (
+                  <div key={def.key} className="ui-field">
+                    <span className="ui-field-label">{def.label}</span>
+                    <LookupSelect
+                      label={def.label}
+                      value={form.extraFields[def.key] ?? ''}
+                      onChange={(value) => setExtraField(def.key, value)}
+                      items={[
+                        { value: '', label: 'не выбрано' },
+                        ...(def.options ?? []).map((option) => ({ value: option, label: option }))
+                      ]}
+                    />
+                  </div>
+                ) : (
+                  <label key={def.key} className="ui-field">
+                    <span className="ui-field-label">{def.label}</span>
+                    <input
+                      className="ui-input"
+                      form={FORM_ID}
+                      type={def.type === 'date' ? 'date' : 'text'}
+                      value={form.extraFields[def.key] ?? ''}
+                      onChange={(e) => setExtraField(def.key, e.target.value)}
+                    />
+                  </label>
+                )
+              )}
+            </fieldset>
+          ) : null}
         </div>
       </TabPanel>
 

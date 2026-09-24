@@ -101,6 +101,7 @@ export interface Learner extends BaseEntity {
   trackingNumber?: string;
   deliveryMethod?: string;
   counterpartyId?: string;
+  extraFields?: Record<string, string>;
 }
 
 /** ФТ-E5: строка «Документы» портала заказчика — проекция без содержимого и ПДн-словаря. */
