@@ -10,6 +10,8 @@ import { InMemoryDocumentsState } from './in-memory-documents.state.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
+import type { TemplateType } from './documents.types.js';
+
 const T = 'tenant_demo';
 const ctx = {
   requestId: 'r',
@@ -32,7 +34,7 @@ const makeService = () =>
     new RealtimeEventsService()
   );
 
-const activeTemplate = (service: DocumentsService, templateType: string, name: string) => {
+const activeTemplate = (service: DocumentsService, templateType: TemplateType, name: string) => {
   const template = service.createTemplate(T, 'u_tenant_admin', { name, templateType }, ctx);
   const version = service.createTemplateVersion(T, 'u_tenant_admin', {
     templateId: template.id,
