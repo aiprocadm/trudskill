@@ -4,13 +4,25 @@ import {
   BlockedHint,
   DetailDrawer,
   DetailLayout,
+  Dialog,
   KeyValueList,
   ProgressBar,
   StatusChip,
-  blockedProps
+  blockedProps,
+  statusAccessibleLabel,
+  useConfirmDialog
 } from '@trudskill/ui';
 import { useMemo, useState } from 'react';
 
+import {
+  GROUP_STATUS_LABEL,
+  STUDY_FORM_LABEL,
+  allowedGroupTransitions,
+  formatDateRu,
+  formatPeriod,
+  groupStatusLabel,
+  isGroupArchivable
+} from './group-status';
 import {
   PageContainer,
   PageHeader,
@@ -53,7 +65,7 @@ import { proctoringApi } from '../proctoring/api';
  */
 export const GroupDetailsScreen = ({ id }: { id: string }) => {
   const { session } = useAuth();
-  const { data: group, error: groupLoadError, notFound } = useGroup(id);
+  const { data: group, error: groupLoadError, notFound, refetch: refetchGroup } = useGroup(id);
   useObjectCrumb(group?.name, { notFound, failed: Boolean(groupLoadError) });
   const canGenerateDocuments = hasPermission(session?.permissions ?? [], 'documents.generate');
   const canWriteDocuments = hasPermission(session?.permissions ?? [], 'documents.write');
@@ -70,8 +82,48 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
   const { data: enrollments, refetch: refetchEnrollments } = useEnrollments({ group_id: id });
   const learnerNames = useLearnerNames();
   const { data: progress } = useLearnerCourseProgress(groupCourses?.items[0]?.courseId);
-  const { createGroupCourse, createEnrollment } = useDomainMutations();
+  const { createGroupCourse, createEnrollment, setGroupStatus, archiveGroup } =
+    useDomainMutations();
   const [selectedCourseId, setSelectedCourseId] = useState('');
+  /* МГ-B3.1 / B6.2 (срез 8.3): ручной перевод статуса и архив — в «…», под правом `groups.write`. */
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [nextStatus, setNextStatus] = useState('');
+  const [statusReason, setStatusReason] = useState('');
+  const [statusBusy, setStatusBusy] = useState(false);
+  const { ask: askArchive, dialog: archiveDialog } = useConfirmDialog();
+  const statusBlockedReason = nextStatus ? undefined : 'Выберите новый статус.';
+  const runStatusChange = async () => {
+    if (!nextStatus) return;
+    setStatusBusy(true);
+    setSaveError(null);
+    try {
+      await setGroupStatus(id, {
+        status: nextStatus,
+        ...(statusReason.trim() ? { reason: statusReason.trim() } : {})
+      });
+      setStatusOpen(false);
+      setNextStatus('');
+      setStatusReason('');
+      await refetchGroup();
+    } catch (statusError) {
+      setSaveError(readApiMessage(statusError));
+    } finally {
+      setStatusBusy(false);
+    }
+  };
+  const confirmArchive = () =>
+    askArchive(
+      {
+        title: `В архив: ${group?.name ?? 'группа'}`,
+        message:
+          'Группа скроется из реестра, документы и история останутся. Вернуть из архива сможет администратор.',
+        confirmLabel: 'В архив'
+      },
+      () =>
+        void archiveGroup(id)
+          .then(() => refetchGroup())
+          .catch((archiveError) => setSaveError(readApiMessage(archiveError)))
+    );
 
   /* ТЗ 5.8 (Э8): «Назначить курс» без выбранного курса молчала — теперь говорит. */
   const assignCourseBlockedReason = selectedCourseId ? undefined : 'Выберите курс из списка слева.';
@@ -131,9 +183,80 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
             : []),
           ...(canGenerateDocuments
             ? [{ label: 'Закрыть группу', danger: true, onSelect: () => setCloseOpen(true) }]
+            : []),
+          ...(canAssignCourse
+            ? [
+                {
+                  label: 'Перевести статус',
+                  onSelect: () => {
+                    setNextStatus('');
+                    setStatusOpen(true);
+                  }
+                }
+              ]
+            : []),
+          ...(canAssignCourse && isGroupArchivable(group?.status)
+            ? [{ label: 'В архив', onSelect: confirmArchive }]
             : [])
         ]}
       />
+      {archiveDialog}
+      <Dialog title="Перевести статус" open={statusOpen} onClose={() => setStatusOpen(false)}>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void runStatusChange();
+          }}
+          className="ui-stack"
+        >
+          <label htmlFor="group-next-status" className="ui-field">
+            <span className="ui-field-label">Новый статус</span>
+            <select
+              id="group-next-status"
+              className="ui-select"
+              value={nextStatus}
+              onChange={(event) => setNextStatus(event.target.value)}
+            >
+              <option value="">Выберите статус</option>
+              {allowedGroupTransitions(group?.status).map((value) => (
+                <option key={value} value={value}>
+                  {GROUP_STATUS_LABEL[value]}
+                </option>
+              ))}
+            </select>
+            <p className="ui-field-hint">
+              Сейчас: {groupStatusLabel(group?.status, statusAccessibleLabel)}. Переход возможен
+              только на соседний статус; отменить можно любую незакрытую группу.
+            </p>
+          </label>
+          <label htmlFor="group-status-reason" className="ui-field">
+            <span className="ui-field-label">Причина (необязательно)</span>
+            <input
+              id="group-status-reason"
+              value={statusReason}
+              onChange={(event) => setStatusReason(event.target.value)}
+            />
+          </label>
+          <div className="ui-inline">
+            <button
+              type="button"
+              className="ui-button-secondary"
+              onClick={() => setStatusOpen(false)}
+            >
+              Отмена
+            </button>
+            <button
+              type="submit"
+              className="ui-button--primary"
+              disabled={statusBusy}
+              {...blockedProps('group-status', statusBlockedReason)}
+            >
+              Перевести статус
+            </button>
+          </div>
+          <BlockedHint hintKey="group-status" reason={statusBlockedReason} />
+        </form>
+      </Dialog>
 
       <DetailLayout
         aside={
@@ -143,7 +266,24 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
                 { label: 'Код', value: group?.code ?? '—' },
                 {
                   label: 'Статус',
-                  value: <StatusChip status={group?.status ?? 'draft'} />
+                  value: (
+                    <StatusChip
+                      status={group?.status ?? 'draft'}
+                      label={groupStatusLabel(group?.status, statusAccessibleLabel)}
+                    />
+                  )
+                },
+                { label: 'Период обучения', value: formatPeriod(group?.startDate, group?.endDate) },
+                { label: 'Экзамен', value: formatDateRu(group?.examDate) },
+                {
+                  label: 'Форма обучения',
+                  value: group?.studyForm
+                    ? (STUDY_FORM_LABEL[group.studyForm] ?? group.studyForm)
+                    : '—'
+                },
+                {
+                  label: 'Дистанционные технологии',
+                  value: group?.isDot === undefined ? '—' : group.isDot ? 'Да' : 'Нет'
                 },
                 { label: 'Слушателей', value: String(enrollmentCount) },
                 { label: 'Завершили', value: String(completedEnrollmentIds.length) },

@@ -25,6 +25,8 @@ import type {
   ExamResult,
   Group,
   GroupCourse,
+  GroupPayload,
+  GroupsListQuery,
   KpiFilterQuery,
   KpiSnapshot,
   Learner,
@@ -236,20 +238,30 @@ export const mvpApi = {
       ...withAuth(session)
     }),
 
-  listGroups: (session: UserSession, query: BaseFilterQuery) =>
+  listGroups: (session: UserSession, query: GroupsListQuery) =>
     apiRequest<ListResponse<Group>>(`/groups${queryString(query)}`, withAuth(session)),
   getGroup: (session: UserSession, id: string) =>
     apiRequest<Group>(`/groups/${id}`, withAuth(session)),
-  saveGroup: (
-    session: UserSession,
-    id: string | null,
-    payload: { code: string; name: string; status: string }
-  ) =>
+  saveGroup: (session: UserSession, id: string | null, payload: GroupPayload) =>
     apiRequest<Group>(id ? `/groups/${id}` : '/groups', {
       method: id ? 'PUT' : 'POST',
       body: payload,
       ...withAuth(session)
     }),
+  /* МГ-B3.1: ручной переход статуса — только на соседний; сервер отвечает 409 с перечнем. */
+  setGroupStatus: (
+    session: UserSession,
+    id: string,
+    payload: { status: string; reason?: string }
+  ) =>
+    apiRequest<Group>(`/groups/${id}/status`, {
+      method: 'POST',
+      body: payload,
+      ...withAuth(session)
+    }),
+  /* МГ-B6.2: в архив — только закрытую или отменённую. */
+  archiveGroup: (session: UserSession, id: string) =>
+    apiRequest<Group>(`/groups/${id}/archive`, { method: 'POST', body: {}, ...withAuth(session) }),
   listGroupCourses: (session: UserSession, groupId: string) =>
     apiRequest<ListResponse<GroupCourse>>(
       `/group-courses${queryString({ group_id: groupId })}`,

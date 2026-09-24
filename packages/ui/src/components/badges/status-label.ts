@@ -31,6 +31,13 @@ const STATUS_LABELS: Record<string, string> = {
   // Documents / signing — слова сверены с книгой выдачи (issuance-journal, канон):
   // «generated» это ещё ПОДГОТОВЛЕННЫЙ документ, выданным он становится в «final».
   draft: 'Черновик',
+  // Статусы группы CDOPROF (ТЗ перехода §6.1, срез 8.3): подписи общие, экран группы даёт свои
+  // («Учатся» вместо «В процессе») через `label` чипа.
+  scheduled: 'Запланирована',
+  recruiting: 'Набор',
+  exam: 'Экзамен',
+  documents: 'Ждут документов',
+  closed: 'Закрыта',
   generated: 'Подготовлен',
   final: 'Выдан',
   signed: 'Подписан',

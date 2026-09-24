@@ -43,7 +43,13 @@ export const semanticStatusTone = {
   published: 'success',
   blocked: 'danger',
   suspended: 'danger',
-  cancelled: 'danger'
+  cancelled: 'danger',
+  // Статусы группы CDOPROF (срез 8.3): ожидание действия — «внимание», закрыта — «успех».
+  scheduled: 'warning',
+  recruiting: 'warning',
+  exam: 'warning',
+  documents: 'warning',
+  closed: 'success'
 } as const satisfies Record<string, StatusTone>;
 
 export type SemanticStatus = keyof typeof semanticStatusTone;

@@ -144,7 +144,37 @@ export interface Material extends BaseEntity {
 export interface Group extends BaseEntity {
   code: string;
   name: string;
+  /** Поля CDOPROF (ТЗ перехода §4; срез 8.1 на сервере, 8.3 на экране). Все — необязательные. */
+  counterpartyId?: string;
+  responsibleUserId?: string;
+  startDate?: string;
+  endDate?: string;
+  examDate?: string;
+  studyForm?: string;
+  isDot?: boolean;
+  comment?: string;
+  learnerMessage?: string;
+  closedAt?: string;
+  archivedAt?: string;
 }
+
+/** Тело создания/правки группы: старое `{ code, name, status }` — частный случай. */
+export interface GroupPayload {
+  code?: string;
+  name?: string;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+  examDate?: string;
+  studyForm?: string;
+  isDot?: boolean;
+  comment?: string;
+  counterpartyId?: string | null;
+  responsibleUserId?: string | null;
+}
+
+/** Отборы реестра групп (МГ-B3.2): к общему списку — быстрый отбор и показ архива. */
+export type GroupsListQuery = BaseFilterQuery & { quick?: string; include_archived?: string };
 
 export interface GroupCourse extends BaseEntity {
   groupId: string;

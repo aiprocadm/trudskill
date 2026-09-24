@@ -15,6 +15,14 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import {
+  GROUP_QUICK_FILTERS,
+  GROUP_STATUSES,
+  GROUP_STATUS_LABEL,
+  formatDateRu,
+  formatPeriod,
+  groupStatusLabel
+} from './group-status';
+import {
   PageContainer,
   PageHeader,
   SectionCard,
@@ -64,12 +72,15 @@ export const GroupsPageScreen = () => {
    */
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
-  const activeFilters = [q, status].filter(Boolean).length;
+  /* МГ-B3.2 (срез 8.3): быстрые отборы CDOPROF считает сервер — один и тот же набор в снимке и SQL. */
+  const [quick, setQuick] = useState('');
+  const activeFilters = [q, status, quick].filter(Boolean).length;
   const { data, loading, error, refetch } = useGroupsList({
     page,
     page_size: PAGE_SIZE,
     ...(q ? { q } : {}),
-    ...(status ? { status } : {})
+    ...(status ? { status } : {}),
+    ...(quick ? { quick } : {})
   });
 
   const [selected, setSelected] = useState<string[]>([]);
@@ -108,9 +119,15 @@ export const GroupsPageScreen = () => {
     downloadCsv(
       'gruppy',
       buildCsv(
-        ['Название', 'Код', 'Статус'],
+        ['Название', 'Код', 'Период', 'Экзамен', 'Статус'],
         /* Статус — тем же словом, что показывает значок на экране, а не кодом. */
-        chosen.map((group) => [group.name, group.code, statusAccessibleLabel(group.status)])
+        chosen.map((group) => [
+          group.name,
+          group.code,
+          formatPeriod(group.startDate, group.endDate),
+          formatDateRu(group.examDate),
+          groupStatusLabel(group.status, statusAccessibleLabel)
+        ])
       )
     );
   };
@@ -175,8 +192,27 @@ export const GroupsPageScreen = () => {
                 aria-label="Статус"
               >
                 <option value="">Все статусы</option>
-                <option value="active">{statusAccessibleLabel('active')}</option>
-                <option value="archived">{statusAccessibleLabel('archived')}</option>
+                {GROUP_STATUSES.map((value) => (
+                  <option key={value} value={value}>
+                    {GROUP_STATUS_LABEL[value]}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="ui-select"
+                value={quick}
+                onChange={(event) => {
+                  setQuick(event.target.value);
+                  setPage(1);
+                }}
+                aria-label="Быстрый отбор"
+              >
+                <option value="">Все группы</option>
+                {GROUP_QUICK_FILTERS.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
               </select>
             </>
           }
@@ -184,6 +220,7 @@ export const GroupsPageScreen = () => {
           onResetFilters={() => {
             setQ('');
             setStatus('');
+            setQuick('');
             setPage(1);
           }}
           isLoading={loading}
@@ -212,9 +249,20 @@ export const GroupsPageScreen = () => {
             },
             { key: 'code', title: 'Код' },
             {
+              key: 'startDate',
+              title: 'Период',
+              render: (row) => formatPeriod(row.startDate, row.endDate)
+            },
+            { key: 'examDate', title: 'Экзамен', render: (row) => formatDateRu(row.examDate) },
+            {
               key: 'status',
               title: 'Статус',
-              render: (row) => <StatusChip status={row.status} />
+              render: (row) => (
+                <StatusChip
+                  status={row.status}
+                  label={groupStatusLabel(row.status, statusAccessibleLabel)}
+                />
+              )
             }
           ]}
           rowActions={(row) => [
