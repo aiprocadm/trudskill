@@ -587,3 +587,70 @@ describe('LearnersBulkImportService.bulkImportLearners', () => {
     expect(outcome.rows.map((r) => r.rowNumber)).toEqual([5, 2, 9]);
   });
 });
+
+// МГ-C3.1 (срез 10.1, РМ100–РМ102): расширенные колонки, компания по ИНН, заведение без группы.
+describe('расширенные колонки импорта (МГ-C3.1)', () => {
+  it('фамилия/имя/отчество отдельно, пол, дата, телефон, паспорт, гражданство, образование, компания по ИНН; без группы — только заведение', () => {
+    const { mvp, bulk } = makeServices();
+    const company = mvp.createCounterpartyExtended(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'C1', name: 'ООО «Ромб»', inn: '7701234567' },
+      ctx
+    );
+    const outcome = bulk.bulkImportLearners(
+      'tenant_demo',
+      ctx.userId,
+      {
+        idempotencyKey: 'idem_ext',
+        rows: [
+          {
+            rowNumber: 2,
+            lastName: 'Иванов',
+            firstName: 'Иван',
+            middleName: 'Иванович',
+            email: 'a@x.ru',
+            gender: 'ж',
+            dateOfBirth: '01.03.1990',
+            phone: '+7 900 123-45-67',
+            passportSeries: '45 12',
+            passportNumber: '123456',
+            passportIssuedAt: '02.02.2015',
+            passportIssuedBy: 'ОВД',
+            citizenship: 'Россия',
+            educationLevel: 'Высшее — бакалавриат',
+            companyInn: 'ИНН 7701234567'
+          },
+          { rowNumber: 3, fullName: 'Петрова Анна', email: 'b@x.ru', companyInn: '9999999999' },
+          { rowNumber: 4, fullName: 'Сидоров Пётр', email: 'c@x.ru', gender: 'да' }
+        ]
+      },
+      ctx
+    );
+    expect(outcome.groupId).toBeUndefined();
+    expect(outcome.enrolled).toBe(0);
+    expect(outcome.created).toBe(2);
+    expect(outcome.failed).toBe(1);
+    const ivanov = mvp.getLearner('tenant_demo', outcome.rows[0]!.learnerId!);
+    expect(ivanov).toMatchObject({
+      lastName: 'Иванов',
+      firstName: 'Иван',
+      middleName: 'Иванович',
+      gender: 'f',
+      dateOfBirth: '1990-03-01',
+      phone: '+79001234567',
+      passport: { series: '45 12', number: '123456', issuedAt: '2015-02-02', issuedBy: 'ОВД' },
+      citizenship: 'Россия',
+      educationLevel: 'higher_bachelor',
+      counterpartyId: company.id
+    });
+    expect(outcome.rows[1]).toMatchObject({
+      status: 'created',
+      warnings: [expect.stringContaining('9999999999')]
+    });
+    expect(outcome.rows[2]).toMatchObject({
+      status: 'failed',
+      errorMessage: expect.stringContaining('Пол')
+    });
+  });
+});

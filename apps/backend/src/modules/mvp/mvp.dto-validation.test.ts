@@ -409,13 +409,17 @@ describe('Pillar A — PutCourseDocumentSetRequest', () => {
     expect(validateSync(inst).length).toBeGreaterThan(0);
   });
 
-  it('BulkImportLearnersRequest: отклоняет row без fullName', () => {
+  /*
+   * МГ-C3.1 (срез 10.1): ФИО приходит одной колонкой ИЛИ фамилией/именем/отчеством, поэтому пустой
+   * `fullName` структурно допустим — «ни ФИО, ни фамилии с именем» отклоняет бизнес-проверка
+   * (`classifyRows`) поимённо, а не весь запрос. Группа стала необязательной (РМ102).
+   */
+  it('BulkImportLearnersRequest: принимает row с фамилией и именем вместо fullName и без группы', () => {
     const inst = plainToInstance(BulkImportLearnersRequest, {
       idempotencyKey: 'k',
-      groupId: 'g',
-      rows: [{ rowNumber: 2, fullName: '', email: 'a@b.ru' }]
+      rows: [{ rowNumber: 2, lastName: 'Иванов', firstName: 'Иван', email: 'a@b.ru', gender: 'ж' }]
     });
-    expect(validateSync(inst).length).toBeGreaterThan(0);
+    expect(validateSync(inst)).toEqual([]);
   });
 
   it('BulkImportLearnersRequest: отклоняет row без email', () => {

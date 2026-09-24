@@ -1,6 +1,16 @@
 import { Inject, Injectable } from '@nestjs/common';
 
 import { parseFullName } from './fio.js';
+import {
+  composeFullName,
+  educationLevelNames,
+  parseImportDate,
+  parseImportEducationLevel,
+  parseImportGender,
+  parseImportInn,
+  parseImportPassport,
+  parseImportPhone
+} from './learner-import-fields.js';
 import { MvpService } from './mvp.service.js';
 import { isValidSnilsChecksum, normalizeSnils } from './snils.util.js';
 
@@ -18,6 +28,7 @@ import type {
   BulkImportRow,
   ClassifiedRow,
   ExistingLearnersSnapshot,
+  NormalizedImportFields,
   RowError
 } from './learners-bulk-import.types.js';
 import type { RequestContext } from '../../common/context/request-context.js';
@@ -86,7 +97,7 @@ export function classifyRows(
     const errors: RowError[] = [];
 
     // ФИО: 2-4 слова кириллицей с заглавной
-    const fullName = (row.fullName ?? '').trim();
+    const fullName = composeFullName(row);
     const parts = fullName.length > 0 ? fullName.split(/\s+/) : [];
     if (parts.length < 2 || parts.length > 4) {
       errors.push({
@@ -142,8 +153,62 @@ export function classifyRows(
       });
     }
 
+    /* МГ-C3.1 (срез 10.1, РМ100): колонки личного дела — как написал человек, хранится нормализованное. */
+    const normalized: NormalizedImportFields = { fullName };
+    const dateOfBirth = parseImportDate(row.dateOfBirth);
+    if (dateOfBirth === null) {
+      errors.push({
+        field: 'dateOfBirth',
+        code: 'invalid_format',
+        message: 'Дата рождения — в формате ДД.ММ.ГГГГ или ГГГГ-ММ-ДД'
+      });
+    } else if (dateOfBirth) normalized.dateOfBirth = dateOfBirth;
+    const gender = parseImportGender(row.gender);
+    if (gender === null) {
+      errors.push({ field: 'gender', code: 'invalid_format', message: 'Пол — «м» или «ж»' });
+    } else if (gender) normalized.gender = gender;
+    const phone = parseImportPhone(row.phone);
+    if (phone === null) {
+      errors.push({
+        field: 'phone',
+        code: 'invalid_format',
+        message: 'Телефон — не меньше 10 цифр'
+      });
+    } else if (phone) normalized.phone = phone;
+    const passport = parseImportPassport({
+      series: row.passportSeries,
+      number: row.passportNumber,
+      issuedAt: row.passportIssuedAt,
+      issuedBy: row.passportIssuedBy
+    });
+    if (passport === null) {
+      errors.push({
+        field: 'passport',
+        code: 'invalid_format',
+        message: 'Паспорт — серия и номер вместе, дата выдачи ДД.ММ.ГГГГ'
+      });
+    } else if (passport) normalized.passport = passport;
+    const educationLevel = parseImportEducationLevel(row.educationLevel);
+    if (educationLevel === null) {
+      errors.push({
+        field: 'educationLevel',
+        code: 'invalid_format',
+        message: `Образование — одно из: ${educationLevelNames()}`
+      });
+    } else if (educationLevel) normalized.educationLevel = educationLevel;
+    const companyInn = parseImportInn(row.companyInn);
+    if (companyInn === null) {
+      errors.push({
+        field: 'companyInn',
+        code: 'invalid_format',
+        message: 'ИНН компании — 10 или 12 цифр'
+      });
+    } else if (companyInn) normalized.companyInn = companyInn;
+    const citizenship = (row.citizenship ?? '').trim();
+    if (citizenship) normalized.citizenship = citizenship;
+
     if (errors.length > 0) {
-      result.push({ row, classification: 'invalid', errors });
+      result.push({ row, classification: 'invalid', errors, normalized });
       continue;
     }
 
@@ -155,6 +220,7 @@ export function classifyRows(
       result.push({
         row,
         classification: 'invalid',
+        normalized,
         errors: [
           {
             field: 'row',
@@ -168,9 +234,15 @@ export function classifyRows(
 
     const reuseId = matchByEmail ?? matchBySnils;
     if (reuseId) {
-      result.push({ row, classification: 'reuse', reuseLearnerId: reuseId, errors: [] });
+      result.push({
+        row,
+        classification: 'reuse',
+        reuseLearnerId: reuseId,
+        errors: [],
+        normalized
+      });
     } else {
-      result.push({ row, classification: 'create', errors: [] });
+      result.push({ row, classification: 'create', errors: [], normalized });
     }
   }
 
@@ -268,7 +340,12 @@ export class LearnersBulkImportService {
       }
 
       // classification === 'create'
-      const parsed = parseFullName(c.row.fullName);
+      const fields = c.normalized ?? { fullName: composeFullName(c.row) };
+      const parsed = parseFullName(fields.fullName);
+      /* Компания по ИНН (РМ101): нет такой — слушатель всё равно заводится, но с предупреждением. */
+      const company = fields.companyInn
+        ? this.mvpService.findCounterpartyByInn(tenantId, fields.companyInn)
+        : undefined;
       const created = this.mvpService.createLearnerExtended(
         tenantId,
         actorId,
@@ -279,14 +356,25 @@ export class LearnersBulkImportService {
           email: c.row.email.toLowerCase().trim(),
           ...(c.row.snils ? { snils: normalizeSnils(c.row.snils) } : {}),
           ...(c.row.position ? { position: c.row.position.trim() } : {}),
-          ...(c.row.dateOfBirth ? { dateOfBirth: c.row.dateOfBirth.trim() } : {})
+          ...(fields.dateOfBirth ? { dateOfBirth: fields.dateOfBirth } : {}),
+          ...(fields.gender ? { gender: fields.gender } : {}),
+          ...(fields.phone ? { phone: fields.phone } : {}),
+          ...(fields.passport ? { passport: fields.passport } : {}),
+          ...(fields.citizenship ? { citizenship: fields.citizenship } : {}),
+          ...(fields.educationLevel ? { educationLevel: fields.educationLevel } : {}),
+          ...(company ? { counterpartyId: company.id } : {})
         },
         context
       );
+      const warnings =
+        fields.companyInn && !company
+          ? [`Компания с ИНН ${fields.companyInn} не найдена — слушатель заведён без компании`]
+          : [];
       outcomeRowByRowNumber.set(rowNum, {
         rowNumber: rowNum,
         status: 'created',
-        learnerId: created.id
+        learnerId: created.id,
+        ...(warnings.length > 0 ? { warnings } : {})
       });
       learnerIdToRowNumber.set(created.id, rowNum);
       learnerIdToStatus.set(created.id, 'created');
@@ -295,7 +383,8 @@ export class LearnersBulkImportService {
 
     // 5) Bulk-enroll (только если есть кого зачислять)
     let enrolledCount = 0;
-    if (learnerIdToRowNumber.size > 0) {
+    /* Без группы (РМ102) — только заведение: вставка списком в реестре. */
+    if (request.groupId && learnerIdToRowNumber.size > 0) {
       const enrollOutcome = this.mvpService.createBulkEnrollments(
         tenantId,
         actorId,
@@ -357,7 +446,7 @@ export class LearnersBulkImportService {
 
     const outcome: BulkImportOutcome = {
       idempotencyKey: request.idempotencyKey,
-      groupId: request.groupId,
+      ...(request.groupId ? { groupId: request.groupId } : {}),
       total: request.rows.length,
       created: createdCount,
       reused: reusedCount,
