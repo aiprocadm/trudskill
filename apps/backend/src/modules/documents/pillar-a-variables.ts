@@ -373,6 +373,29 @@ export interface GroupLearnersVariableContext {
  *   передавать pair'ы, но если pipeline сломан, не падаем, а молча скипаем).
  * - `snils`/`position` — пустые строки (см. комментарий к `GroupLearnerView`).
  */
+/** ФИО слушателя так, как оно стоит в таблице протокола. */
+export const groupLearnerFullName = (
+  l: Pick<Learner, 'lastName' | 'firstName' | 'middleName'>
+): string =>
+  [l.lastName, l.firstName, l.middleName]
+    .filter((piece): piece is string => Boolean(piece && piece.trim()))
+    .join(' ')
+    .trim();
+
+/**
+ * МГ-F3.1 (срез 19.2): порядок слушателей группы — идентификаторы в том же порядке, что строки
+ * таблицы протокола (`row_no`). По нему считается `{seq.group}` в номере удостоверения: номер
+ * «264501-3» обязан принадлежать третьей строке протокола, а не третьему записавшемуся.
+ */
+export function groupLearnerOrder(ctx: GroupLearnersVariableContext): string[] {
+  const enrolled = new Set(ctx.enrollments.map((e) => e.learnerId));
+  return ctx.learners
+    .filter((l) => enrolled.has(l.id))
+    .map((l) => ({ id: l.id, fullName: groupLearnerFullName(l) }))
+    .sort((a, b) => a.fullName.localeCompare(b.fullName, 'ru'))
+    .map((view) => view.id);
+}
+
 export function resolveGroupLearnersVariables(
   ctx: GroupLearnersVariableContext,
   varNames: string[]
@@ -382,10 +405,7 @@ export function resolveGroupLearnersVariables(
     .map((l): GroupLearnerView | undefined => {
       const enr = byLearnerId.get(l.id);
       if (!enr) return undefined;
-      const namePieces = [l.lastName, l.firstName, l.middleName].filter((piece): piece is string =>
-        Boolean(piece && piece.trim())
-      );
-      const fullName = namePieces.join(' ').trim();
+      const fullName = groupLearnerFullName(l);
       const enrolledAt = enr.enrolledAt ? enr.enrolledAt.slice(0, 10) : '';
       return {
         row_no: 0, // проставляется после сортировки — нумерация должна идти по порядку в таблице

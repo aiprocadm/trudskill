@@ -79,12 +79,22 @@ export class DocumentsInternalWorkerController {
   @Post('start')
   async start(@Body() raw: unknown) {
     const body = assertValidDto(WorkerTaskRefDto, raw);
+    // МГ-F3.1 (срез 19.2): номеру «= код группы» / «номер протокола + порядок» нужны данные
+    // группы из MVP-состояния. Их собирают ДО блокировки документов — под ней нельзя ждать
+    // второй блокировки; спрашиваем только когда правило задачи их действительно требует.
+    const pre = await this.runner.runWithTenantDocuments(body.tenantId, async (documents) => {
+      const task = documents.getDocumentTask(body.tenantId, body.taskId);
+      return { task, needsFacts: documents.numberingNeedsFacts(body.tenantId, task) };
+    });
+    const facts = pre.needsFacts
+      ? await this.variables.numberingFacts(body.tenantId, pre.task)
+      : {};
     const claim = await this.runner.runWithTenantDocuments(body.tenantId, async (documents) => {
       const task = documents.getDocumentTask(body.tenantId, body.taskId);
       if (task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled') {
         return { claimed: false as const, status: task.status };
       }
-      const started = documents.startTask(body.tenantId, body.taskId);
+      const started = documents.startTask(body.tenantId, body.taskId, facts);
       const version = started.templateVersionId
         ? documents.getTemplateVersion(body.tenantId, started.templateVersionId)
         : undefined;

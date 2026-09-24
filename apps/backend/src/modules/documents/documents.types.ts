@@ -1,4 +1,7 @@
+import type { NumberPart } from './numbering-format.js';
 import type { DocumentSignatureStatus } from '../../infrastructure/document-signature/document-signature.provider.js';
+
+export type { NumberPart } from './numbering-format.js';
 
 export type TemplateStatus = 'active' | 'archived';
 export type TemplateBindingType = 'direction' | 'course' | 'group';
@@ -220,6 +223,10 @@ export interface NumberingRuleEntity {
    * Пусто — правило типа целиком, как было до среза. Номер уникален в пределах вида правила.
    */
   kindCode?: string;
+  /** МГ-F3.1 (срез 19.2): серия бланка — токен `{series}` шаблона. */
+  series?: string;
+  /** МГ-F3.1: три части номера CDOPROF (`{parts}`), у каждой старт и «растёт сама» (РМ126). */
+  parts?: NumberPart[];
 }
 
 export interface NumberReservationEntity {
