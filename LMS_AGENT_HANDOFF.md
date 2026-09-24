@@ -5553,6 +5553,25 @@ PR #493 построил `LearnersListScreen`, но его не импортир
 сверена после правок: вид не изменился (surface-muted и neutral-100 в светлой палитре
 совпадают побитово).
 
+### 5.568 ТЗ перехода с CDOPROF, позиция 7 (Фаза 1, срез 4b): курсы группы и результаты экзаменов читаются из таблиц под флагом
+
+**Зачем.** Вторая половина среза 4 (план `docs/superpowers/plans/2026-09-23-cdoprof-migration-phase-1-slice-4-group-courses-exam-results.md`): после проекции 4a таблицы `learning.group_courses` и `assessment.exam_results` не отстают от снимка, и пять чистых GET-ручек можно перевести на SQL без загрузки снимка центра. Ушла в тот же PR #814, что и 4a (отклонение от плана «два PR»: вместе ровно 30 файлов, а стек-PR после squash-слияния конфликтует — урок §5.563).
+
+**Что сделано.**
+
+- Репозитории `GROUP_COURSES_REPOSITORY` и `EXAM_RESULTS_REPOSITORY` (SQL + в памяти): белые списки сортировок, фильтры, которые снимок реально применял (`group_id`, `course_id`, `course_version_id`; `enrollment_id`, `learner_id`, `test_id`, `status`), `q` не применяется (журнал 614), порядок по умолчанию `created_at asc, id asc` — как порядок массива снимка (по `sortOrder` не сортируем: он равен номеру создания во всём центре, журнал 620; явная сортировка `sortOrder` доступна). Anti-IDOR результатов — параметром `learnerIds`, как у зачислений.
+- `MvpNormalizedReadsService`: `listGroupCourses/getGroupCourse` (без скоупа — как в снимке), `listExamResults/getExamResult` (обход для персонала, слушатель — только свои, без привязки — пусто), `getExamResultByEnrollment` (сначала 404 по зачислению из таблицы зачислений, затем 403 по его слушателю — порядок как в снимке).
+- Контроллер: `group-courses`, `group-courses/:id` под `@ReadsNormalized('groupCourses')`; `exam-results`, `exam-results/:id` под `examResults`; `exam-results/by-enrollment/:enrollmentId` под **обоими** флагами `examResults` + `enrollments` (РМ40). `attempts/:id/result`, `result-view`, `exam-retakes`, `recalculate` остаются на снимке. Флаг `LMS_NORMALIZED_COLLECTIONS` принимает `groupCourses`, `examResults` (`.env.example`, `docs/environment-and-config.md`).
+- Тесты: `mvp-normalized-reads.service.test.ts` (+3), `repositories.integration.test.ts` (+1 на живой базе: форма ответа равна снимку — подстановки `requires*`/`status`/`finalizedAt` наружу не выходят, балл 9,5 сохраняет сотые, anti-IDOR, фильтры, изоляция), `normalized-collections.test.ts` (пример недопустимой → `generatedDocuments`), провайдеры в `mvp.domains.http.integration.test.ts` и `mvp.module.ts`.
+
+**Файлы.** 6 новых в `infrastructure/repositories/`, `mvp-normalized-reads.service.ts` (+ тест), `normalized-collections.ts` (+ тест), `mvp.controller.ts`, `mvp.module.ts`, `mvp.domains.http.integration.test.ts`, `repositories.integration.test.ts`, `.env.example`, `environment-and-config.md`.
+
+**Тесты.** Юниты + сторожа + HTTP-домены: 34 файла, 229 ✅; `repositories.integration.test.ts` 4 ✅ (Docker); typecheck, eslint ✅; `pnpm ci:check` — см. PR #814.
+
+**Урок.** `pnpm ci:check` читает рабочую папку, а не коммит: прогон по PR #814, запущенный до правок 4b, поймал мой недописанный тест (3 красных) — результат недействителен, прогон остановлен и повторён на зафиксированном коде. Пока идёт `ci:check`, код в этой папке не трогать; править можно только `.md`.
+
+**Дальше.** Срез 5 — документы в домене документов (`generatedDocuments`): проекция при сохранении в `postgres-documents-persistence.backend.ts` (сегодня пишет все 8 коллекций без отпечатков по сущностям — нужны отпечатки как в `InMemoryMvpState`), пропуск снимка в `DocumentsRequestPersistenceInterceptor`, чтение `/documents` под флагом; контекст зачисления/группы для документа брать из снимка запроса, а не из таблиц (проекция документов идёт другой транзакцией). Замер k6 после включения `groupCourses,examResults` — вместе с 5.
+
 ### 5.567 ТЗ перехода с CDOPROF, позиция 7 (Фаза 1, срез 4a): проекция курсов группы и результатов экзаменов при сохранении снимка; починка экрана результата (журнал 616)
 
 **Зачем.** Четвёртый срез Фазы 1 (план `docs/superpowers/plans/2026-09-23-cdoprof-migration-phase-1-slice-4-group-courses-exam-results.md`, PR 4a): коллекции `groupCourses` и `examResults` — последние «горячие» коллекции домена MVP, у которых уже были таблицы (`learning.group_courses`, `assessment.exam_results`) и бэкфилл (срез 0b), но не было проекции при сохранении — таблицы отставали от снимка сразу после первого экзамена. Без этого срез 4b (чтение результатов из SQL) отдавал бы устаревшие данные.

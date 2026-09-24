@@ -56,9 +56,11 @@ handoff §5.567, трекер, README, план; журнал: `numeric(8,2)` о
 
 **Files:** Create `repositories/group-courses.repository.ts` (+ `postgres-`, `in-memory-`), `repositories/exam-results.repository.ts` (+ `postgres-`, `in-memory-`; `list(tenantId, query with learnerIds)`, `get`, `byEnrollment`); Modify `mvp-normalized-reads.service.ts` (`listGroupCourses/getGroupCourse`, `listExamResults/getExamResult/getExamResultByEnrollment` с `restrictLearnerIds`/`assertReadAllowedForLearner` как у зачислений; `byEnrollment`: 404 по зачислению через `EnrollmentsRepository.get`), тест; `normalized-collections.ts` (+`groupCourses`, `examResults`) + тест (пример недопустимой → `generatedDocuments`); `mvp.controller.ts` (5 ручек; `by-enrollment` — `@ReadsNormalized('examResults','enrollments')`), `mvp.module.ts`, `mvp.domains.http.integration.test.ts`, `repositories.integration.test.ts`, `.env.example`, документ env.
 
-- [ ] Commit `feat(backend): курсы группы и результаты экзаменов читаются из таблиц под флагом`.
+- [x] Commit `feat(backend): курсы группы и результаты экзаменов читаются из таблиц под флагом` — 30efb0f (отклонение: в том же PR #814, что и 4a — вместе 30 файлов, стек-PR после squash конфликтует).
 
 ### Task 5: документация 4b
+
+- [x] Сделано (§5.568).
 
 handoff §5.568, трекер (МГ-A1/A2), план. `pnpm ci:check`, PR.
 
