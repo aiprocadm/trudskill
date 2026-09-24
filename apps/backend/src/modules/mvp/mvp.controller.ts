@@ -1343,6 +1343,15 @@ export class MvpController {
       ? this.normalizedReads.listGroupCourses(c.tenantId!, q)
       : this.mvpService.listGroupCourses(c.tenantId!, q);
   }
+  /* МГ-E4.5 (срез 17.1): кого можно назначить преподавателем курса группы. Выше `:id`. */
+  @Get('group-courses/teachers')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('groups.write')
+  async listGroupCourseTeachers(@CurrentContext() c: RequestContext, @Query('q') q?: string) {
+    return {
+      items: await this.iamService.searchUsersByRole(c.tenantId!, 'teacher', String(q ?? ''), 50)
+    };
+  }
   @Get('group-courses/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('groups.read')
@@ -1355,20 +1364,32 @@ export class MvpController {
   @Post('group-courses')
   @UseGuards(PermissionGuard)
   @RequirePermissions('groups.write')
-  createGroupCourse(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+  async createGroupCourse(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
     const b = assertValidDto(CreateGroupCourseRequest, raw);
-    return this.mvpService.createGroupCourse(c.tenantId!, b);
+    if (b.teacherUserId) await this.assertTeacher(c.tenantId!, b.teacherUserId);
+    return this.mvpService.createGroupCourse(c.tenantId!, b, c.userId, c);
   }
   @Patch('group-courses/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('groups.write')
-  updateGroupCourse(
+  async updateGroupCourse(
     @CurrentContext() c: RequestContext,
     @Param('id') id: string,
     @Body() raw: unknown
   ) {
     const b = assertValidDto(UpdateGroupCourseRequest, raw);
+    if (b.teacherUserId) await this.assertTeacher(c.tenantId!, b.teacherUserId);
     return this.mvpService.updateGroupCourse(c.tenantId!, c.userId, id, b, c);
+  }
+
+  /** МГ-E4.5: преподаватель курса группы — действующий пользователь центра с ролью «Преподаватель». */
+  private async assertTeacher(tenantId: string, userId: string): Promise<void> {
+    if (!(await this.iamService.userHasRole(tenantId, userId, 'teacher'))) {
+      throw new BadRequestException({
+        code: 'group_course_teacher_invalid',
+        message: 'Выбранный сотрудник не преподаватель центра — выберите из списка преподавателей.'
+      });
+    }
   }
 
   @Get('enrollments')

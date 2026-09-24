@@ -194,7 +194,9 @@ export const TABLE_SPECS: Record<HotCollection, TableSpec> = {
       requires_pre_exam_auth: 'bool',
       requires_identity_verification: 'bool',
       requires_proctoring: 'bool',
-      status: 'text'
+      status: 'text',
+      // МГ-E4.5 (срез 17.1): колонка есть с 0105.
+      teacher_user_id: 'text'
     }
   },
   enrollments: {
@@ -685,7 +687,8 @@ const projectGroupCourse = (entity: Entity, tenantId: string): ProjectedRow => {
       requires_pre_exam_auth: bool(entity.requiresPreExamAuth),
       requires_identity_verification: bool(entity.requiresIdentityVerification),
       requires_proctoring: bool(entity.requiresProctoring),
-      status: str(entity.status) ?? 'active'
+      status: str(entity.status) ?? 'active',
+      teacher_user_id: str(entity.teacherUserId)
     },
     [
       'groupId',
@@ -695,6 +698,7 @@ const projectGroupCourse = (entity: Entity, tenantId: string): ProjectedRow => {
       'durationDays',
       'requiresPreExamAuth',
       'requiresIdentityVerification',
+      'teacherUserId',
       'requiresProctoring',
       'status'
     ],

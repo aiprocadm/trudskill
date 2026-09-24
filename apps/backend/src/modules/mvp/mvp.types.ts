@@ -265,6 +265,8 @@ export interface GroupEntity extends BaseEntity {
 }
 
 export interface GroupCourse extends BaseEntity {
+  /** МГ-E4.5 (срез 17.1): преподаватель курса в группе — пользователь с ролью `teacher`, для протокола. */
+  teacherUserId?: string;
   groupId: string;
   courseId: string;
   courseVersionId?: string;

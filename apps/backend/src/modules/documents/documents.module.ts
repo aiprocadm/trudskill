@@ -20,6 +20,7 @@ import { PostgresGeneratedDocumentsRepository } from './infrastructure/repositor
 import { MissedIssuanceSchedulerService } from './missed-issuance.scheduler.service.js';
 import { StuckTasksReaperService } from './stuck-tasks-reaper.service.js';
 import { TemplateInspectionService } from './template-inspection.service.js';
+import { UserDisplayNamesService } from '../../common/iam/user-display-names.service.js';
 import {
   DOCUMENT_SIGNATURE_PROVIDER,
   NoopDocumentSignatureProvider
@@ -64,6 +65,8 @@ const persistenceBackendClass =
   providers: [
     /* ТЗ 8.2 (Р6): проверка готовности центра перед выдачей документов. */
     IssuanceReadinessService,
+    /* МГ-E4.5 (срез 17.1): ФИО преподавателя курса группы в переменных протокола. */
+    UserDisplayNamesService,
     PostgresDocumentsPersistenceBackend,
     { provide: DOCUMENTS_PERSISTENCE_BACKEND, useClass: persistenceBackendClass },
     { provide: DOCUMENTS_STATE, scope: Scope.REQUEST, useClass: InMemoryDocumentsState },

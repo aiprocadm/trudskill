@@ -21,7 +21,7 @@ export const GROUP_COURSE_SORT_COLUMNS: Record<string, string> = {
 const COLUMNS =
   'id, tenant_id, created_at, updated_at, group_id, course_id, course_version_id, sort_order, ' +
   'duration_days, requires_pre_exam_auth, requires_identity_verification, requires_proctoring, ' +
-  'status, payload';
+  'status, teacher_user_id, payload';
 
 /**
  * Параметры списка курсов группы из строки запроса: общие (`page/page_size/sort/status`) плюс

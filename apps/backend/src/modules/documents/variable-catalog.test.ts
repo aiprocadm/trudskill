@@ -260,7 +260,9 @@ describe('VARIABLE_CATALOG (ФТ-A2.1/A2.3)', () => {
       return value === undefined || value === '';
     });
     // Дата выдачи прописью собирается в builder'е (нужна дата документа), а не в pure-резолвере.
-    expect(notResolved).toEqual(['document.issue_date_words']);
+    // ФИО преподавателя курса группы (МГ-E4.5) — тоже в builder'е: снимок знает только
+    // идентификатор, имя берётся из учётных записей (тест — в document-variables.builder.test.ts).
+    expect(notResolved).toEqual(['course.teacher_name', 'document.issue_date_words']);
   });
 
   it('every entry has a human-readable Russian description for the admin UI', () => {
