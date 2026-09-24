@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
   Inject,
   Injectable,
   NotFoundException
@@ -27,6 +28,7 @@ import type {
 import type {
   CounterpartyContact,
   CounterpartyEmployee,
+  EmployeeLearnerResult,
   EmployeesBulkOutcome,
   EmployeesBulkRow,
   EmployeesPage
@@ -345,6 +347,120 @@ export class CounterpartyPeopleService {
       });
     }
     return outcome;
+  }
+
+  /**
+   * «Из сотрудников компании» в мастере группы (МГ-D2.1, срез 14.4, РМ120): каждый выбранный
+   * сотрудник получает слушателя — уже связанного, найденного по почте или нового — и связь
+   * пишется в обе стороны. Частичный успех: уволенный, чужой или несуществующий сотрудник —
+   * строка с причиной, остальные идут дальше. Слушателей заводит вызывающий (`createLearner`):
+   * правила личного дела живут в `MvpService`, здесь только связь.
+   */
+  async learnersForEmployees(
+    tenantId: string,
+    counterpartyId: string,
+    employeeIdsRaw: readonly string[],
+    ctx: RequestContext,
+    deps: {
+      findLearnerIdByEmail: (email: string) => string | undefined;
+      createLearner: (employee: CounterpartyEmployee) => string;
+    }
+  ): Promise<EmployeeLearnerResult[]> {
+    const counterparty = this.requireCounterparty(tenantId, counterpartyId, ctx);
+    const wanted = [...new Set(employeeIdsRaw)];
+    const loaded = await Promise.all(
+      wanted.map(async (id) => ({
+        id,
+        employee: await this.repo.getEmployee(tenantId, counterpartyId, id)
+      }))
+    );
+    const results: EmployeeLearnerResult[] = [];
+    const changes: Array<{ before: CounterpartyEmployee; after: CounterpartyEmployee }> = [];
+    const now = new Date().toISOString();
+    /* Один слушатель — один сотрудник и внутри пачки: двое с одной почтой не делят слушателя. */
+    const claimed = new Set<string>();
+
+    for (const { id, employee } of loaded) {
+      if (!employee) {
+        results.push({
+          employeeId: id,
+          status: 'failed',
+          errorCode: 'employee_not_found',
+          errorMessage: 'Сотрудник не найден среди сотрудников компании группы.'
+        });
+        continue;
+      }
+      if (employee.status !== 'active') {
+        results.push({
+          employeeId: id,
+          status: 'failed',
+          errorCode: 'employee_not_active',
+          errorMessage: `${fullName(employee)} отмечен уволенным — верните его в работающие, чтобы зачислить.`
+        });
+        continue;
+      }
+      const linkedLearner =
+        employee.learnerId &&
+        this.state.learners.find((l) => l.tenantId === tenantId && l.id === employee.learnerId);
+      if (linkedLearner) {
+        results.push({ employeeId: id, status: 'reused', learnerId: linkedLearner.id });
+        continue;
+      }
+      try {
+        const byEmail = employee.email ? deps.findLearnerIdByEmail(employee.email) : undefined;
+        let learnerId: string;
+        let status: 'created' | 'reused';
+        if (byEmail) {
+          if (claimed.has(byEmail)) {
+            throw new ConflictException({
+              code: 'learner_already_linked',
+              message: `Почта ${employee.email} уже у другого выбранного сотрудника.`
+            });
+          }
+          await this.resolveLearnerLink(tenantId, counterpartyId, employee, byEmail);
+          learnerId = byEmail;
+          status = 'reused';
+        } else {
+          learnerId = deps.createLearner(employee);
+          status = 'created';
+        }
+        claimed.add(learnerId);
+        changes.push({ before: employee, after: { ...employee, learnerId, updatedAt: now } });
+        results.push({ employeeId: id, status, learnerId });
+      } catch (error) {
+        if (!(error instanceof HttpException)) throw error;
+        const body = error.getResponse();
+        const details =
+          typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
+        results.push({
+          employeeId: id,
+          status: 'failed',
+          errorCode: typeof details.code === 'string' ? details.code : 'domain_rule_violation',
+          errorMessage: typeof details.message === 'string' ? details.message : error.message
+        });
+      }
+    }
+
+    // Строки сотрудников — раньше снимка: проекция слушателя ссылается на них ключом.
+    await this.repo.saveEmployees(
+      tenantId,
+      counterparty,
+      changes.map((change) => change.after)
+    );
+    for (const change of changes) {
+      this.applyLearnerLink(tenantId, counterpartyId, change.before, change.after);
+      this.write(
+        ctx,
+        'crm.counterparty_employee_updated',
+        'crm.counterparty_employee',
+        change.after.id,
+        {
+          ...change.after
+        },
+        change.before
+      );
+    }
+    return results;
   }
 
   /** Компания из снимка центра с проверкой скоупа представителя: чужая — «не найдено». */

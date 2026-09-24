@@ -1254,10 +1254,11 @@ export class MvpController {
     const b = assertValidDto(GroupWizardRequest, raw);
     // Те же гейты тарифа, что у частей мастера (Р13).
     await this.tenantUsage.assertCanStartGroup(c.tenantId!);
-    if ((b.learners?.rows?.length ?? 0) > 0)
+    // Сотрудники компании без слушателя тоже становятся новыми слушателями (МГ-D2.1, срез 14.4).
+    if ((b.learners?.rows?.length ?? 0) > 0 || (b.learners?.employeeIds?.length ?? 0) > 0)
       await this.tenantUsage.assertCanAddLearners(c.tenantId!);
     const settings = await this.groupSettings.forTenant(c.tenantId!);
-    const outcome = this.groupWizard.complete(c.tenantId!, c.userId, b, c, settings);
+    const outcome = await this.groupWizard.complete(c.tenantId!, c.userId, b, c, settings);
     /* МГ-C1.2: должности из строк мастера — в справочник центра. */
     await this.lookup?.rememberPositionsSafely(
       c.tenantId!,

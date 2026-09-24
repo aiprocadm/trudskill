@@ -340,6 +340,8 @@ export interface GroupWizardOutcomeRow {
   rowNumber: number;
   status: 'created' | 'reused' | 'enrolled_only' | 'failed';
   learnerId?: string;
+  /** МГ-D2.1 (срез 14.4): строка «из сотрудников компании» — чей это сотрудник. */
+  employeeId?: string;
   enrollmentId?: string;
   errorCode?: string;
   errorMessage?: string;

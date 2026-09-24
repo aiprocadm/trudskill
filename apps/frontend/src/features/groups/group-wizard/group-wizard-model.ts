@@ -33,6 +33,10 @@ export interface WizardState {
   examDate: string;
   studyForm: string;
   existingLearnerIds: string[];
+  /** МГ-D2.1 (срез 14.4): сотрудники компании группы — сервер заведёт им слушателей. */
+  employeeIds: string[];
+  /** Их ФИО — для сводки результата (сервер отвечает идентификаторами). */
+  employeeNames: Record<string, string>;
   learnerText: string;
   accessMode: WizardAccessMode;
   message: string;
@@ -51,6 +55,8 @@ export const EMPTY_WIZARD_STATE: WizardState = {
   examDate: '',
   studyForm: '',
   existingLearnerIds: [],
+  employeeIds: [],
+  employeeNames: {},
   learnerText: '',
   accessMode: 'email',
   message: ''
@@ -105,6 +111,7 @@ export const buildWizardRequest = (
   const rows = parseLearnerLines(state.learnerText);
   const learners = {
     ...(state.existingLearnerIds.length ? { existingIds: state.existingLearnerIds } : {}),
+    ...(state.counterpartyId && state.employeeIds.length ? { employeeIds: state.employeeIds } : {}),
     ...(rows.length ? { rows } : {})
   };
   return {
@@ -175,8 +182,19 @@ export const ROW_STATUS_LABEL: Record<
 /** Подпись строки сводки: ФИО из вставки или имя выбранного слушателя, номер — чтобы найти. */
 export const wizardRowLabel = (
   row: GroupWizardOutcome['enrollments']['rows'][number],
-  names: { byRow: Map<number, string>; byLearner: Map<string, string> }
+  names: {
+    byRow: Map<number, string>;
+    byLearner: Map<string, string>;
+    byEmployee?: Map<string, string>;
+  }
 ): string => {
+  if (row.employeeId) {
+    return (
+      names.byEmployee?.get(row.employeeId) ??
+      (row.learnerId && names.byLearner.get(row.learnerId)) ??
+      'Сотрудник компании'
+    );
+  }
   if (row.rowNumber === 0) {
     return (row.learnerId && names.byLearner.get(row.learnerId)) || 'Слушатель из базы';
   }
@@ -187,7 +205,11 @@ export const wizardRowLabel = (
 /** Сводка частичного успеха для `OperationOutcome`: успех — всё, что не `failed`. */
 export const wizardOutcomeSummary = (
   outcome: GroupWizardOutcome,
-  names: { byRow: Map<number, string>; byLearner: Map<string, string> }
+  names: {
+    byRow: Map<number, string>;
+    byLearner: Map<string, string>;
+    byEmployee?: Map<string, string>;
+  }
 ): BulkOutcome => {
   const rows = outcome.enrollments.rows;
   return {

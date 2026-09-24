@@ -256,3 +256,58 @@ describe('сводка результата', () => {
     );
   });
 });
+
+describe('мастер: «из сотрудников компании» (МГ-D2.1, срез 14.4)', () => {
+  it('сотрудники уходят в запрос только при выбранной компании; сводка подписывает их по ФИО', () => {
+    const state = {
+      ...EMPTY_WIZARD_STATE,
+      name: 'Группа',
+      courseIds: ['c1'],
+      counterpartyId: 'cp_1',
+      employeeIds: ['ce_1', 'ce_2'],
+      employeeNames: { ce_1: 'Иванов Иван', ce_2: 'Орлов Олег' }
+    };
+    expect(buildWizardRequest(state, 'k1', 'u1').learners).toEqual({
+      employeeIds: ['ce_1', 'ce_2']
+    });
+    expect(
+      buildWizardRequest({ ...state, counterpartyId: '' }, 'k2', 'u1').learners
+    ).toBeUndefined();
+
+    const summary = wizardOutcomeSummary(
+      {
+        enrollments: {
+          total: 2,
+          created: 1,
+          reused: 0,
+          failed: 1,
+          rows: [
+            { rowNumber: 0, status: 'created', employeeId: 'ce_1', learnerId: 'l1' },
+            {
+              rowNumber: 0,
+              status: 'failed',
+              employeeId: 'ce_2',
+              errorMessage:
+                'Орлов Олег отмечен уволенным — верните его в работающие, чтобы зачислить.'
+            }
+          ]
+        }
+      } as unknown as GroupWizardOutcome,
+      {
+        byRow: new Map(),
+        byLearner: new Map(),
+        byEmployee: new Map(Object.entries(state.employeeNames))
+      }
+    );
+    expect(summary).toEqual({
+      total: 2,
+      succeeded: 1,
+      failures: [
+        {
+          label: 'Орлов Олег',
+          reason: 'Орлов Олег отмечен уволенным — верните его в работающие, чтобы зачислить.'
+        }
+      ]
+    });
+  });
+});
