@@ -93,6 +93,7 @@ import {
   type CounterpartyRequisitesPatch,
   applyCounterpartyRequisites
 } from './counterparties/counterparty-requisites.js';
+import { type CourseDetailsRequest, applyCourseDetails } from './courses/course-details.js';
 
 import type { CreateDirectionRequest, UpdateDirectionRequest } from './directions/direction.dto.js';
 import type {
@@ -1503,6 +1504,7 @@ export class MvpService {
       this.assertCourseDirection(tenantId, request.directionId);
       entity.directionId = request.directionId;
     }
+    this.applyCourseDetailsChecked(entity, request);
     this.state.courses.push(entity);
     this.audit(
       tenantId,
@@ -1554,6 +1556,7 @@ export class MvpService {
         current.directionId = request.directionId;
       }
     }
+    this.applyCourseDetailsChecked(current, request);
     current.updatedAt = this.now();
     this.audit(
       tenantId,
@@ -1649,7 +1652,12 @@ export class MvpService {
   getCourseVersion(tenantId: string, id: string): CourseVersion {
     return this.getById(this.state.courseVersions, tenantId, id);
   }
-  createCourseVersion(tenantId: string, courseId: string): CourseVersion {
+  createCourseVersion(
+    tenantId: string,
+    courseId: string,
+    actorId?: string,
+    context?: RequestContext
+  ): CourseVersion {
     this.getById(this.state.courses, tenantId, courseId);
     const versionNo =
       this.state.courseVersions.filter(
@@ -1665,6 +1673,19 @@ export class MvpService {
       updatedAt: this.now()
     };
     this.state.courseVersions.push(entity);
+    // МГ-E2.3 (срез 16.1): новая версия курса — в журнал, как остальные правки курса.
+    if (context) {
+      this.audit(
+        tenantId,
+        actorId,
+        'learning.course_version_created',
+        'learning.course_version',
+        entity.id,
+        undefined,
+        entity,
+        context
+      );
+    }
     return entity;
   }
 
@@ -2399,7 +2420,7 @@ export class MvpService {
     context?: RequestContext
   ): GroupCourse {
     this.getById(this.state.groups, tenantId, request.groupId);
-    this.getById(this.state.courses, tenantId, request.courseId);
+    const course = this.getById(this.state.courses, tenantId, request.courseId);
     const duplicate = this.state.groupCourses.some(
       (item) =>
         item.tenantId === tenantId &&
@@ -2422,7 +2443,8 @@ export class MvpService {
       status: 'active',
       createdAt: this.now(),
       updatedAt: this.now(),
-      durationDays: this.normalizeDurationDays(request.durationDays),
+      // МГ-E2.1: срок не задан — берётся срок курса по умолчанию.
+      durationDays: this.normalizeDurationDays(request.durationDays ?? course.periodDaysDefault),
       ...(request.requiresPreExamAuth !== undefined
         ? { requiresPreExamAuth: request.requiresPreExamAuth }
         : {}),
@@ -8103,6 +8125,36 @@ export class MvpService {
         ? this.state.directions.find((d) => d.tenantId === tenantId && d.id === nextId)
         : undefined;
     }
+  }
+
+  /**
+   * МГ-E2.1 (срез 16.1): поля курса CDOPROF. Вид документа ФРДО — из справочника (иначе
+   * выгрузка в ФИС ФРДО получила бы вид, которого там нет); ключи доп. полей не повторяются —
+   * иначе переменная `{course.extra.<ключ>}` была бы неоднозначной.
+   */
+  private applyCourseDetailsChecked(target: Course, request: CourseDetailsRequest): void {
+    if (request.frdoDocumentKind) {
+      const known = this.listFrdoDocumentKinds().map((kind) => kind.code);
+      if (!known.includes(request.frdoDocumentKind)) {
+        throw new BadRequestException({
+          code: 'validation_error',
+          message: `Вида документа «${request.frdoDocumentKind}» нет в справочнике ФИС ФРДО. Выберите из списка.`
+        });
+      }
+    }
+    if (request.docExtraFields) {
+      const seen = new Set<string>();
+      for (const field of request.docExtraFields) {
+        if (seen.has(field.key)) {
+          throw new BadRequestException({
+            code: 'validation_error',
+            message: `Поле с ключом «${field.key}» указано дважды — у каждого поля свой ключ.`
+          });
+        }
+        seen.add(field.key);
+      }
+    }
+    applyCourseDetails(target, request);
   }
 
   /** МГ-E1.1: направление курса — этого центра и действующее. */

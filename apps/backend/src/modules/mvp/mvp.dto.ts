@@ -20,6 +20,8 @@ import {
   ValidateNested
 } from 'class-validator';
 
+import { CourseDetailsRequest } from './courses/course-details.js';
+
 import type {
   CommissionMemberRole,
   FinalAssessmentForm,
@@ -133,7 +135,7 @@ export class UpdateSimpleRegistryRequest {
   organizationUnitId?: string | null;
 }
 
-export class CreateCourseRequest {
+export class CreateCourseRequest extends CourseDetailsRequest {
   @IsString()
   @MinLength(1)
   code!: string;
@@ -153,7 +155,7 @@ export class CreateCourseRequest {
   directionId?: string;
 }
 
-export class UpdateCourseRequest {
+export class UpdateCourseRequest extends CourseDetailsRequest {
   @IsOptional()
   @IsString()
   @MinLength(1)
