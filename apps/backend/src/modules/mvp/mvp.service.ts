@@ -465,6 +465,13 @@ export class MvpService {
     request: CreateSimpleRegistryRequest,
     context: RequestContext
   ): Counterparty {
+    this.assertRegistryCodeFree(
+      this.state.counterparties,
+      tenantId,
+      request.code,
+      undefined,
+      'компании'
+    );
     const entity: Counterparty = {
       id: this.id('cp'),
       tenantId,
@@ -497,6 +504,15 @@ export class MvpService {
     context: RequestContext
   ): Counterparty {
     const current = this.getById(this.state.counterparties, tenantId, id);
+    if (typeof request.code === 'string') {
+      this.assertRegistryCodeFree(
+        this.state.counterparties,
+        tenantId,
+        request.code,
+        id,
+        'компании'
+      );
+    }
     const oldValues = { ...current };
     Object.assign(current, request, { updatedAt: this.now() });
     this.audit(
@@ -533,6 +549,13 @@ export class MvpService {
     },
     context: RequestContext
   ): Counterparty {
+    this.assertRegistryCodeFree(
+      this.state.counterparties,
+      tenantId,
+      request.code.trim(),
+      undefined,
+      'компании'
+    );
     const entity: Counterparty = {
       id: this.id('cp'),
       tenantId,
@@ -587,6 +610,15 @@ export class MvpService {
     context: RequestContext
   ): Counterparty {
     const current = this.getById(this.state.counterparties, tenantId, counterpartyId);
+    if (request.code !== undefined) {
+      this.assertRegistryCodeFree(
+        this.state.counterparties,
+        tenantId,
+        request.code.trim(),
+        counterpartyId,
+        'компании'
+      );
+    }
     const oldValues: Counterparty = { ...current };
 
     if (request.code !== undefined) current.code = request.code.trim();
@@ -1804,6 +1836,7 @@ export class MvpService {
     request: CreateSimpleRegistryRequest,
     context: RequestContext
   ): GroupEntity {
+    this.assertRegistryCodeFree(this.state.groups, tenantId, request.code, undefined, 'группы');
     const entity: GroupEntity = {
       id: this.id('group'),
       tenantId,
@@ -1834,6 +1867,9 @@ export class MvpService {
     context: RequestContext
   ): GroupEntity {
     const current = this.getById(this.state.groups, tenantId, id);
+    if (typeof request.code === 'string') {
+      this.assertRegistryCodeFree(this.state.groups, tenantId, request.code, id, 'группы');
+    }
     const oldValues = { ...current };
     if (typeof request.code === 'string') current.code = request.code;
     if (typeof request.name === 'string') current.name = request.name;
@@ -7508,6 +7544,30 @@ export class MvpService {
       context
     );
     return normalized;
+  }
+
+  /**
+   * Код группы или контрагента уникален в центре — как в таблицах (`UNIQUE (tenant_id, code)`
+   * у `learning.groups` и `crm.counterparties`). Раньше дубль тихо ложился в снимок, проекция
+   * отказывала поимённо, и под флагом запись пропадала из списка (журнал 625, срез 6.0).
+   * Сравнение точное, как в базе; `exceptId` — сама запись при переименовании.
+   */
+  private assertRegistryCodeFree(
+    source: ReadonlyArray<{ id: string; tenantId: string; code: string }>,
+    tenantId: string,
+    code: string,
+    exceptId: string | undefined,
+    what: string
+  ): void {
+    const taken = source.some(
+      (item) => item.tenantId === tenantId && item.code === code && item.id !== exceptId
+    );
+    if (taken) {
+      throw new ConflictException({
+        code: 'conflict',
+        message: `Код «${code}» уже используется у другой ${what} этого центра. Укажите другой код.`
+      });
+    }
   }
 
   private getById<T extends BaseEntity>(source: T[], tenantId: string, id: string): T {
