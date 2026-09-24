@@ -14,6 +14,7 @@ import {
   moduleTestsOf,
   resolveCourseTab
 } from './course-card';
+import { CourseHistorySection } from './course-history-section';
 import { materialTypeLabel, publishBlockers, viewTimeLabel } from './labels';
 import {
   FINAL_ASSESSMENT_OPTIONS,
@@ -1059,6 +1060,8 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
             hint="Нормативные параметры (часы, периодичность, основание) хранятся в версии программы: создайте версию на вкладке «Версии»."
           />
         )}
+        {/* МГ-E2.3 (срез 16.4): история курса и его версий. */}
+        <CourseHistorySection courseId={id} />
       </TabPanel>
 
       <TabPanel id="assessment" activeId={tab}>

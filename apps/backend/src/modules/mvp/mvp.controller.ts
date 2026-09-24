@@ -34,6 +34,7 @@ import {
 } from './counterparty-people/counterparty-people.dto.js';
 import { CounterpartyPeopleService } from './counterparty-people/counterparty-people.service.js';
 import { CounterpartyRepresentativeService } from './counterparty-people/counterparty-representative.service.js';
+import { CourseHistoryService } from './courses/course-history.service.js';
 import { CreateCounterpartyExtendedRequest } from './create-counterparty-extended.dto.js';
 import { ManagerDashboardService } from './dashboards/manager-dashboard.service.js';
 import { MethodistDashboardService } from './dashboards/methodist-dashboard.service.js';
@@ -48,6 +49,7 @@ import {
   SetGroupStatusRequest,
   UpdateGroupRequest
 } from './groups/group.dto.js';
+import { LearnersBulkImportService } from './learners-bulk-import.service.js';
 import { backendEnv } from '../../env.js';
 import { IdentityPolicyService } from './identity/identity-policy.service.js';
 import { LearnerDossierService } from './identity/learner-dossier.service.js';
@@ -68,7 +70,6 @@ import {
   LearnersRegistryExportService
 } from './learners/learners-registry-export.service.js';
 import { BulkImportLearnersRequest } from './learners-bulk-import.dto.js';
-import { LearnersBulkImportService } from './learners-bulk-import.service.js';
 import { MvpBulkEnqueueService } from './mvp-bulk-enqueue.service.js';
 import {
   AddCommissionMemberRequest,
@@ -250,7 +251,11 @@ export class MvpController {
     /* МГ-D2.1 (срез 14.3): «Пригласить в портал» — представитель заказчика. */
     @Optional()
     @Inject(CounterpartyRepresentativeService)
-    private readonly counterpartyRepresentatives?: CounterpartyRepresentativeService
+    private readonly counterpartyRepresentatives?: CounterpartyRepresentativeService,
+    /* МГ-E2.3 (срез 16.4): история курса — курс и его версии из журнала. */
+    @Optional()
+    @Inject(CourseHistoryService)
+    private readonly courseHistory?: CourseHistoryService
   ) {}
 
   private requireCounterpartyPeople(): CounterpartyPeopleService {
@@ -1054,6 +1059,19 @@ export class MvpController {
       ...course,
       responsibleName: await this.userNames.nameOf(c.tenantId!, course.responsibleUserId)
     };
+  }
+  /* МГ-E2.3 (срез 16.4): кто и когда менял курс и его версии. */
+  @Get('courses/:id/history')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('courses.read')
+  getCourseHistory(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    if (!this.courseHistory) {
+      throw new ServiceUnavailableException({
+        code: 'course_history_unavailable',
+        message: 'История курса временно недоступна'
+      });
+    }
+    return this.courseHistory.compose(c.tenantId!, id);
   }
   @Post('courses')
   @UseGuards(PermissionGuard)
