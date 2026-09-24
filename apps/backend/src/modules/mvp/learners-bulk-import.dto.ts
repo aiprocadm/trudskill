@@ -26,10 +26,26 @@ export class BulkImportRowDto {
   @Min(1)
   rowNumber!: number;
 
+  /* МГ-C3.1 (срез 10.1): ФИО одной колонкой или фамилия/имя/отчество отдельно — проверяет сервис. */
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(255)
-  fullName!: string;
+  fullName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  lastName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  middleName?: string;
 
   @IsString()
   @MinLength(1)
@@ -53,6 +69,52 @@ export class BulkImportRowDto {
   @IsString()
   @MaxLength(10)
   dateOfBirth?: string;
+
+  /* МГ-C3.1 (срез 10.1): пол, телефон, паспорт, гражданство, образование, компания по ИНН — как в файле, разбирает сервис. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  gender?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  passportSeries?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  passportNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  passportIssuedAt?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  passportIssuedBy?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  citizenship?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  educationLevel?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  companyInn?: string;
 }
 
 export class BulkImportLearnersRequest {
@@ -60,9 +122,11 @@ export class BulkImportLearnersRequest {
   @MinLength(1)
   idempotencyKey!: string;
 
+  /* МГ-C3.1 (РМ102): без группы — только заведение слушателей (вставка списком в реестре). */
+  @IsOptional()
   @IsString()
   @MinLength(1)
-  groupId!: string;
+  groupId?: string;
 
   @IsArray()
   @ArrayMinSize(1)

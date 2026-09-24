@@ -12,16 +12,41 @@
 export interface BulkImportRow {
   /** Позиция строки в исходном файле (header = 1, первая данных = 2). Сохраняется в outcome для UX. */
   rowNumber: number;
-  /** ФИО в формате «Фамилия Имя [Отчество]», 2-3 слова кириллицей. */
-  fullName: string;
+  /** ФИО одной колонкой — или фамилия, имя, отчество отдельно (МГ-C3.1, срез 10.1). */
+  fullName?: string;
+  lastName?: string;
+  firstName?: string;
+  middleName?: string;
   /** Email, регистронезависимый. */
   email: string;
   /** СНИЛС в формате `XXX-XXX-XXX YY` или `XXXXXXXXXYY`. Опционально. */
   snils?: string;
   /** Должность ученика (для протоколов, удостоверений). Опционально. */
   position?: string;
-  /** Дата рождения (ISO YYYY-MM-DD); нужна для выгрузки в ФИС ФРДО. Опционально. */
+  /** Дата рождения — «ДД.ММ.ГГГГ» или ISO; сервер хранит ISO. Опционально. */
   dateOfBirth?: string;
+  gender?: string;
+  phone?: string;
+  passportSeries?: string;
+  passportNumber?: string;
+  passportIssuedAt?: string;
+  passportIssuedBy?: string;
+  citizenship?: string;
+  educationLevel?: string;
+  /** Компания по ИНН: найдена — слушатель привязан, нет — заведён без компании с предупреждением (РМ101). */
+  companyInn?: string;
+}
+
+/** Что сервер хранит после разбора колонок: даты в ISO, пол `m`/`f`, образование кодом ФРДО. */
+export interface NormalizedImportFields {
+  fullName: string;
+  dateOfBirth?: string;
+  gender?: 'm' | 'f';
+  phone?: string;
+  passport?: { series: string; number: string; issuedAt?: string; issuedBy?: string };
+  citizenship?: string;
+  educationLevel?: string;
+  companyInn?: string;
 }
 
 /**
@@ -33,7 +58,18 @@ export interface BulkImportRow {
 export type RowClassification = 'create' | 'reuse' | 'invalid';
 
 export interface RowError {
-  field: 'fullName' | 'email' | 'snils' | 'position' | 'row';
+  field:
+    | 'fullName'
+    | 'email'
+    | 'snils'
+    | 'position'
+    | 'dateOfBirth'
+    | 'gender'
+    | 'phone'
+    | 'passport'
+    | 'educationLevel'
+    | 'companyInn'
+    | 'row';
   code: string;
   message: string;
 }
@@ -44,6 +80,7 @@ export interface ClassifiedRow {
   /** Если `reuse` — id найденного учётка. */
   reuseLearnerId?: string;
   errors: RowError[];
+  normalized?: NormalizedImportFields;
 }
 
 /** Снимок существующих учётков tenant (используется classifyRows для reuse-детекции). */
@@ -59,11 +96,14 @@ export interface BulkImportOutcomeRow {
   enrollmentId?: string;
   errorCode?: string;
   errorMessage?: string;
+  /** Строка принята, но что-то не сделано (компания по ИНН не найдена) — поимённо (РМ101). */
+  warnings?: string[];
 }
 
 export interface BulkImportOutcome {
   idempotencyKey: string;
-  groupId: string;
+  /** Без группы — только заведение (вставка списком в реестре, РМ102). */
+  groupId?: string;
   total: number;
   created: number;
   reused: number;

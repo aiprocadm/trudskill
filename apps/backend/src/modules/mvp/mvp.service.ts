@@ -983,6 +983,15 @@ export class MvpService {
    * Email сравнивается case-insensitive (trimmed lower-case); СНИЛС — по
    * нормализованным 11 цифрам. Возвращает только поля, нужные классификатору.
    */
+  /** МГ-C3.1 (срез 10.1): компания по ИНН для колонки импорта — сравнение по цифрам, в своём центре. */
+  findCounterpartyByInn(tenantId: string, inn: string): Counterparty | undefined {
+    const digits = inn.replace(/\D/g, '');
+    if (!digits) return undefined;
+    return this.state.counterparties.find(
+      (c) => c.tenantId === tenantId && (c.inn ?? '').replace(/\D/g, '') === digits
+    );
+  }
+
   findLearnersByEmailOrSnils(
     tenantId: string,
     emails: readonly string[],
@@ -1103,6 +1112,12 @@ export class MvpService {
       learnerNo?: string;
       dateOfBirth?: string;
       phone?: string;
+      /* МГ-C3.1 (срез 10.1): импорт заводит личное дело сразу, без второго запроса на правку. */
+      gender?: 'm' | 'f';
+      passport?: LearnerPassport;
+      citizenship?: string;
+      educationLevel?: string;
+      counterpartyId?: string;
     },
     context: RequestContext
   ): Learner {
@@ -1125,6 +1140,11 @@ export class MvpService {
     if (request.learnerNo) entity.learnerNo = request.learnerNo;
     if (request.dateOfBirth) entity.dateOfBirth = request.dateOfBirth;
     if (request.phone) entity.phone = request.phone;
+    if (request.gender) entity.gender = request.gender;
+    if (request.passport) entity.passport = request.passport;
+    if (request.citizenship) entity.citizenship = request.citizenship;
+    if (request.educationLevel) entity.educationLevel = request.educationLevel;
+    if (request.counterpartyId) entity.counterpartyId = request.counterpartyId;
     this.state.learners.push(entity);
     this.audit(
       tenantId,
