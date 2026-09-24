@@ -1210,6 +1210,12 @@ export class CourseDocumentSetEntryRequest {
 
   @IsBoolean()
   autoIssueOnCompletion!: boolean;
+
+  /** МГ-F1.1 (срез 18.1): вид документа из справочника видов. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  kindCode?: string;
 }
 
 /** `PUT /course-versions/:id/document-set` — replace-all семантика. */

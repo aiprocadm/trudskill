@@ -353,6 +353,12 @@ export class CreateTemplateBindingDto {
   @Min(0)
   @Max(1000)
   priority?: number;
+
+  /** МГ-F1.1 (срез 18.1): вид документа из справочника видов. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  kindCode?: string;
 }
 
 export class UpdateTemplateBindingDto {

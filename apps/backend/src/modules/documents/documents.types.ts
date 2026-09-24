@@ -89,6 +89,8 @@ export interface TemplateBindingEntity {
   inheritToChildren: boolean;
   priority: number;
   createdAt: string;
+  /** МГ-F1.1 (срез 18.1): вид документа из каталога `document-kinds.ts` (РМ123). */
+  kindCode?: string;
 }
 
 export interface DocumentGenerationTaskEntity {
@@ -127,6 +129,8 @@ export interface DocumentGenerationTaskEntity {
   numberReservationId?: string;
   /** Phase 5B — carried from the generate request to stamp the document at completion. */
   validUntil?: string;
+  /** МГ-F1.1 (срез 18.1): вид документа из каталога `document-kinds.ts` (РМ123). */
+  kindCode?: string;
 }
 
 export interface GeneratedDocumentEntity {
@@ -155,6 +159,8 @@ export interface GeneratedDocumentEntity {
   /** Phase 5B — срок действия удостоверения (YYYY-MM-DD); undefined = бессрочно. */
   validUntil?: string;
   archivedAt?: string;
+  /** МГ-F1.1 (срез 18.1): вид документа из каталога `document-kinds.ts` (РМ123). */
+  kindCode?: string;
   /** §5.7 — id документа-приказа, по которому выпущено это удостоверение (для трассировки каскада). */
   groupOrderDocumentId?: string;
   /** §5.8 — публичный токен для QR-проверки подлинности. ≥22 chars base64url (~128 бит). */

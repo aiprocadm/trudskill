@@ -94,6 +94,7 @@ import {
   applyCounterpartyRequisites
 } from './counterparties/counterparty-requisites.js';
 import { type CourseDetailsRequest, applyCourseDetails } from './courses/course-details.js';
+import { assertDocumentKindFitsTemplate } from '../documents/document-kinds.js';
 
 import type { CreateDirectionRequest, UpdateDirectionRequest } from './directions/direction.dto.js';
 import type {
@@ -7920,13 +7921,18 @@ export class MvpService {
     }
 
     for (const entry of request.entries) {
+      let template: { templateType: string; name: string };
       try {
-        this.documentsService.getTemplate(tenantId, entry.templateId);
+        template = this.documentsService.getTemplate(tenantId, entry.templateId);
       } catch {
         throw new NotFoundException({
           code: 'template_not_found',
           message: `Template ${entry.templateId} not found in tenant`
         });
+      }
+      // МГ-F1.1: вид строки набора подходит шаблону по типу (удостоверение — не на бланке приказа).
+      if (entry.kindCode) {
+        assertDocumentKindFitsTemplate(entry.kindCode, template.templateType, template.name);
       }
     }
 
@@ -7946,7 +7952,8 @@ export class MvpService {
         isRequired: e.isRequired,
         autoIssueOnCompletion: e.autoIssueOnCompletion,
         createdAt: this.now(),
-        updatedAt: this.now()
+        updatedAt: this.now(),
+        ...(e.kindCode ? { kindCode: e.kindCode } : {})
       };
       this.state.courseDocumentSets.push(entity);
       created.push(entity);
