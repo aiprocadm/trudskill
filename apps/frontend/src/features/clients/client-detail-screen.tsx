@@ -1,10 +1,12 @@
 'use client';
 
-import { DetailLayout, KeyValueList, LoadingState } from '@trudskill/ui';
+import { DetailLayout, KeyValueList, LoadingState, PageTabs, TabPanel } from '@trudskill/ui';
 import Link from 'next/link';
 import { useState } from 'react';
 
+import { ClientContactsSection } from './client-contacts-section';
 import { ClientEditDrawer } from './client-edit-drawer';
+import { ClientEmployeesSection } from './client-employees-section';
 import { CLIENT_STATUS_LABEL, clientRequisiteRows, formatInn, formatPhone } from './format';
 import { GroupProgressSection } from './group-progress-section';
 import { useClient } from './hooks';
@@ -16,6 +18,15 @@ import {
   SectionError
 } from '../../components/state-wrappers';
 import { useObjectCrumb } from '../navigation/use-object-crumb';
+import { useTabParam } from '../navigation/use-tab-param';
+
+/* МГ-D2.1 (срез 14.2): у компании — люди. Обучение по группам — первой вкладкой, как было. */
+const CLIENT_CARD_TABS = [
+  { id: 'learning', label: 'Обучение' },
+  { id: 'contacts', label: 'Контакты' },
+  { id: 'employees', label: 'Сотрудники' }
+];
+const TAB_IDS = CLIENT_CARD_TABS.map((tab) => tab.id);
 
 interface ClientDetailScreenProps {
   clientId: string;
@@ -28,6 +39,7 @@ export function ClientDetailScreen({ clientId }: ClientDetailScreenProps) {
     notFound: !client.isLoading && !client.error && !client.data
   });
   const [editing, setEditing] = useState(false);
+  const [tab, setTab] = useTabParam(TAB_IDS, 'learning');
 
   if (client.isLoading) {
     return (
@@ -100,22 +112,39 @@ export function ClientDetailScreen({ clientId }: ClientDetailScreenProps) {
           </SectionCard>
         }
       >
-        <GroupProgressSection clientId={c.id} />
+        <PageTabs
+          tabs={CLIENT_CARD_TABS}
+          activeId={tab}
+          onSelect={setTab}
+          label="Разделы карточки компании"
+        />
 
-        <SectionCard title="Связанные группы">
-          <p>
-            {/*
+        <TabPanel id="learning" activeId={tab}>
+          <GroupProgressSection clientId={c.id} />
+
+          <SectionCard title="Связанные группы">
+            <p>
+              {/*
               Ссылка вела на `/admin/groups` — такого маршрута нет вовсе, человек попадал
               на «страница не найдена». Реестр групп живёт на `/groups`. Стрелка из подписи
               убрана: она требует догадки, а название и так говорит, куда ведёт (журнал 86).
             */}
-            <Link href="/groups">Открыть реестр групп</Link>
-          </p>
-          <p className="ui-muted">
-            Для привязки группы к компании откройте детали группы и выберите эту компанию в селекте
-            «Компания-заказчик».
-          </p>
-        </SectionCard>
+              <Link href="/groups">Открыть реестр групп</Link>
+            </p>
+            <p className="ui-muted">
+              Для привязки группы к компании откройте детали группы и выберите эту компанию в
+              селекте «Компания-заказчик».
+            </p>
+          </SectionCard>
+        </TabPanel>
+
+        <TabPanel id="contacts" activeId={tab}>
+          <ClientContactsSection counterpartyId={c.id} active={tab === 'contacts'} />
+        </TabPanel>
+
+        <TabPanel id="employees" activeId={tab}>
+          <ClientEmployeesSection counterpartyId={c.id} active={tab === 'employees'} />
+        </TabPanel>
       </DetailLayout>
 
       {editing ? (
