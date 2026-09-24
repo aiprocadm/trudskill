@@ -19,8 +19,8 @@ describe('LMS_NORMALIZED_COLLECTIONS', () => {
   });
 
   it('коллекция, для которой репозитория ещё нет, — понятная ошибка', () => {
-    expect(() => parseNormalizedCollections('groups,generatedDocuments')).toThrow(
-      /«generatedDocuments» не читается из таблиц; допустимы: counterparties, groups, learners, enrollments, groupCourses, examResults/
+    expect(() => parseNormalizedCollections('groups,tasks')).toThrow(
+      /«tasks» не читается из таблиц; допустимы: counterparties, groups, learners, enrollments, groupCourses, examResults, generatedDocuments/
     );
   });
 });

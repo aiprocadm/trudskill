@@ -10,28 +10,33 @@ import { DocumentsService } from './documents.service.js';
 import { EnrollmentDocumentIssuanceListener } from './enrollment-document-issuance.listener.js';
 import { GroupPackageService } from './group-package.service.js';
 import { InMemoryDocumentsState } from './in-memory-documents.state.js';
-import { PublicVerifyController } from './public-verify.controller.js';
-import { backendEnv } from '../../env.js';
+import { DocumentsNormalizedReadsService } from './infrastructure/documents-normalized-reads.service.js';
 import { DocumentsPersistenceRepositoryAdapter } from './infrastructure/documents-persistence.repository.adapter.js';
 import { DOCUMENTS_PERSISTENCE_BACKEND } from './infrastructure/documents-persistence.token.js';
 import { DocumentsRequestPersistenceInterceptor } from './infrastructure/documents-request-persistence.interceptor.js';
 import { MemoryDocumentsPersistenceBackend } from './infrastructure/memory-documents-persistence.backend.js';
-import { JobQuarantineService } from './job-quarantine.service.js';
+import { PostgresDocumentsPersistenceBackend } from './infrastructure/postgres-documents-persistence.backend.js';
+import { PostgresGeneratedDocumentsRepository } from './infrastructure/repositories/postgres-generated-documents.repository.js';
 import { MissedIssuanceSchedulerService } from './missed-issuance.scheduler.service.js';
 import { StuckTasksReaperService } from './stuck-tasks-reaper.service.js';
 import { TemplateInspectionService } from './template-inspection.service.js';
-import { FakeDocumentSignatureProvider } from '../../infrastructure/document-signature/fake-document-signature.provider.js';
-import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
-import { AuditModule } from '../audit/audit.module.js';
-import { PostgresDocumentsPersistenceBackend } from './infrastructure/postgres-documents-persistence.backend.js';
-import { IssuanceReadinessService } from './issuance-readiness.service.js';
 import {
   DOCUMENT_SIGNATURE_PROVIDER,
   NoopDocumentSignatureProvider
 } from '../../infrastructure/document-signature/document-signature.provider.js';
+import { FakeDocumentSignatureProvider } from '../../infrastructure/document-signature/fake-document-signature.provider.js';
+import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
+import { AuditModule } from '../audit/audit.module.js';
 import { BackgroundTasksModule } from '../background-tasks/background-tasks.module.js';
 import { FilesModule } from '../files/files.module.js';
 import { IamModule } from '../iam/iam.module.js';
+import { GENERATED_DOCUMENTS_REPOSITORY } from './infrastructure/repositories/generated-documents.repository.js';
+import { InMemoryGeneratedDocumentsRepository } from './infrastructure/repositories/in-memory-generated-documents.repository.js';
+import { IssuanceReadinessService } from './issuance-readiness.service.js';
+import { JobQuarantineService } from './job-quarantine.service.js';
+import { PublicVerifyController } from './public-verify.controller.js';
+import { backendEnv } from '../../env.js';
+import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import { MvpPersistenceRepositoryAdapter } from '../mvp/infrastructure/mvp-persistence.repository.adapter.js';
 import { MVP_PERSISTENCE_BACKEND } from '../mvp/infrastructure/mvp-persistence.token.js';
 import { MvpTenantRunner } from '../mvp/infrastructure/mvp-tenant-runner.service.js';
@@ -83,6 +88,16 @@ const persistenceBackendClass =
       scope: Scope.REQUEST,
       useClass: DocumentsRequestPersistenceInterceptor
     },
+    /* Фаза 1, срез 5b: чтение документов из таблицы; в памяти — пустой реестр, читает только флаг. */
+    {
+      provide: GENERATED_DOCUMENTS_REPOSITORY,
+      useFactory: (db: DatabaseService) =>
+        backendEnv.DOCUMENTS_PERSISTENCE_DRIVER === 'postgres'
+          ? new PostgresGeneratedDocumentsRepository(db)
+          : new InMemoryGeneratedDocumentsRepository([]),
+      inject: [DatabaseService]
+    },
+    DocumentsNormalizedReadsService,
     {
       provide: DOCUMENT_SIGNATURE_PROVIDER,
       useFactory: () => {

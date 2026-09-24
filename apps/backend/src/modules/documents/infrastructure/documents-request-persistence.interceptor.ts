@@ -4,8 +4,10 @@ import {
   Inject,
   Injectable,
   type NestInterceptor,
+  Optional,
   Scope
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { type Observable, defaultIfEmpty, defer, from, lastValueFrom, mergeMap, of } from 'rxjs';
 
 import { MetricsService } from '../../../common/metrics/metrics.service.js';
@@ -15,6 +17,11 @@ import { TenantSerialGateway } from '../../../infrastructure/request/tenant-seri
 import { DOCUMENTS_STATE } from '../documents-state.token.js';
 import { DOCUMENTS_PERSISTENCE_BACKEND } from './documents-persistence.token.js';
 import { TenantTimezoneService } from '../../../infrastructure/tenant/tenant-timezone.service.js';
+import {
+  type NormalizableCollection,
+  isNormalizedRead
+} from '../../mvp/infrastructure/normalized-collections.js';
+import { READS_NORMALIZED } from '../../mvp/infrastructure/reads-normalized.decorator.js';
 
 import type { InMemoryDocumentsState } from '../in-memory-documents.state.js';
 import type { DocumentsPersistenceBackend } from './documents-persistence.backend.js';
@@ -27,7 +34,12 @@ export class DocumentsRequestPersistenceInterceptor implements NestInterceptor {
     @Inject(DOCUMENTS_PERSISTENCE_BACKEND)
     private readonly persistence: DocumentsPersistenceBackend,
     @Inject(TenantSerialGateway) private readonly tenantGateway: TenantSerialGateway,
-    @Inject(TenantTimezoneService) private readonly timezones: TenantTimezoneService
+    @Inject(TenantTimezoneService) private readonly timezones: TenantTimezoneService,
+    /*
+     * Фаза 1, срез 5b: пометка `@ReadsNormalized('generatedDocuments')` на ручке. Параметр
+     * ПОСЛЕДНИЙ и необязательный — тесты собирают перехватчик позиционно (журнал 526).
+     */
+    @Optional() @Inject(Reflector) private readonly reflector?: Reflector
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
@@ -38,6 +50,11 @@ export class DocumentsRequestPersistenceInterceptor implements NestInterceptor {
     const ctx = resolveRequestContext(req);
     const tenantId = ctx.tenantId;
     if (!tenantId) {
+      return next.handle();
+    }
+    if (this.readsFromNormalizedTable(context)) {
+      // Ручка читает документы из таблицы: замок арендатора и девять запросов снимка ей не
+      // нужны — в этом и смысл Фазы 1. Сохранять после неё нечего (ручка ничего не пишет).
       return next.handle();
     }
     const enqueuedAt = Date.now();
@@ -111,5 +128,18 @@ export class DocumentsRequestPersistenceInterceptor implements NestInterceptor {
         })
       ).pipe(mergeMap((v) => of(v)))
     );
+  }
+
+  private readsFromNormalizedTable(context: ExecutionContext): boolean {
+    const targets = [context.getHandler?.(), context.getClass?.()].filter(
+      (t): t is NonNullable<typeof t> => Boolean(t)
+    );
+    if (!this.reflector || targets.length === 0) return false;
+    const marked = this.reflector.getAllAndOverride<
+      NormalizableCollection | NormalizableCollection[] | undefined
+    >(READS_NORMALIZED, targets);
+    const collections = marked === undefined ? [] : Array.isArray(marked) ? marked : [marked];
+    // Все названные коллекции включены — иначе снимок нужен хотя бы одной из них.
+    return collections.length > 0 && collections.every((c) => isNormalizedRead(c));
   }
 }

@@ -5553,6 +5553,37 @@ PR #493 построил `LearnersListScreen`, но его не импортир
 сверена после правок: вид не изменился (surface-muted и neutral-100 в светлой палитре
 совпадают побитово).
 
+### 5.570 ТЗ перехода с CDOPROF, позиция 7 (Фаза 1, срез 5b): документы читаются из `documents.generated_documents` под флагом; замер k6 со всеми семью коллекциями
+
+**Зачем.** Вторая половина среза 5 (план `docs/superpowers/plans/2026-09-24-cdoprof-migration-phase-1-slice-5-documents.md`): после проекции 5a таблица документов не отстаёт от снимка, и три чистые GET-ручки домена документов можно перевести на SQL без замка центра и девяти запросов снимка. Этим закрывается чтение всех «горячих» коллекций Фазы 1 (МГ-A1.1–A1.2 по чтению).
+
+**Что сделано.**
+
+- `GENERATED_DOCUMENTS_REPOSITORY` (SQL + в памяти) в `documents/infrastructure/repositories/`: список по времени выдачи (порядок массива снимка), карточка, книга выдачи (`document_date desc, id desc`, период/типы/статус/приказ/страница — как `listIssuedDocuments`). Снапшот подстановки расшифровывается на границе чтения (`decryptDocumentSnapshotAtRest`), форма ответа равна снимку (живой тест сравнивает сущности целиком).
+- `DocumentsNormalizedReadsService` — зеркало `listDocuments/getDocument/listIssuedDocuments` (страница по умолчанию 20, один 404 для чужого центра и несуществующего). `search` — по названию, номеру и типу, **не по ПДн из бланка** (РМ43, журнал 622).
+- `DocumentsRequestPersistenceInterceptor`: `@Optional() @Inject(Reflector)` последним аргументом, пропуск замка и загрузки под `@ReadsNormalized('generatedDocuments')` — как у MVP (тест: при флаге ни загрузки, ни сохранения; без флага — как раньше; без Reflector — как раньше).
+- `DocumentsController`: `documents`, `documents/:id`, `admin/documents/issuance-journal`, `.csv` (стал `async`) под флагом `generatedDocuments`; `DocumentsNormalizedReadsService` — последний аргумент конструктора (позиционный тест книги выдачи дополнен). Флаг `LMS_NORMALIZED_COLLECTIONS` принимает `generatedDocuments` (`.env.example`, документ env); сценарий k6 — с `/exam-results` и `/documents`.
+- Не переведены (РМ43): смешанные маршруты MVP (`portal/documents`, `me/documents`, `enrollments/:id/documents|certificates`, пакет закрытия, скачивания) и публичная проверка по QR — им нужен снимок MVP или кросс-центровой поиск.
+
+**Замер «после» (`docs/LOAD_TEST_RESULTS.md`, все семь коллекций под флагом, бэкфилл повторён):**
+
+| Ручка           | p95, 1 VU | max, 1 VU | p95, 10 VU | max, 10 VU | Бюджет |
+| --------------- | --------- | --------- | ---------- | ---------- | ------ |
+| `/groups`       | 0,12 с    | 0,14 с    | 0,62 с     | 0,83 с     | 0,5 с  |
+| `/learners`     | 0,06 с    | 0,07 с    | 0,48 с     | 0,66 с     | 0,5 с  |
+| `/enrollments`  | 0,05 с    | 0,08 с    | 0,49 с     | 0,85 с     | 0,5 с  |
+| `/exam-results` | 0,01 с    | 0,03 с    | 0,33 с     | 0,46 с     | 0,5 с  |
+| `/documents`    | 0,01 с    | 0,02 с    | 0,34 с     | 0,59 с     | 0,5 с  |
+| `/search`       | 0,54 с    | 0,63 с    | 2,48 с     | 4,78 с     | 0,5 с  |
+
+Запросов за 60 с при VUS=10: **2510** (1 610 после 3c, 126 «до»). Ошибок 0.00 %; память 121 МБ.
+
+**Файлы.** 4 новых в `documents/infrastructure/repositories/` (+ живой тест), `documents-normalized-reads.service.ts` (+ тест), `documents-request-persistence.interceptor.ts` (+ тест), `documents.controller.ts`, `documents.module.ts`, `documents.issuance-journal.test.ts`, `normalized-collections.ts` (+ тест), `.env.example`, `environment-and-config.md`, `infra/load/k6-cdoprof-volume.js`, `LOAD_TEST_RESULTS.md`.
+
+**Тесты.** Юниты + сторожа + HTTP документов (стаб и IDOR) + HTTP-домены MVP + сборка модуля: 36 файлов, 248 ✅; `generated-documents.repository.integration.test.ts` (Docker) ✅; typecheck, eslint ✅; `pnpm ci:check` — см. PR.
+
+**Дальше.** Фаза 1: срез 6.x — запись через репозитории (async-цепочка `MvpService` → контроллеры → тесты), затем 7 — отключение снимка, `VALIDATE` ключей 0105, k6 «после». Отложено: `/search` (журнал 613), выброс первого запроса (615), ссылки документов между транзакциями (624).
+
 ### 5.569 ТЗ перехода с CDOPROF, позиция 7 (Фаза 1, срез 5a): проекция документов при сохранении снимка документов; панель руководителя видит документы (журнал 621)
 
 **Зачем.** Последняя «горячая» коллекция — `generatedDocuments` — живёт в ДОМЕНЕ ДОКУМЕНТОВ (снимок `documents.runtime_documents`), у которого не было ни поштучных отпечатков (один отпечаток на всё состояние, `writeSnapshot` переписывает все 8 коллекций), ни крючка проекции, ни пропуска снимка в интерцепторе. Без проекции таблица `documents.generated_documents` отставала от снимка сразу после первой выдачи. План — `docs/superpowers/plans/2026-09-24-cdoprof-migration-phase-1-slice-5-documents.md` (PR 5a).
