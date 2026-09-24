@@ -43,6 +43,8 @@ import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-p
 import { isNormalizedRead } from './infrastructure/normalized-collections.js';
 import { ReadsNormalized } from './infrastructure/reads-normalized.decorator.js';
 import { LearnerPdfCardService } from './learner-pdf-card.service.js';
+import { validateLearnerExtraFields } from './learners/learner-extra-fields.js';
+import { LearnerFieldsSettingsService } from './learners/learner-fields-settings.service.js';
 import { BulkImportLearnersRequest } from './learners-bulk-import.dto.js';
 import { LearnersBulkImportService } from './learners-bulk-import.service.js';
 import { MvpBulkEnqueueService } from './mvp-bulk-enqueue.service.js';
@@ -194,7 +196,11 @@ export class MvpController {
     /* МГ-C1.2 (срез 8.13): справочник должностей; необязательный — тесты собирают контроллер позиционно. */
     @Optional()
     @Inject(LookupService)
-    private readonly lookup?: LookupService
+    private readonly lookup?: LookupService,
+    /* МГ-C1.3 (срез 8.14): описание именованных полей — проверка значений при правке карточки. */
+    @Optional()
+    @Inject(LearnerFieldsSettingsService)
+    private readonly learnerFields?: LearnerFieldsSettingsService
   ) {}
 
   @Get('counterparties')
@@ -655,6 +661,17 @@ export class MvpController {
     @Body() raw: unknown
   ) {
     const b = assertValidDto(UpdateLearnerExtendedRequest, raw);
+    if (b.extraFields && this.learnerFields) {
+      /* МГ-C1.3 (РМ85): значения именованных полей — только по описанию центра. */
+      const defs = await this.learnerFields.forTenant(c.tenantId!);
+      const problems = validateLearnerExtraFields(b.extraFields, defs);
+      if (problems.length > 0) {
+        throw new BadRequestException({
+          code: 'validation_error',
+          message: problems.map((problem) => problem.message).join(' ')
+        });
+      }
+    }
     const updated = this.mvpService.updateLearnerExtended(c.tenantId!, c.userId, id, b, c);
     /* МГ-C1.2: новая должность из карточки попадает в подсказки (РМ83 — без отдельного диалога). */
     if (b.position) await this.lookup?.rememberPositionsSafely(c.tenantId!, [b.position], c.userId);

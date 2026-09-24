@@ -94,7 +94,12 @@ const task = {
   requestedAt: '2026-07-26T00:00:00.000Z'
 } as DocumentGenerationTaskEntity;
 
-function makeBuilder(options?: { withTenant?: boolean; state?: InMemoryMvpState }) {
+function makeBuilder(options?: {
+  withTenant?: boolean;
+  state?: InMemoryMvpState;
+  /** МГ-C1.3: описание именованных полей центра (`payload.learnerExtraFields`). */
+  extraFields?: unknown;
+}) {
   const state = options?.state ?? seedState();
   const runner = {
     runWithTenantState: vi.fn(async (_t: string, fn: (s: InMemoryMvpState) => Promise<unknown>) =>
@@ -115,6 +120,10 @@ function makeBuilder(options?: { withTenant?: boolean; state?: InMemoryMvpState 
           legalName: 'ООО «УЦ Пример»',
           taxNumber: '7701234567',
           payload: {}
+        })),
+        getSettings: vi.fn(async () => ({
+          tenantId: T,
+          payload: options?.extraFields ? { learnerExtraFields: options.extraFields } : {}
         }))
       } as unknown as TenantService)
     : undefined;
@@ -216,6 +225,26 @@ describe('DocumentVariablesBuilder (ФТ-A2.3)', () => {
     expect(vars['document.number']).toBe('N-1');
     // Ключ присутствует и пуст — форма словаря не зависит от доступности состояния.
     expect(vars['learner.full_name']).toBe('');
+  });
+
+  // МГ-C1.3 (РМ86): именованные поля центра попадают в документы как `learner.extra.<ключ>`.
+  it('resolves the tenant-defined learner fields and leaves an unset one blank', async () => {
+    const state = seedState();
+    const learner = state.learners.find((item) => item.id === 'l1') as { extraFields?: unknown };
+    learner.extraFields = { otdel: 'Цех 2' };
+    const defs = [
+      { key: 'otdel', label: 'Отдел', type: 'text' },
+      { key: 'start', label: 'Дата приёма', type: 'date' }
+    ];
+    const vars = await makeBuilder({ state, withTenant: true, extraFields: defs }).build({
+      tenantId: T,
+      task
+    });
+    expect(vars['learner.extra.otdel']).toBe('Цех 2');
+    expect(vars['learner.extra.start']).toBe('');
+    // Без описания в настройках центра кода нет вовсе — каталог остаётся общим.
+    const plain = await makeBuilder({ state, withTenant: true }).build({ tenantId: T, task });
+    expect('learner.extra.otdel' in plain).toBe(false);
   });
 
   it('never leaks another tenant data (state is filtered by tenantId)', async () => {

@@ -19,6 +19,7 @@ import {
   allVariableCodes,
   classifyPlaceholders,
   demoVariables,
+  extraLearnerVariableEntries,
   imageVariableCodes,
   isKnownVariable
 } from './variable-catalog.js';
@@ -268,6 +269,22 @@ describe('VARIABLE_CATALOG (ФТ-A2.1/A2.3)', () => {
       expect(item.description.trim().length).toBeGreaterThanOrEqual(3);
       expect(/[А-Яа-я]/.test(item.description)).toBe(true);
     }
+  });
+});
+
+// МГ-C1.3 (РМ86): именованные поля центра известны только с описанием, общий каталог не меняется.
+describe('classifyPlaceholders с именованными полями центра', () => {
+  it('без описания learner.extra.* — неизвестная; с описанием — известная с подписью из настройки', () => {
+    expect(classifyPlaceholders(['learner.extra.otdel']).unknown).toEqual(['learner.extra.otdel']);
+    const extra = extraLearnerVariableEntries([{ key: 'otdel', label: 'Отдел' }]);
+    const { known, unknown } = classifyPlaceholders(
+      ['learner.extra.otdel', 'learner.full_name'],
+      extra
+    );
+    expect(unknown).toEqual([]);
+    expect(known.map((item) => item.code)).toEqual(['learner.extra.otdel', 'learner.full_name']);
+    expect(known[0]?.description).toContain('Отдел');
+    expect(isKnownVariable('learner.extra.otdel')).toBe(false);
   });
 });
 
