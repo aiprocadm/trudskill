@@ -3,6 +3,7 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { formatRussianDateWords } from './date-words.js';
 import {
   resolveCounterpartyVariables,
+  resolveCourseExtraVariables,
   resolveCourseVariables,
   resolveGroupVariables,
   resolveLearnerVariables,
@@ -269,6 +270,8 @@ export class DocumentVariablesBuilder {
         pick('group.')
       ),
       ...resolveCourseVariables({ ...(course ? { course } : {}) }, pick('course.')),
+      // МГ-E2.1 (срез 16.2): именованные поля курса — ключи задаёт сам курс.
+      ...resolveCourseExtraVariables(course),
       ...resolveCounterpartyVariables(
         { ...(counterparty ? { counterparty } : {}) },
         pick('counterparty.')
