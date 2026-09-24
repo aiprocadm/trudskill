@@ -43,6 +43,7 @@ import { MvpNormalizedReadsService } from './infrastructure/mvp-normalized-reads
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
 import { isNormalizedRead } from './infrastructure/normalized-collections.js';
 import { ReadsNormalized } from './infrastructure/reads-normalized.decorator.js';
+import { LEARNERS_EXPORT_MAX_ROWS } from './infrastructure/repositories/learners-registry.js';
 import { LearnerPdfCardService } from './learner-pdf-card.service.js';
 import { LearnerAccessService } from './learners/learner-access.service.js';
 import { validateLearnerExtraFields } from './learners/learner-extra-fields.js';
@@ -50,6 +51,10 @@ import { LearnerFieldsSettingsService } from './learners/learner-fields-settings
 import { AttachLearnerFileRequest } from './learners/learner-files.dto.js';
 import { LearnerFilesService } from './learners/learner-files.service.js';
 import { LearnerHistoryService } from './learners/learner-history.service.js';
+import {
+  LEARNERS_XLSX_CONTENT_TYPE,
+  LearnersRegistryExportService
+} from './learners/learners-registry-export.service.js';
 import { BulkImportLearnersRequest } from './learners-bulk-import.dto.js';
 import { LearnersBulkImportService } from './learners-bulk-import.service.js';
 import { MvpBulkEnqueueService } from './mvp-bulk-enqueue.service.js';
@@ -217,7 +222,11 @@ export class MvpController {
     /* МГ-C2.1 (срез 9.3): «Выслать доступ» — письмо входа слушателю. */
     @Optional()
     @Inject(LearnerAccessService)
-    private readonly learnerAccess?: LearnerAccessService
+    private readonly learnerAccess?: LearnerAccessService,
+    /* МГ-C3.2 (срез 11.1): выгрузка реестра слушателей в XLSX. */
+    @Optional()
+    @Inject(LearnersRegistryExportService)
+    private readonly learnersExport?: LearnersRegistryExportService
   ) {}
 
   private requireLearnerFiles(): LearnerFilesService {
@@ -396,6 +405,40 @@ export class MvpController {
      * ответа на вопрос «кто видел эти данные».
      */
     return { ...page, items: page.items.map((item) => maskLearnerRow(item)) };
+  }
+
+  /**
+   * МГ-C3.2 (срез 11.1, РМ105): выгрузка реестра — те же фильтры, что у списка, подписи вместо
+   * кодов, СНИЛС маской (право то же, что у списка). Объявлена до `learners/:id`, иначе
+   * `export.xlsx` ушёл бы в параметр.
+   */
+  @Get('learners/export.xlsx')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learners.read')
+  @ReadsNormalized('learners')
+  async exportLearnersXlsx(
+    @CurrentContext() c: RequestContext,
+    @Query() q: BaseFilterQuery,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    if (!this.learnersExport) {
+      throw new ServiceUnavailableException({
+        code: 'learners_export_unavailable',
+        message: 'Выгрузка реестра временно недоступна'
+      });
+    }
+    const actor = { counterpartyId: c.counterpartyId };
+    const page = isNormalizedRead('learners')
+      ? await this.normalizedReads.listLearnersForExport(c.tenantId!, q, actor)
+      : this.mvpService.listLearners(
+          c.tenantId!,
+          { ...q, page: 1, page_size: LEARNERS_EXPORT_MAX_ROWS },
+          actor
+        );
+    const rows = page.items.map((item) => maskLearnerRow(item));
+    res.setHeader('Content-Type', LEARNERS_XLSX_CONTENT_TYPE);
+    res.setHeader('Content-Disposition', 'attachment; filename="learners.xlsx"');
+    return new StreamableFile(await this.learnersExport.build(rows));
   }
   /**
    * Поиск по данным для строки поиска в шапке (ТЗ 3.6 / Н6).

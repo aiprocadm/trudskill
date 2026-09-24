@@ -13,6 +13,10 @@ import { ENROLLMENTS_REPOSITORY } from './repositories/enrollments.repository.js
 import { EXAM_RESULTS_REPOSITORY } from './repositories/exam-results.repository.js';
 import { GROUP_COURSES_REPOSITORY } from './repositories/group-courses.repository.js';
 import { GROUPS_REPOSITORY } from './repositories/groups.repository.js';
+import {
+  LEARNERS_EXPORT_MAX_ROWS,
+  parseLearnersListQuery
+} from './repositories/learners-registry.js';
 import { LEARNERS_REPOSITORY } from './repositories/learners.repository.js';
 import { COUNTERPARTY_SORT_COLUMNS } from './repositories/postgres-counterparties.repository.js';
 import { parseEnrollmentListQuery } from './repositories/postgres-enrollments.repository.js';
@@ -39,6 +43,7 @@ import type { EnrollmentsRepository } from './repositories/enrollments.repositor
 import type { ExamResultsRepository } from './repositories/exam-results.repository.js';
 import type { GroupCoursesRepository } from './repositories/group-courses.repository.js';
 import type { GroupsRepository } from './repositories/groups.repository.js';
+import type { LearnerRegistryRow } from './repositories/learners-registry.js';
 import type { LearnersRepository } from './repositories/learners.repository.js';
 import type { LookupItem, RegistryListPage } from './repositories/registry-list-query.js';
 
@@ -160,14 +165,48 @@ export class MvpNormalizedReadsService {
     tenantId: string,
     query: BaseFilterQuery,
     actor?: { counterpartyId?: string }
-  ): Promise<RegistryListPage<Learner>> {
+  ): Promise<RegistryListPage<LearnerRegistryRow>> {
     // Скоуп представителя заказчика (ФТ-E5) — в SQL через зачисления и группы (срез 3c, снимает РМ37).
     const scope = resolveCounterpartyScope(actor ?? {});
-    const page = await this.learners.list(
+    return this.learnersPage(
       tenantId,
-      parseRegistryListQuery(query, LEARNER_SORT_COLUMNS, scope.restricted ? scope : undefined)
+      parseLearnersListQuery(query, LEARNER_SORT_COLUMNS, scope.restricted ? scope : undefined)
     );
-    return { ...page, items: page.items.map((item) => this.decrypt(item)) };
+  }
+
+  /** МГ-C3.2 (срез 11.1, РМ105): выгрузка — те же фильтры, одна страница до предела. */
+  async listLearnersForExport(
+    tenantId: string,
+    query: BaseFilterQuery,
+    actor?: { counterpartyId?: string }
+  ): Promise<RegistryListPage<LearnerRegistryRow>> {
+    const scope = resolveCounterpartyScope(actor ?? {});
+    const parsed = parseLearnersListQuery(
+      query,
+      LEARNER_SORT_COLUMNS,
+      scope.restricted ? scope : undefined
+    );
+    return this.learnersPage(tenantId, { ...parsed, page: 1, pageSize: LEARNERS_EXPORT_MAX_ROWS });
+  }
+
+  /* Страница реестра со сведениями (РМ103): сведения — отдельным запросом по идентификаторам страницы. */
+  private async learnersPage(
+    tenantId: string,
+    parsed: ReturnType<typeof parseLearnersListQuery>
+  ): Promise<RegistryListPage<LearnerRegistryRow>> {
+    const page = await this.learners.list(tenantId, parsed);
+    const details = await this.learners.registryDetails(
+      tenantId,
+      page.items.map((item) => item.id)
+    );
+    return {
+      ...page,
+      items: page.items.map((item) => {
+        const row: LearnerRegistryRow = this.decrypt(item);
+        const registry = details.get(item.id);
+        return registry ? { ...row, registry } : row;
+      })
+    };
   }
 
   async getLearner(tenantId: string, id: string): Promise<Learner> {
