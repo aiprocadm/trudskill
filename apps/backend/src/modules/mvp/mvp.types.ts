@@ -1,3 +1,4 @@
+import type { CourseDetails } from './courses/course-details.js';
 import type { ExamPurpose } from './exam/retake-policy.js';
 import type { RegistryReadinessReport } from './registry-readiness.js';
 import type { ExportSignatureStatus } from '../../infrastructure/export-signature/export-signature.provider.js';
@@ -147,7 +148,8 @@ export interface Direction extends BaseEntity {
   note?: string;
 }
 
-export interface Course extends BaseEntity {
+/** МГ-E2.1 (срез 16.1): поля курса CDOPROF — `courses/course-details.ts`. */
+export interface Course extends BaseEntity, CourseDetails {
   code: string;
   title: string;
   description?: string;

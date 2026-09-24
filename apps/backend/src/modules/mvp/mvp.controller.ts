@@ -1093,7 +1093,7 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('courses.write')
   createCourseVersion(@CurrentContext() c: RequestContext, @Param('courseId') courseId: string) {
-    return this.mvpService.createCourseVersion(c.tenantId!, courseId);
+    return this.mvpService.createCourseVersion(c.tenantId!, courseId, c.userId, c);
   }
 
   @Get('modules')
@@ -2545,6 +2545,14 @@ export class MvpController {
   }
 
   // === Wave 2 — ОТ-реестр: программы обучения (lookup, справочник) ===
+
+  /* МГ-E2.1 (срез 16.1): виды документов ФИС ФРДО — выбор вида у курса. Справочник общий. */
+  @Get('frdo-document-kinds')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('courses.read')
+  listFrdoDocumentKinds() {
+    return { items: this.mvpService.listFrdoDocumentKinds() };
+  }
 
   @Get('ot-training-programs')
   listOtTrainingPrograms() {
