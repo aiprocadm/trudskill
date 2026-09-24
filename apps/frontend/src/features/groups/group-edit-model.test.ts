@@ -28,6 +28,7 @@ describe('groupEditFormOf', () => {
       name: 'Охрана труда',
       code: 'ОТ-1',
       counterpartyId: 'cp1',
+      responsibleUserId: '',
       comment: 'по договору',
       learnerMessage: '',
       startDate: '2026-10-01',
@@ -95,6 +96,19 @@ describe('groupEditErrors', () => {
     });
     expect(groupEditErrors({ ...initial, examDate: '2026-09-01' })).toMatchObject({
       examDate: expect.any(String)
+    });
+  });
+});
+
+describe('ответственный за группу (МГ-B1.2, срез 17.2)', () => {
+  it('назначение уходит идентификатором, снятие — null', () => {
+    const initial = groupEditFormOf(group);
+    expect(groupEditDiff(initial, { ...initial, responsibleUserId: 'u_curator' }, false)).toEqual({
+      responsibleUserId: 'u_curator'
+    });
+    const assigned = { ...initial, responsibleUserId: 'u_curator' };
+    expect(groupEditDiff(assigned, { ...assigned, responsibleUserId: '' }, false)).toEqual({
+      responsibleUserId: null
     });
   });
 });

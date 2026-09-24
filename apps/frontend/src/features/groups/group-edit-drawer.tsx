@@ -14,7 +14,10 @@ import { STUDY_FORM_LABEL, isGroupLocked } from './group-status';
 import { FieldError, FormErrorSummary } from '../../components/form-feedback';
 import { SectionError } from '../../components/state-wrappers';
 import { isFormDirty } from '../../lib/forms/dirty';
+import { hasPermission } from '../../lib/rbac/permissions';
+import { useAuth } from '../auth/context';
 import { useDomainMutations } from '../mvp/hooks';
+import { StaffSelect } from '../tasks/staff-select';
 
 import type { GroupEditForm } from './group-edit-model';
 import type { Group } from '../mvp/types';
@@ -39,6 +42,9 @@ export function GroupEditDrawer({
   onSaved: () => void;
 }) {
   const { saveGroup } = useDomainMutations();
+  const { session } = useAuth();
+  const canPickResponsible = hasPermission(session?.permissions ?? [], 'tasks.write');
+  const [responsibleName, setResponsibleName] = useState(group.responsibleName ?? '');
   const [initial] = useState<GroupEditForm>(() => groupEditFormOf(group));
   const [form, setForm] = useState<GroupEditForm>(() => groupEditFormOf(group));
   const [saving, setSaving] = useState(false);
@@ -150,6 +156,19 @@ export function GroupEditDrawer({
               emptyLabel="— без компании: учатся физлица —"
             />
           </div>
+          {/* МГ-B1.2 (срез 17.2): ответственный — выбор из сотрудников центра (список — право задач). */}
+          {canPickResponsible ? (
+            <StaffSelect
+              label="Ответственный за группу"
+              value={form.responsibleUserId}
+              selectedLabel={responsibleName}
+              emptyLabel="— не назначен —"
+              onChange={(userId, name) => {
+                set('responsibleUserId', userId);
+                setResponsibleName(name);
+              }}
+            />
+          ) : null}
           <label htmlFor="group-edit-start" className="ui-field">
             <span className="ui-field-label">Начало обучения</span>
             <input
