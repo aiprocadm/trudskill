@@ -34,6 +34,7 @@ import {
   GenerateDocumentsBatchDto,
   IssueGroupOrderDto,
   NumberingPreviewQueryDto,
+  ResetNumberingRuleDto,
   SetCurrentVersionDto,
   TenantImageSlotDto,
   UpdateNumberingRuleDto,
@@ -660,6 +661,17 @@ export class DocumentsController {
   patchRule(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() raw: unknown) {
     const b = assertValidDto(UpdateNumberingRuleDto, raw);
     return this.documentsService.updateNumberingRule(c.tenantId!, id, b, c.userId, c);
+  }
+  /**
+   * МГ-F3.1 (срез 19.3): сброс счётчика — «только админ» (ТЗ): кроме права на документы нужно
+   * право настроек центра, которое есть только у администратора центра и платформы (0083).
+   */
+  @Post('numbering-rules/:id/reset')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.write', 'tenant.settings.write')
+  resetRule(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() raw: unknown) {
+    const b = assertValidDto(ResetNumberingRuleDto, raw);
+    return this.documentsService.resetNumberingRule(c.tenantId!, c.userId, id, b, c);
   }
   @Post('numbering-rules/:id/activate')
   @UseGuards(PermissionGuard)
