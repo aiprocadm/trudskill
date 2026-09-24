@@ -35,21 +35,23 @@
 
 **Files:** Modify `documents/in-memory-documents.state.ts` (`documentFingerprintAtLoad: Map<string,string> | undefined`, снимается в `captureLoadFingerprint`; `changedGeneratedDocuments()`), `migration/backfill/normalized/normalized-upsert.ts` (`loadGeneratedDocumentContext(client, tenantId, documents)`, `detachDocumentsFrom`), `normalized-backfill.service.ts` (`loadContext` зовёт общую функцию), `normalized-projection.ts` (пометки полей, выдуманных для документа: `kindCode`, `isExternal`, `finalizedAt`, `documentDate`, `enrollmentId`, `learnerId`, `groupId`, `counterpartyId` — через `__synthesized`/`HIDDEN_COLUMNS`, круговой тест).
 
-- [ ] Commit `feat(backend): поштучные отпечатки документов и общий контекст проекции (Фаза 1, срез 5a)`.
+- [x] Вошло в коммит a148967 (отклонение: Task 1 и Task 2 — один коммит).
 
 ### Task 2: крючок проекции в бэкенде документов и обратные ключи в MVP
 
 **Files:** Modify `documents/infrastructure/postgres-documents-persistence.backend.ts` (`projectChanged` после цикла коллекций внутри транзакции, только для `authoritativeTable()`; пачка → по одной → `projection_failed` в `documents.reconciliation_log` через `client`, не `db.query`), `postgres-documents-persistence.backend.test.ts` (мок отвечает `rowCount` по числу кортежей; тесты: правка бланка не проецирует, новый документ проецирует после вставок снимка, отказ одной строки не роняет снимок), `mvp/infrastructure/postgres-mvp-persistence.backend.ts` (`prepare` для `learners`/`groups`/`counterparties` зовёт `detachDocumentsFrom`), `postgres-mvp-persistence.backend.test.ts` (регэксп + ожидания `update documents.generated_documents`), новый `documents/infrastructure/postgres-documents-persistence.projection.integration.test.ts` (Docker: выпуск, отзыв, документ без зачисления, удаление слушателя с документом через MVP).
 
-- [ ] Commit `feat(backend): проекция документов при сохранении снимка и отвязка документов при удалениях MVP`.
+- [x] Commit a148967.
 
 ### Task 3: панель руководителя читает документы (журнал 621)
 
 **Files:** Modify `mvp/mvp.controller.ts` (`@UseInterceptors(DocumentsRequestPersistenceInterceptor)` на `dashboards/manager`), тест в `mvp.domains.http.integration.test.ts` (документ, созданный под интерцептором документов, виден в ответе панели).
 
-- [ ] Commit `fix(backend): панель руководителя видит выданные документы (журнал 621)`.
+- [x] Commit d6b0977.
 
 ### Task 4: документация 5a
+
+- [x] Сделано (§5.569).
 
 handoff §5.569, трекер (РМ41–РМ43, очередь, МГ-A1), README, план; журнал 621 (исправлено), 622 (поиск по ПДн в `listDocuments.search`), 623 (`page()` документов без потолка `pageSize` для внутренних вызовов — есть), 624 (проекция документов и MVP в разных транзакциях — ссылки догоняет бэкфилл). `pnpm ci:check`, PR.
 
