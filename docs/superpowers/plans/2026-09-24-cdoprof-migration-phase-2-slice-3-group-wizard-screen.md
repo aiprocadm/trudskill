@@ -25,7 +25,7 @@
 - **РМ53.** Способы добавления слушателей на шаге 3: (а) существующие — поиск по одному через `LearnerSelect` в список; (б) вставка списка построчно «ФИО; должность; СНИЛС; email; телефон» (разбор на клиенте только для предпросмотра — валидация на сервере, чтобы правила не разъезжались); (в) XLSX — не дублируется: после создания сводка ведёт на существующий импорт списком (`/admin/bulk-enrollments`, группа предвыбрана); «из сотрудников контрагента» — до МГ-C1.1/D2 (у слушателя нет `counterpartyId`, справочника сотрудников нет).
 - **РМ54.** «Ответственный (по умолчанию я)»: выбор сотрудника (`StaffSelect`) требует права `tasks.write` (ручка `GET /tasks/staff`) — в мастере поле не показывается, `responsibleUserId` заполняется текущим пользователем; смена ответственного — в дровере карточки (B4.1), когда появится общий выбор сотрудника.
 - **РМ55.** Даты шага 2: окончание и экзамен на клиенте не вычисляются — сервер подставляет `start + periodDays` центра и `exam = end` (`applyGroupDefaults`); экран подсказывает «пусто — по сроку центра». Часы курса и срок по умолчанию — когда появятся у курса (МГ-E1).
-- **РМ56.** Черновик: «Далее» с шага 1 делает `POST /groups {status: 'draft'}` один раз, повторные правки шага 1 — `PUT /groups/:id`; уход со страницы после черновика — черновик остаётся в реестре под статусом «Черновик» (РМ52), вопрос «уйти без сохранения» задаётся только при несохранённых полях.
+- **РМ56.** Черновик: «Далее» с шага 1 делает `POST /groups {status: 'draft'}` один раз; повторные правки шага 1 не шлют `PUT` — они уезжают в завершении мастера вместе с `group.draftId` (сервер достраивает черновик теми же полями). Уход со страницы после черновика — черновик остаётся в реестре под статусом «Черновик» (РМ52); вопрос «уйти без сохранения» задаётся, пока мастер не завершён.
 - **РМ57.** Ключ идемпотентности — `crypto.randomUUID()` при открытии экрана; меняется только после ответа 4xx (повтор после сетевого сбоя вернёт прежний результат).
 
 ## Review Focus
@@ -46,16 +46,16 @@
 - Modify: `apps/frontend/src/features/mvp/api.ts` (+ `completeGroupWizard(session, payload)` → `POST /groups/wizard`; `nextGroupCode(session)` → `GET /groups/next-code` → `{ code }`)
 - Modify: `apps/frontend/src/features/mvp/hooks.ts` (+ `completeGroupWizard` в `useDomainMutations` с `silentSuccessToast`; `useNextGroupCode()` через `useMvpQuery`)
 - Modify: `apps/frontend/src/features/mvp/api.contract.test.ts` (+2 случая: конверт и тело)
-- Create: `apps/frontend/src/features/groups/group-wizard/group-wizard-model.ts` — `parseLearnerLines(text): WizardLearnerRowInput[]` (нумерация с 1 по непустым строкам, разделитель `;` или таб), `buildWizardRequest(state, key): GroupWizardRequest`, `wizardOutcomeSummary(outcome): BulkOutcome` (`label` = «Строка N» или ФИО существующего, `reason` = `errorMessage`), `canProceed(step, state): { ok: true } | { ok: false; reason: string }`.
+- Create: `apps/frontend/src/features/groups/group-wizard/group-wizard-model.ts` — `parseLearnerLines(text): GroupWizardLearnerRow[]` (номер строки — физический номер в поле ввода, пустые пропускаются, разделитель `;` или таб), `buildWizardRequest(state, key): GroupWizardRequest`, `wizardOutcomeSummary(outcome): BulkOutcome` (`label` = «Строка N» или ФИО существующего, `reason` = `errorMessage`), `canProceed(step, state): { ok: true } | { ok: false; reason: string }`.
 - Test: `apps/frontend/src/features/groups/group-wizard/group-wizard-model.test.ts`
 
 **Interfaces:**
 
 - Produces: `WizardState { name, code, counterpartyId, comment, courseIds: string[], startDate, endDate, examDate, studyForm, isDot?, existingLearnerIds: string[], learnerText, accessMode, message, draftId }`.
 
-- [ ] Тесты модели (5 случаев из Review Focus + сводка).
-- [ ] Реализация; `npx eslint … --max-warnings=0`; vitest по папке.
-- [ ] Commit `feat(frontend): клиент и модель мастера группы`.
+- [x] Тесты модели (5 случаев из Review Focus + сводка).
+- [x] Реализация; `npx eslint … --max-warnings=0`; vitest по папке.
+- [x] Commit `feat(frontend): клиент и модель мастера группы` (3679f25).
 
 ## Task 2: экран мастера
 
@@ -68,9 +68,9 @@
 - Modify: `apps/frontend/src/e2e/primary-action-budget.e2e.test.ts` — `EXPLAINED` для `GroupWizardScreen`, если сторож посчитает >1 (кнопки шагов живут в `group-wizard-steps.tsx` без `PageContainer`, поэтому ожидается 1: «Открыть группу»).
 - Test: `apps/frontend/src/e2e/group-wizard.e2e.test.ts` — динамический импорт экрана и шагов, маршрут `/groups/new` доступен куратору/менеджеру (`evaluateRouteAccess`), модель мастера в связке (`parseLearnerLines` → `buildWizardRequest` → форма запроса совпадает с DTO бэкенда: `courses[].courseId`, `learners.rows[].rowNumber`, `access.mode`).
 
-- [ ] Экран и шаги; `npx eslint`; typecheck.
-- [ ] Сторожа: `page-templates-match-spec`, `page-unsaved-changes`, `button-names-result`, `disabled-explains-itself`, `directory-select-ratchet`, `primary-action-budget`, `id-input-ban`, `unified-states`, `ia-architecture`, `route-*`; `features/groups`, `features/mvp`.
-- [ ] Commit `feat(frontend): мастер создания группы на /groups/new (Фаза 2, срез 8.5)`.
+- [x] Экран и шаги; `npx eslint`; typecheck.
+- [x] Сторожа: `page-templates-match-spec`, `page-unsaved-changes`, `button-names-result`, `disabled-explains-itself`, `directory-select-ratchet`, `primary-action-budget`, `id-input-ban`, `unified-states`, `ia-architecture`, `route-*`; `features/groups`, `features/mvp`.
+- [x] Commit `feat(frontend): мастер создания группы на /groups/new (Фаза 2, срез 8.5)`. Отклонения: `saveGroupDraft` (тихая мутация) вместо `PUT` по шагам; `EXPLAINED` не понадобился — в чанке экрана нет первичных кнопок; файл шагов — в `WITHOUT_GUARD` сторожа `page-unsaved-changes` (защита на экране).
 
 ## Task 3: документация 8.5
 

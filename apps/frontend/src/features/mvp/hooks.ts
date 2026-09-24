@@ -210,6 +210,9 @@ export const useDomainMutations = () => {
     ) => wrap((authSession) => mvpApi.saveMaterial(authSession, id, payload)),
     saveGroup: (id: string | null, payload: GroupPayload) =>
       wrap((authSession) => mvpApi.saveGroup(authSession, id, payload)),
+    /* Черновик шага 1 мастера (РМ56): без общего тоста — человек ещё в середине дела. */
+    saveGroupDraft: (id: string | null, payload: GroupPayload) =>
+      wrap((authSession) => mvpApi.saveGroup(authSession, id, payload), true),
     setGroupStatus: (id: string, payload: { status: string; reason?: string }) =>
       wrap((authSession) => mvpApi.setGroupStatus(authSession, id, payload)),
     archiveGroup: (id: string) => wrap((authSession) => mvpApi.archiveGroup(authSession, id)),
