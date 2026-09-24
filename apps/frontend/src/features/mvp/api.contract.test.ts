@@ -55,6 +55,16 @@ describe('mvp api envelope compatibility', () => {
       session: UserSession,
       query: { page: number }
     ) => Promise<{ items: Array<{ id: string; learnerName?: string }> }>;
+    completeGroupWizard: (
+      session: UserSession,
+      payload: {
+        idempotencyKey: string;
+        group: { name: string };
+        courses: Array<{ courseId: string }>;
+        access: { mode: 'later' };
+      }
+    ) => Promise<{ group: { id: string }; enrollments: { failed: number } }>;
+    nextGroupCode: (session: UserSession) => Promise<{ code: string }>;
     listMyEnrollments: (session: UserSession) => Promise<{
       items: Array<{ id: string; courseId?: string; courseTitle?: string; status: string }>;
     }>;
@@ -88,6 +98,48 @@ describe('mvp api envelope compatibility', () => {
     const result = await mvpApi.listUsers(session, { page: 1 });
 
     expect(result.items).toHaveLength(1);
+  });
+
+  // МГ-B2 (срез 8.5): мастер шлёт одно тело на /groups/wizard и читает сводку из конверта.
+  it('completeGroupWizard шлёт POST /groups/wizard и читает сводку из конверта', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        envelope({
+          idempotencyKey: 'k1',
+          group: { id: 'g1' },
+          coursesAssigned: 1,
+          enrollments: { total: 1, created: 1, reused: 0, failed: 0, rows: [] },
+          access: { mode: 'later', sent: 0, sheetFileId: null, deferred: true }
+        }),
+        { status: 201 }
+      )
+    );
+
+    const result = await mvpApi.completeGroupWizard(session, {
+      idempotencyKey: 'k1',
+      group: { name: 'Группа' },
+      courses: [{ courseId: 'c1' }],
+      access: { mode: 'later' }
+    });
+
+    expect(result.group.id).toBe('g1');
+    expect(result.enrollments.failed).toBe(0);
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(String(url)).toContain('/groups/wizard');
+    expect((init as RequestInit).method).toBe('POST');
+    expect(JSON.parse(String((init as RequestInit).body))).toMatchObject({
+      idempotencyKey: 'k1',
+      courses: [{ courseId: 'c1' }]
+    });
+  });
+
+  it('nextGroupCode читает код из конверта по /groups/next-code', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(envelope({ code: '263901' }), { status: 200 }));
+
+    const result = await mvpApi.nextGroupCode(session);
+
+    expect(result.code).toBe('263901');
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/groups/next-code');
   });
 
   it('listPortalDocuments reads data from envelope and hits /portal/documents', async () => {

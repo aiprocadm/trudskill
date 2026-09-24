@@ -26,6 +26,8 @@ import type {
   Group,
   GroupCourse,
   GroupPayload,
+  GroupWizardOutcome,
+  GroupWizardRequest,
   GroupsListQuery,
   KpiFilterQuery,
   KpiSnapshot,
@@ -262,6 +264,16 @@ export const mvpApi = {
   /* МГ-B6.2: в архив — только закрытую или отменённую. */
   archiveGroup: (session: UserSession, id: string) =>
     apiRequest<Group>(`/groups/${id}/archive`, { method: 'POST', body: {}, ...withAuth(session) }),
+  /* МГ-B2 (срез 8.4): мастер группы одной транзакцией — группа, курсы, слушатели, зачисления. */
+  completeGroupWizard: (session: UserSession, payload: GroupWizardRequest) =>
+    apiRequest<GroupWizardOutcome>('/groups/wizard', {
+      method: 'POST',
+      body: payload,
+      ...withAuth(session)
+    }),
+  /* МГ-B1.2: какой код получит новая группа — предзаполнение шага 1 мастера. */
+  nextGroupCode: (session: UserSession) =>
+    apiRequest<{ code: string }>('/groups/next-code', withAuth(session)),
   listGroupCourses: (session: UserSession, groupId: string) =>
     apiRequest<ListResponse<GroupCourse>>(
       `/group-courses${queryString({ group_id: groupId })}`,

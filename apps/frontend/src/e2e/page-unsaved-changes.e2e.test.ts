@@ -56,6 +56,10 @@ const WITHOUT_GUARD: ReadonlyArray<{ file: string; why: string }> = [
   {
     file: 'src/features/assessment-admin/question-bank-detail-screen.tsx',
     why: 'на странице только отбор вопросов по типу; сами формы живут в панелях и защищены CMP-010'
+  },
+  {
+    file: 'src/features/groups/group-wizard/group-wizard-steps.tsx',
+    why: 'шаги мастера группы: поля и кнопки здесь, а состояние и useUnsavedForm — на экране group-wizard-screen.tsx, который их рисует'
   }
 ];
 

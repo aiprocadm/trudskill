@@ -322,6 +322,53 @@ export interface BulkEnrollmentsOutcome {
   errors: Array<{ learnerId: string; code: string; message: string }>;
 }
 
+/** Мастер группы (МГ-B2): доступы шага 4 — письмо, лист доступов (Фаза 6) или позже. */
+export type WizardAccessMode = 'email' | 'sheet' | 'later';
+
+/** Строка слушателя из вставки «ФИО; должность; СНИЛС; email; телефон» (шаг 3 мастера). */
+export interface GroupWizardLearnerRow {
+  rowNumber: number;
+  fullName: string;
+  position?: string;
+  snils?: string;
+  email?: string;
+  phone?: string;
+}
+
+/** Тело `POST /groups/wizard` (срез 8.4): группа (или черновик шага 1), курсы, слушатели, доступы. */
+export interface GroupWizardRequest {
+  idempotencyKey: string;
+  group: GroupPayload & { draftId?: string };
+  courses: Array<{ courseId: string; courseVersionId?: string; durationDays?: number }>;
+  learners?: { existingIds?: string[]; rows?: GroupWizardLearnerRow[] };
+  access: { mode: WizardAccessMode; message?: string };
+}
+
+export interface GroupWizardOutcomeRow {
+  /** 0 — существующий слушатель, выбранный из базы; иначе номер строки вставки. */
+  rowNumber: number;
+  status: 'created' | 'reused' | 'enrolled_only' | 'failed';
+  learnerId?: string;
+  enrollmentId?: string;
+  errorCode?: string;
+  errorMessage?: string;
+}
+
+/** Ответ мастера: группа создана всегда, слушатели — с частичным успехом. */
+export interface GroupWizardOutcome {
+  idempotencyKey: string;
+  group: Group;
+  coursesAssigned: number;
+  enrollments: {
+    total: number;
+    created: number;
+    reused: number;
+    failed: number;
+    rows: GroupWizardOutcomeRow[];
+  };
+  access: { mode: WizardAccessMode; sent: number; sheetFileId: string | null; deferred: boolean };
+}
+
 /** Если body содержит `deliveryMode: "queued"`. */
 export interface BulkEnrollmentsQueuedResponse {
   status: 'queued';

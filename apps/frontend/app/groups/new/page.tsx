@@ -1,10 +1,10 @@
-import { GroupCreateScreen } from '../../../src/features/groups/group-create-screen';
+import { GroupWizardScreen } from '../../../src/features/groups/group-wizard/group-wizard-screen';
 import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
 
 export default function GroupCreatePage() {
   return (
     <ProtectedPage>
-      <GroupCreateScreen />
+      <GroupWizardScreen />
     </ProtectedPage>
   );
 }
