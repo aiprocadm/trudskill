@@ -41,7 +41,7 @@
 - Modify: `apps/backend/src/modules/mvp/groups/group-wizard.dto.ts` — `@IsOptional() @IsString() copyOfGroupId?: string`; `group-wizard.service.ts` — `newValues.copyOfGroupId` в аудите (+ проверка, что группа-источник принадлежит центру: `mvp.getGroup(tenantId, copyOfGroupId)` → 404 чужой/несуществующей).
 - Test: `group-wizard-model.test.ts` (+3 из Review Focus), `group-wizard.service.test.ts` (+1: аудит с `copyOfGroupId`, чужой id → NotFound).
 
-- [ ] Тесты → реализация → lint/typecheck → commit.
+- [x] Тесты → реализация → lint/typecheck → commit (в одном коммите с Task 2: dd44c46).
 
 ## Task 2: карточка и мастер
 
@@ -53,8 +53,10 @@
 - Modify: `group-details-screen.tsx` — `secondaryActions` + «Копировать группу» под `canAssignCourse` → `router.push(`/groups/new?copyOf=${id}`)` (`useRouter` из `next/navigation`).
 - Test: `group-wizard.e2e.test.ts` (+ случай: `copyStateFrom` → `buildWizardRequest` несёт `copyOfGroupId`, даты сдвинуты).
 
-- [ ] Экран, карточка, страница; сторожа `src/e2e`, `features/groups`; commit.
+- [x] Экран, карточка, страница; сторожа `src/e2e`, `features/groups`; commit. Отклонение: экран разделён на `GroupCopyLoader` + `GroupWizardForm({ initial })` вместо `baselineKey` — форма стартует с готовым состоянием, условных хуков нет.
 
 ## Task 3: документация 8.6
+
+- [x] Сделано (§5.577).
 
 handoff §5.577, трекер (РМ58–РМ60, МГ-B6.1 ✅, «Где мы сейчас», очередь, сессия), README, CLAUDE, журнал (если найдено), план — галочки. `pnpm ci:check`, PR, слияние.
