@@ -71,6 +71,7 @@ import {
   CreateUploadUrlRequest,
   ErasePersonalDataDto,
   ImportQuestionsRequest,
+  MarkEnrollmentResultRequest,
   PatchTestRulesRequest,
   PutCourseDocumentSetRequest,
   ReorderProgramRequest,
@@ -1221,6 +1222,18 @@ export class MvpController {
   ) {
     const b = assertValidDto(UpdateEnrollmentStatusRequest, raw);
     return this.mvpService.changeEnrollmentStatus(c.tenantId!, c.userId, id, b, c);
+  }
+  /** МГ-B7.1 (РМ64): итог по зачислению — «Отметить неявку» / снять; право то же, что у статуса. */
+  @Patch('enrollments/:id/result')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('enrollments.change_status')
+  markEnrollmentResult(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(MarkEnrollmentResultRequest, raw);
+    return this.mvpService.markEnrollmentResult(c.tenantId!, c.userId, id, b, c);
   }
   @Get('enrollments/:id/status-history')
   @UseGuards(PermissionGuard)

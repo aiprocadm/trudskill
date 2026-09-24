@@ -113,6 +113,7 @@ import type {
   CreateQuestionRequest,
   CreateSimpleRegistryRequest,
   CreateTestRequest,
+  MarkEnrollmentResultRequest,
   PatchTestRulesRequest,
   PutCourseDocumentSetRequest,
   SaveAnswerRequest,
@@ -212,6 +213,15 @@ export interface EnrollmentCreateOptions {
   activate?: boolean;
   suppressInvite?: boolean;
 }
+
+/** Статус зачисления словом для текста ошибки (TXT-004): человек читает, а не разбирает код. */
+const ENROLLMENT_STATUS_WORD: Record<EnrollmentStatus, string> = {
+  pending: 'ожидает',
+  active: 'учится',
+  suspended: 'приостановлен',
+  completed: 'завершил',
+  cancelled: 'отчислен'
+};
 
 interface ListResponse<T> {
   items: T[];
@@ -3075,7 +3085,7 @@ export class MvpService {
     if (!allowed) {
       throw new PreconditionFailedException({
         code: 'domain_rule_violation',
-        message: `Transition ${enrollment.status} -> ${request.status} is not allowed`
+        message: `Переход зачисления «${ENROLLMENT_STATUS_WORD[enrollment.status]}» → «${ENROLLMENT_STATUS_WORD[request.status]}» невозможен: завершённое или отчисленное зачисление не меняется, а завершить можно только учащегося.`
       });
     }
     const oldValues = { ...enrollment };
@@ -3108,6 +3118,48 @@ export class MvpService {
         })
       );
     }
+    return enrollment;
+  }
+
+  /**
+   * МГ-B7.1 (РМ61, РМ64): итог по зачислению — «Отметить неявку» куратором (или снять отметку).
+   * У отчисленного итога нет; у завершившего «неявка» невозможна — он уже сдал.
+   */
+  markEnrollmentResult(
+    tenantId: string,
+    actorId: string | undefined,
+    enrollmentId: string,
+    request: MarkEnrollmentResultRequest,
+    context: RequestContext
+  ): Enrollment {
+    const enrollment = this.getById(this.state.enrollments, tenantId, enrollmentId);
+    if (enrollment.status === 'cancelled') {
+      throw new PreconditionFailedException({
+        code: 'domain_rule_violation',
+        message: 'Слушатель отчислен — итог по такому зачислению не ставится.'
+      });
+    }
+    if (enrollment.status === 'completed' && request.resultCode === 'absent') {
+      throw new PreconditionFailedException({
+        code: 'domain_rule_violation',
+        message: 'Слушатель уже завершил обучение — неявку отметить нельзя.'
+      });
+    }
+    const oldValues = { ...enrollment };
+    if (request.resultCode === null) delete enrollment.resultCode;
+    else enrollment.resultCode = request.resultCode;
+    enrollment.updatedAt = this.now();
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.enrollment_result_marked',
+      'learning.enrollment',
+      enrollment.id,
+      oldValues,
+      enrollment,
+      context,
+      request.reason ? { reason: request.reason } : undefined
+    );
     return enrollment;
   }
 
@@ -6772,6 +6824,7 @@ export class MvpService {
   }
 
   private canTransitionEnrollment(from: EnrollmentStatus, to: EnrollmentStatus): boolean {
+    /* Машина состояний не меняется с §5.1; «неявка» — итог (`resultCode`), не статус (РМ61). */
     const transitions: Record<EnrollmentStatus, EnrollmentStatus[]> = {
       pending: ['active', 'cancelled'],
       active: ['suspended', 'completed', 'cancelled'],

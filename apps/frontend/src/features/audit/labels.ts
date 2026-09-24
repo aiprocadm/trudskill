@@ -233,6 +233,7 @@ const PHRASES: Record<string, string> = {
   'assessment.test_rules_updated': 'Правила теста изменены',
   'learning.enrollments_bulk': 'Массовое зачисление выполнено',
   'learning.enrollment_status_changed': 'Статус зачисления изменён',
+  'learning.enrollment_result_marked': 'Итог по зачислению отмечен',
   'learning.group_close_chain': 'Закрытие группы выполнено цепочкой шагов',
   'learning.group_closed_with_checks': 'Учебная группа закрыта после проверок',
   'learning.group_counterparty_linked': 'Компания привязана к группе',

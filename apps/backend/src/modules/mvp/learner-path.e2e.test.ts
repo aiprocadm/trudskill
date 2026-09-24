@@ -232,7 +232,7 @@ describe('ключевой сценарий слушателя целиком (�
           ctx
         ),
       'завершить необновлённое зачисление нельзя'
-    ).toThrow(/pending -> completed/);
+    ).toThrow(/«ожидает» → «завершил»/);
 
     service.changeEnrollmentStatus(
       'tenant_demo',

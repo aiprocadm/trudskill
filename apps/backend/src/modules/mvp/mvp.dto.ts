@@ -399,8 +399,24 @@ export class UpdateEnrollmentStatusRequest {
   @IsIn(enrollmentStatusValues)
   status!: (typeof enrollmentStatusValues)[number];
 
+  /** МГ-B7.1: причина отчисления — на экране обязательна (РМ62), в контракте остаётся необязательной. */
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
+  reason?: string;
+}
+
+const enrollmentResultValues = ['passed', 'failed', 'absent'] as const;
+
+/** МГ-B7.1 (РМ61, РМ64): итог по зачислению; `null` снимает отметку. */
+export class MarkEnrollmentResultRequest {
+  @ValidateIf((_, v) => v !== null)
+  @IsIn(enrollmentResultValues)
+  resultCode!: (typeof enrollmentResultValues)[number] | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
   reason?: string;
 }
 

@@ -591,6 +591,13 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         return { id: 'prec_1', recordingStatus: 'recording', tenantId: context.tenantId };
       }
 
+      // МГ-B7.1 — итог по зачислению («Отметить неявку»): то же право, что у смены статуса.
+      @Patch('enrollments/:id/result')
+      @RequirePermissions('enrollments.change_status')
+      markEnrollmentResult(@Body() body: { resultCode: string | null }) {
+        return { id: 'enr_1', resultCode: body.resultCode };
+      }
+
       @Patch('enrollments/:id/proctoring-override')
       @RequirePermissions('learners.write')
       setProctoringOverride(
@@ -2956,6 +2963,41 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         meta: { requestId: string };
       };
       expect(payload.data.recordingStatus).toBe('recording');
+    });
+
+    it('PATCH /enrollments/x/result — 403 без enrollments.change_status, 200 с ним', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['enrollments.write']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const headers = {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      };
+      const forbidden = await fetch(`${apiBaseUrl}/enrollments/x/result`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ resultCode: 'absent' })
+      });
+      expect(forbidden.status).toBe(403);
+
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['enrollments.change_status']);
+      const ok = await fetch(`${apiBaseUrl}/enrollments/x/result`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ resultCode: 'absent' })
+      });
+      expect(ok.status).toBe(200);
+      const payload = (await ok.json()) as { data: { resultCode: string } };
+      expect(payload.data.resultCode).toBe('absent');
     });
 
     it('PATCH /enrollments/x/proctoring-override — 403 permission_denied without learners.write', async () => {
