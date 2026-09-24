@@ -161,6 +161,7 @@ import {
   type VideoProviderRegistry
 } from '../../infrastructure/video-provider/video.provider.js';
 import { BackgroundTasksModule } from '../background-tasks/background-tasks.module.js';
+import { LookupModule } from '../lookup/lookup.module.js';
 import { GROUPS_REPOSITORY } from './infrastructure/repositories/groups.repository.js';
 import { PostgresEnrollmentsRepository } from './infrastructure/repositories/postgres-enrollments.repository.js';
 import { PostgresExamResultsRepository } from './infrastructure/repositories/postgres-exam-results.repository.js';
@@ -180,7 +181,9 @@ import { PostgresLearnersRepository } from './infrastructure/repositories/postgr
     CommunicationModule,
     TenantModule,
     // ФТ-D4: тариф тенанта для счётчиков использования и гейта новых слушателей.
-    PlatformModule
+    PlatformModule,
+    // МГ-C1.2: автопополнение справочника должностей из импорта, мастера и правки карточки.
+    LookupModule
   ],
   controllers: [
     TelegramBotController,

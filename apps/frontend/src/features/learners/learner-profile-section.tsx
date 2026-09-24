@@ -7,6 +7,7 @@ import { learnersApi } from './api';
 import { SectionCard, SectionError } from '../../components/state-wrappers';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
+import { educationLevelLabel } from '../lookup/labels';
 import { useCounterpartiesList } from '../mvp/hooks';
 import { formatDate } from '../mvp/screen-helpers';
 
@@ -108,7 +109,7 @@ export function LearnerProfileSection({ learner }: { learner: LearnerProfile }) 
           { label: 'Гражданство', value: learner.citizenship ?? 'не указано' },
           { label: 'Место рождения', value: learner.birthPlace ?? 'не указано' },
           { label: 'Адрес регистрации', value: learner.registrationAddress ?? 'не указан' },
-          { label: 'Образование', value: learner.educationLevel ?? 'не указано' },
+          { label: 'Образование', value: educationLevelLabel(learner.educationLevel) },
           { label: 'Диплом', value: diplomaLabel(learner.diploma) },
           { label: 'Компания', value: companyName },
           { label: 'Должность', value: learner.position ?? 'не указана' },

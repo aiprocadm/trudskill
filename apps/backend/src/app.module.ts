@@ -15,6 +15,7 @@ import { FilesModule } from './modules/files/files.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { IamModule } from './modules/iam/iam.module.js';
 import { IntegrationsModule } from './modules/integrations/integrations.module.js';
+import { LookupModule } from './modules/lookup/lookup.module.js';
 import { MigrationModule } from './modules/migration/migration.module.js';
 import { MvpModule } from './modules/mvp/mvp.module.js';
 import { OrgModule } from './modules/org/org.module.js';
@@ -40,6 +41,8 @@ const baseModules = [
   HealthModule,
   BackgroundTasksModule,
   CommunicationModule,
+  /* ТЗ перехода с CDOPROF, МГ-C1.2: справочники личного дела (должности, образование, страны). */
+  LookupModule,
   EsignModule,
   WorkspaceModule
 ];
