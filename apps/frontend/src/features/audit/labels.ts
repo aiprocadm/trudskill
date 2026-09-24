@@ -100,6 +100,9 @@ const OBJECTS: Record<string, Noun> = {
   commission: { label: 'комиссия', gender: 'f' },
   commission_member: { label: 'член комиссии', gender: 'm' },
   counterparty: { label: 'компания-заказчик', gender: 'f' },
+  /* МГ-D2.1 (срез 14.1): люди компании. */
+  counterparty_contact: { label: 'контактное лицо компании', gender: 'n' },
+  counterparty_employee: { label: 'сотрудник компании', gender: 'm' },
   order: { label: 'заказ', gender: 'm' },
   user: { label: 'пользователь', gender: 'm' },
   role: { label: 'роль', gender: 'f' },
@@ -239,6 +242,7 @@ const PHRASES: Record<string, string> = {
   'learning.learner_access_sent': 'Слушателю выслана ссылка для входа',
   /* МГ-C5.1 (срез 12.1): бумажное согласие, отмеченное сотрудником. */
   'learning.consent_paper_marked': 'Отмечено бумажное согласие слушателя',
+  'crm.counterparty_employees_bulk_added': 'Сотрудники компании добавлены списком',
   /* МГ-H4.1 (срез 11.3): представления реестров. */
   'reports.saved_view_created': 'Представление реестра сохранено',
   'reports.saved_view_deleted': 'Представление реестра удалено',
@@ -305,6 +309,9 @@ const ENTITY_LABELS: Record<string, string> = {
   'reports.template': 'Шаблон отчёта',
   /* МГ-H4.1 (срез 11.3): представление реестра — своё или общее центра. */
   'reports.saved_view': 'Представление реестра',
+  /* МГ-D2.1 (срез 14.1): люди компании-заказчика. */
+  'crm.counterparty_contact': 'Контактное лицо компании',
+  'crm.counterparty_employee': 'Сотрудник компании',
   'documents.generated': 'Выпущенный документ',
   'documents.generated_document': 'Выпущенный документ',
   'assessment.test_attempt': 'Попытка теста',

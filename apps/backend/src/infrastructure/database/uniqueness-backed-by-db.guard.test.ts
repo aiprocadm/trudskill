@@ -38,6 +38,11 @@ type Rule = { table: string; columns: string[] } | { noRace: string };
  * `noRace` — причина, по которой гонки нет вовсе (её нужно объяснить, а не объявить).
  */
 const RULES: Record<string, Rule> = {
+  /* МГ-D2.1 (срез 14.1): табельный номер уникален у компании, когда задан (0116, РМ117). */
+  employee_no_taken: {
+    table: 'crm.counterparty_employees',
+    columns: ['tenant_id', 'counterparty_id', 'employee_no']
+  },
   tenant_code_taken: { table: 'core.tenants', columns: ['code'] },
   plan_code_taken: { table: 'core.plans', columns: ['code'] },
   library_code_taken: { table: 'core.platform_library_courses', columns: ['code'] },
