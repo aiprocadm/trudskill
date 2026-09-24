@@ -14,6 +14,7 @@ import type {
   CourseDocumentSetEntryDraft,
   EnrollmentCertificateRow,
   GroupPayload,
+  GroupWizardRequest,
   GroupsListQuery,
   KpiFilterQuery,
   ProgramMetaPatch,
@@ -104,6 +105,9 @@ export const useMaterials = (moduleId?: string) =>
 export const useGroupsList = (query: GroupsListQuery) =>
   useMvpQuery('groups', query, (s) => mvpApi.listGroups(s, query));
 export const useGroup = (id: string) => useMvpQuery('group', id, (s) => mvpApi.getGroup(s, id));
+/** МГ-B1.2: код по шаблону центра для шага 1 мастера; ключ без аргументов — один на центр. */
+export const useNextGroupCode = () =>
+  useMvpQuery('groupNextCode', null, (s) => mvpApi.nextGroupCode(s));
 export const useGroupCourses = (groupId: string) =>
   useMvpQuery('groupCourses', groupId, (s) => mvpApi.listGroupCourses(s, groupId));
 export const useEnrollments = (query: BaseFilterQuery) =>
@@ -209,6 +213,9 @@ export const useDomainMutations = () => {
     setGroupStatus: (id: string, payload: { status: string; reason?: string }) =>
       wrap((authSession) => mvpApi.setGroupStatus(authSession, id, payload)),
     archiveGroup: (id: string) => wrap((authSession) => mvpApi.archiveGroup(authSession, id)),
+    /* Сводку мастер показывает сам — общий тост «Изменения сохранены» здесь лишний. */
+    completeGroupWizard: (payload: GroupWizardRequest) =>
+      wrap((authSession) => mvpApi.completeGroupWizard(authSession, payload), true),
     createGroupCourse: (payload: { groupId: string; courseId: string }) =>
       wrap((authSession) => mvpApi.createGroupCourse(authSession, payload)),
     createEnrollment: (payload: { groupId: string; learnerId: string }) =>
