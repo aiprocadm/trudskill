@@ -38,6 +38,7 @@ Configuration is validated via Zod at startup (fail-fast).
 - Слой хранения домена (Фаза 1 ТЗ перехода с CDOPROF):
   - `LMS_READ_MODEL=legacy|normalized|shadow` — откуда читать JSON-снимок центра (`normalized` = зеркало stage1; смысл не менялся, РМ32); `LMS_DUAL_WRITE_ENABLED` — писать снимок в обе таблицы.
   - `LMS_NORMALIZED_COLLECTIONS` — коллекции, которые читаются из нормализованных таблиц, через запятую (`groups,counterparties,learners,enrollments,groupCourses,examResults,generatedDocuments`); по умолчанию пусто — всё из снимка. Порядок включения: бэкфилл `POST /migration/backfill/runs/start` `{ "domain": "lms_normalized" }` → зелёный отчёт сверки → флаг. Откат — пустое значение; проекция при сохранении снимка пишет таблицы всегда (РМ35), так что данные не отстают. Неизвестное имя — ошибка старта. После миграции 0111 (срез 3b) повторить бэкфилл: колонка `linked_iam_user_id` у старых строк пуста, и слушатели под флагом `enrollments` увидели бы пусто (закрыто по умолчанию).
+  - `GROUP_STATUS_SCAN_ENABLED` / `GROUP_STATUS_CRON_SCHEDULE` — ежедневный сканер статусов групп (ТЗ перехода с CDOPROF МГ-B3.1): `recruiting → in_progress` в день начала при активном зачислении, `in_progress → exam` с открытия доступа к экзамену или в день экзамена. Выключен по умолчанию; расписание `0 2 * * *` (UTC) — до обхода напоминаний в 03:00. Замок `528_498`, один экземпляр на прогон, сбой центра не прерывает остальные.
 
 ## Health/readiness behavior
 

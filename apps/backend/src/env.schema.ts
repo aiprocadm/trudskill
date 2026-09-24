@@ -197,6 +197,14 @@ export const backendEnvSchema = z
       .default(false),
     /** Cron expression for the nightly recertification + course-deadline scan (UTC — the cron is pinned to timeZone 'UTC'). */
     RECERTIFICATION_CRON_SCHEDULE: z.string().min(1).default('0 3 * * *'),
+    // Автопереходы статусов групп (ТЗ перехода с CDOPROF, МГ-B3.1; Фаза 2, срез 8.2). Выключено
+    // по умолчанию; расписание — до ночного обхода напоминаний (03:00), чтобы те видели новые статусы.
+    GROUP_STATUS_SCAN_ENABLED: z
+      .union([z.boolean(), z.enum(['true', 'false'])])
+      .transform((v) => v === true || v === 'true')
+      .default(false),
+    /** Cron ежедневного сканера статусов групп (UTC). */
+    GROUP_STATUS_CRON_SCHEDULE: z.string().min(1).default('0 2 * * *'),
     // Identity image retention purge (Phase 4 Plan A). Ships dormant; ops enables after
     // confirming the 90-day policy. Custom boolean parse — NOT z.coerce.boolean.
     IDENTITY_IMAGE_RETENTION_ENABLED: z
