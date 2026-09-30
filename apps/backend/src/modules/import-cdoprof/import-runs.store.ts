@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { Inject, Injectable, Optional } from '@nestjs/common';
 
-import { emptyDomainStats } from './import.types.js';
+import { UNCHANGED, emptyDomainStats } from './import.types.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 
 import type {
@@ -19,6 +19,21 @@ import type {
 /** Сколько строк вставлять одним запросом: 13 755 слушателей — это 28 запросов, а не 13 755. */
 const INSERT_CHUNK = 500;
 
+/**
+ * Запуск, который не отмечался дольше этого, считается прерванным (сервер перезапускался
+ * посреди переноса): иначе он навсегда запрещал бы новый запуск. Число — умолчание, не закон.
+ */
+export const DEFAULT_STALE_RUN_MS = 2 * 60 * 60 * 1000;
+
+const STALE_TEXT =
+  'Перенос прервался: сервер перезапускался посреди работы. Запустите «Повторить только ошибки» или новый перенос — уже перенесённое повтор найдёт и не задвоит.';
+
+/** Названия типов в `legacy_ids`: как у источника и как у нас. */
+const LEGACY_TYPES = {
+  counterparties: { source: 'contragent', target: 'counterparty' },
+  learners: { source: 'student', target: 'learner' }
+} as const;
+
 export interface RowsPage {
   items: ImportRow[];
   total: number;
@@ -33,6 +48,9 @@ export class ImportRunsStore {
   private readonly runs = new Map<string, ImportRun[]>();
   private readonly rows = new Map<string, ImportRow[]>();
 
+  private readonly legacy = new Map<string, string>();
+  staleRunMs = DEFAULT_STALE_RUN_MS;
+
   constructor(@Optional() @Inject(DatabaseService) private readonly database?: DatabaseService) {}
 
   async createRun(input: {
@@ -41,6 +59,8 @@ export class ImportRunsStore {
     domain: ImportRunDomain;
     dryRun: boolean;
     startedBy?: string;
+    backgroundTaskId?: string;
+    stats?: Partial<ImportRunStats>;
   }): Promise<ImportRun> {
     const now = new Date().toISOString();
     const run: ImportRun = {
@@ -50,8 +70,9 @@ export class ImportRunsStore {
       domain: input.domain,
       status: 'running',
       dryRun: input.dryRun,
-      stats: { ...emptyDomainStats(), byDomain: {} },
+      stats: { ...emptyDomainStats(), byDomain: {}, ...input.stats },
       ...(input.startedBy ? { startedBy: input.startedBy } : {}),
+      ...(input.backgroundTaskId ? { backgroundTaskId: input.backgroundTaskId } : {}),
       startedAt: now,
       createdAt: now,
       updatedAt: now
@@ -59,8 +80,8 @@ export class ImportRunsStore {
     if (this.database) {
       await this.database.query(
         `insert into migration.import_runs
-           (id, tenant_id, source, domain, status, dry_run, stats, started_by, started_at, created_at, updated_at)
-         values ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9::timestamptz,$9::timestamptz,$9::timestamptz)`,
+           (id, tenant_id, source, domain, status, dry_run, stats, started_by, background_task_id, started_at, created_at, updated_at)
+         values ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$10,$9::timestamptz,$9::timestamptz,$9::timestamptz)`,
         [
           run.id,
           run.tenantId,
@@ -70,7 +91,8 @@ export class ImportRunsStore {
           run.dryRun,
           JSON.stringify(run.stats),
           run.startedBy ?? null,
-          now
+          now,
+          run.backgroundTaskId ?? null
         ]
       );
       return run;
@@ -177,17 +199,109 @@ export class ImportRunsStore {
     return (this.runs.get(tenantId) ?? []).find((item) => item.id === runId);
   }
 
-  async hasRunning(tenantId: string): Promise<boolean> {
+  /**
+   * Идёт ли уже перенос. Запуск, не отмечавшийся дольше `staleRunMs`, — прерванный: он
+   * закрывается с причиной словами и новому запуску не мешает.
+   */
+  async hasRunning(tenantId: string, now: Date = new Date()): Promise<boolean> {
+    const staleBefore = new Date(now.getTime() - this.staleRunMs).toISOString();
     if (this.database) {
+      await this.database.query(
+        `update migration.import_runs
+            set status = 'failed', error_text = $3, finished_at = $4::timestamptz, updated_at = $4::timestamptz
+          where tenant_id = $1 and status in ('queued','running') and updated_at < $2::timestamptz`,
+        [tenantId, staleBefore, STALE_TEXT, now.toISOString()]
+      );
       const rows = await this.database.query<{ id: string }>(
         `select id from migration.import_runs where tenant_id = $1 and status in ('queued','running') limit 1`,
         [tenantId]
       );
       return rows.length > 0;
     }
-    return (this.runs.get(tenantId) ?? []).some(
-      (run) => run.status === 'queued' || run.status === 'running'
+    let running = false;
+    for (const run of this.runs.get(tenantId) ?? []) {
+      if (run.status !== 'queued' && run.status !== 'running') continue;
+      if (run.updatedAt < staleBefore) {
+        run.status = 'failed';
+        run.errorText = STALE_TEXT;
+        run.finishedAt = now.toISOString();
+        run.updatedAt = now.toISOString();
+        continue;
+      }
+      running = true;
+    }
+    return running;
+  }
+
+  /** Перенос жив: отметка после каждой части, чтобы долгий запуск не сочли прерванным. */
+  async touchRun(tenantId: string, runId: string): Promise<void> {
+    const now = new Date().toISOString();
+    if (this.database) {
+      await this.database.query(
+        `update migration.import_runs set updated_at = $3::timestamptz where tenant_id = $1 and id = $2`,
+        [tenantId, runId, now]
+      );
+      return;
+    }
+    const run = (this.runs.get(tenantId) ?? []).find((item) => item.id === runId);
+    if (run) run.updatedAt = now;
+  }
+
+  /**
+   * Соответствие «запись CDOPROF → запись центра» (`migration.legacy_ids`, ТЗ §17): по нему
+   * сверка и следующие домены (группы, зачисления) находят перенесённое. Пишутся строки с
+   * адресатом — созданные, сопоставленные и «без изменений»; кандидаты на слияние — нет.
+   */
+  async saveLegacyIds(tenantId: string, rows: readonly ImportRowPlan[]): Promise<void> {
+    const pairs = rows.filter(
+      (row) =>
+        row.targetId &&
+        (row.action === 'created' || row.action === 'updated' || row.errorCode === UNCHANGED)
     );
+    if (pairs.length === 0) return;
+    const now = new Date().toISOString();
+    if (this.database) {
+      for (let start = 0; start < pairs.length; start += INSERT_CHUNK) {
+        const chunk = pairs.slice(start, start + INSERT_CHUNK);
+        const params: unknown[] = [];
+        const values = chunk.map((row) => {
+          const base = params.length;
+          params.push(
+            tenantId,
+            LEGACY_TYPES[row.domain].source,
+            row.sourceId,
+            LEGACY_TYPES[row.domain].target,
+            row.targetId,
+            now
+          );
+          return `($${base + 1},'cdoprof',$${base + 2},$${base + 3},$${base + 4},$${base + 5},$${base + 6}::timestamptz,$${base + 6}::timestamptz)`;
+        });
+        await this.database.query(
+          `insert into migration.legacy_ids
+             (tenant_id, source_system, source_type, source_id, target_type, target_id, created_at, updated_at)
+           values ${values.join(',')}
+           on conflict (tenant_id, source_system, source_type, source_id)
+           do update set target_type = excluded.target_type, target_id = excluded.target_id, updated_at = excluded.updated_at`,
+          params
+        );
+      }
+      return;
+    }
+    for (const row of pairs) {
+      this.legacy.set(
+        `${tenantId}|${LEGACY_TYPES[row.domain].source}|${row.sourceId}`,
+        row.targetId!
+      );
+    }
+  }
+
+  /** Для проверок без базы: куда указывает запись источника. */
+  legacyTargetOf(
+    tenantId: string,
+    domain: ImportRowPlan['domain'],
+    sourceId: string
+  ): string | undefined {
+    return this.legacy.get(`${tenantId}|${LEGACY_TYPES[domain].source}|${sourceId}`);
   }
 
   async listRows(
@@ -244,6 +358,7 @@ const runFromRow = (row: Record<string, unknown>): ImportRun => {
     dryRun: row.dry_run === true,
     stats: (row.stats ?? { ...emptyDomainStats(), byDomain: {} }) as ImportRunStats,
     ...(row.started_by ? { startedBy: String(row.started_by) } : {}),
+    ...(row.background_task_id ? { backgroundTaskId: String(row.background_task_id) } : {}),
     ...(row.error_text ? { errorText: String(row.error_text) } : {}),
     ...(startedAt ? { startedAt } : {}),
     ...(finishedAt ? { finishedAt } : {}),

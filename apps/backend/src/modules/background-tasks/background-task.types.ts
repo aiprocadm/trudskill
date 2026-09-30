@@ -14,7 +14,12 @@
 export type BackgroundTaskStatus = 'queued' | 'running' | 'succeeded' | 'failed';
 
 /** Вид операции в терминах продукта, а не очереди. */
-export type BackgroundTaskKind = 'bulk_enrollment' | 'document_issue' | 'gov_export';
+export type BackgroundTaskKind =
+  | 'bulk_enrollment'
+  | 'document_issue'
+  | 'gov_export'
+  /* ТЗ перехода с CDOPROF, МГ-K3.1 (срез 23.2): перенос данных из прежней системы. */
+  | 'data_import';
 
 export interface BackgroundTask {
   id: string;
@@ -55,7 +60,8 @@ export const BACKGROUND_TASK_STATUS_LABEL: Record<BackgroundTaskStatus, string> 
 export const BACKGROUND_TASK_KIND_LABEL: Record<BackgroundTaskKind, string> = {
   bulk_enrollment: 'Массовое зачисление',
   document_issue: 'Выдача документов',
-  gov_export: 'Выгрузка в госреестр'
+  gov_export: 'Выгрузка в госреестр',
+  data_import: 'Перенос данных'
 };
 
 /**
