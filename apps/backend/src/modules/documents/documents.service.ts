@@ -1967,11 +1967,21 @@ export class DocumentsService {
       });
     }
     const now = this.now();
-    const newNumber = this.reserveNumber(
-      tenantId,
-      original.documentType,
-      original.kindCode
-    ).reservedNumber;
+    /*
+     * РМ127 (срез 21.4): номер из данных группы («= код группы», «номер протокола + порядок»)
+     * у перевыпущенного документа тот же — он вычисляется из группы, а не из счётчика. Замена
+     * получает номер оригинала и его резерв; оригинал аннулируется и номер не держит (0118).
+     * Номер из счётчика — как раньше, новый.
+     */
+    const rule = this.findActiveNumberingRule(tenantId, original.documentType, original.kindCode);
+    const keepNumber =
+      Boolean(original.documentNumber) && Boolean(rule) && isDerivedPattern(rule!.pattern);
+    const keptReservation = keepNumber
+      ? this.state.reservations.find((r) => r.tenantId === tenantId && r.documentId === original.id)
+      : undefined;
+    const newNumber = keepNumber
+      ? original.documentNumber!
+      : this.reserveNumber(tenantId, original.documentType, original.kindCode).reservedNumber;
     const replacement: GeneratedDocumentEntity = {
       id: this.id('gdoc'),
       tenantId,
@@ -1987,6 +1997,9 @@ export class DocumentsService {
       fileId: '',
       status: 'generated',
       documentNumber: newNumber,
+      // Журнал 665: замена теряла серию и разряд удостоверения (срез 20.3a).
+      ...(original.series ? { series: original.series } : {}),
+      ...(original.rank ? { rank: original.rank } : {}),
       documentDate: now.slice(0, 10),
       isFinal: false,
       generatedBy: actorId,
@@ -1995,6 +2008,7 @@ export class DocumentsService {
       replacesDocumentId: originalId
     };
     this.state.generatedDocuments.push(replacement);
+    if (keptReservation) keptReservation.documentId = replacement.id;
 
     // Link original ← replacement и аннулируем оригинал.
     original.replacedByDocumentId = replacement.id;
