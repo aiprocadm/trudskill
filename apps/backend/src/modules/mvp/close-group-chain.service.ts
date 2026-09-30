@@ -1,10 +1,11 @@
-import { Inject, Injectable, PreconditionFailedException, Scope } from '@nestjs/common';
+import { Inject, Injectable, Optional, PreconditionFailedException, Scope } from '@nestjs/common';
 
 import { partitionChainCandidates } from './close-group-chain.js';
 import { MVP_STATE } from './infrastructure/mvp-state.token.js';
 import { MvpService } from './mvp.service.js';
 import { OtRegistryService } from './ot-registry/ot-registry.service.js';
 import { AuditService } from '../audit/audit.service.js';
+import { DocumentsEnqueueService } from '../documents/documents-enqueue.service.js';
 import { DocumentsService } from '../documents/documents.service.js';
 
 import type { ChainSkippedEnrollment } from './close-group-chain.js';
@@ -63,7 +64,11 @@ export class CloseGroupChainService {
     @Inject(MvpService) private readonly mvp: MvpService,
     @Inject(DocumentsService) private readonly documents: DocumentsService,
     @Inject(OtRegistryService) private readonly otRegistry: OtRegistryService,
-    @Inject(AuditService) private readonly auditService: AuditService
+    @Inject(AuditService) private readonly auditService: AuditService,
+    /* Журнал 662: задачи закрытия группы — в очередь рабочего выпуска. Параметр ПОСЛЕДНИЙ. */
+    @Optional()
+    @Inject(DocumentsEnqueueService)
+    private readonly enqueue?: DocumentsEnqueueService
   ) {}
 
   async runChain(
@@ -289,6 +294,12 @@ export class CloseGroupChainService {
         enrollmentIds: eligibleEnrollmentIds
       },
       context
+    );
+    // Журнал 662: без публикации протокол и удостоверения стояли «в очереди» навсегда.
+    await this.enqueue?.publishQueuedTasks(
+      tenantId,
+      [documents.protocol, ...documents.certificates],
+      { requestId: context.requestId, correlationId: context.correlationId }
     );
 
     const registry = await this.otRegistry.exportOtRegistry(

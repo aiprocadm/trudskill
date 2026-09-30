@@ -143,6 +143,7 @@ import { CurrentContext } from '../../common/decorators/current-context.decorato
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { UserDisplayNamesService } from '../../common/iam/user-display-names.service.js';
 import { TenantPlanFeatureService } from '../../infrastructure/tenant/tenant-plan-feature.service.js';
+import { DocumentsEnqueueService } from '../documents/documents-enqueue.service.js';
 import { DocumentsRequestPersistenceInterceptor } from '../documents/infrastructure/documents-request-persistence.interceptor.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
 import { PermissionGuard } from '../iam/permission.guard.js';
@@ -255,7 +256,11 @@ export class MvpController {
     /* МГ-E2.3 (срез 16.4): история курса — курс и его версии из журнала. */
     @Optional()
     @Inject(CourseHistoryService)
-    private readonly courseHistory?: CourseHistoryService
+    private readonly courseHistory?: CourseHistoryService,
+    /* Журнал 662: задачи закрытия группы — в очередь рабочего выпуска. Параметр ПОСЛЕДНИЙ. */
+    @Optional()
+    @Inject(DocumentsEnqueueService)
+    private readonly documentsEnqueue?: DocumentsEnqueueService
   ) {}
 
   private requireCounterpartyPeople(): CounterpartyPeopleService {
@@ -917,13 +922,25 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.generate')
   @UseInterceptors(DocumentsRequestPersistenceInterceptor)
-  closeGroupWithChecks(
+  async closeGroupWithChecks(
     @CurrentContext() c: RequestContext,
     @Param('groupId') groupId: string,
     @Body() raw: unknown
   ) {
     const b = assertValidDto(CloseGroupWithChecksRequest, raw);
-    return this.mvpService.closeGroupWithChecks(c.tenantId!, c.userId, { ...b, groupId }, c);
+    const result = this.mvpService.closeGroupWithChecks(
+      c.tenantId!,
+      c.userId,
+      { ...b, groupId },
+      c
+    );
+    // Журнал 662: без публикации задачи закрытия стояли «в очереди» навсегда.
+    await this.documentsEnqueue?.publishQueuedTasks(
+      c.tenantId!,
+      [result.protocol, ...result.certificates],
+      { requestId: c.requestId, correlationId: c.correlationId }
+    );
+    return result;
   }
 
   @Post('learners')

@@ -9,6 +9,7 @@ import type { MvpService } from './mvp.service.js';
 import type { OtRegistryService } from './ot-registry/ot-registry.service.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 import type { AuditService } from '../audit/audit.service.js';
+import type { DocumentsEnqueueService } from '../documents/documents-enqueue.service.js';
 import type { DocumentsService } from '../documents/documents.service.js';
 
 /**
@@ -68,15 +69,17 @@ function harness(readiness: ExamReadinessReport = { ready: true, issues: [] }) {
     readiness: { ready: true, blockers: [] }
   });
   const audit = { write: vi.fn() };
+  const publishQueuedTasks = vi.fn().mockResolvedValue(undefined);
 
   const service = new CloseGroupChainService(
     state,
     { getExamReadiness: vi.fn().mockReturnValue(readiness) } as unknown as MvpService,
     { closeGroup } as unknown as DocumentsService,
     { exportOtRegistry } as unknown as OtRegistryService,
-    audit as unknown as AuditService
+    audit as unknown as AuditService,
+    { publishQueuedTasks } as unknown as DocumentsEnqueueService
   );
-  return { service, state, closeGroup, exportOtRegistry, audit };
+  return { service, state, closeGroup, exportOtRegistry, audit, publishQueuedTasks };
 }
 
 describe('цепочка «экзамен → протокол → документы → реестр» (ФТ-E3)', () => {
@@ -102,6 +105,16 @@ describe('цепочка «экзамен → протокол → докуме�
     expect(outcome.documents?.protocolTaskId).toBe('task_protocol');
     expect(outcome.registry?.batchId).toBe('batch_1');
     expect(outcome.cached).toBe(false);
+  });
+
+  it('журнал 662: протокол и удостоверения уходят в очередь рабочего выпуска', async () => {
+    const h = harness();
+    await h.service.runChain(T, 'u_admin', REQUEST, ctx);
+    expect(h.publishQueuedTasks).toHaveBeenCalledWith(
+      T,
+      [{ id: 'task_protocol' }, { id: 'task_cert_1' }],
+      expect.objectContaining({ requestId: ctx.requestId })
+    );
   });
 
   it('проблема уровня группы (комиссия) валит цепочку целиком: протокол один на всех', async () => {
