@@ -18,8 +18,12 @@ import type { DocumentGenerationTaskEntity } from '../../documents/documents.typ
 
 export interface GroupPackageView {
   groupId: string;
+  /** Статус группы — экран решает, предлагать ли «Отметить группу закрытой». */
+  groupStatus: string;
   learners: number;
   kinds: PackageKindRow[];
+  /** МГ-B3.1 (срез 21.3): выпущены все обязательные документы пакета. */
+  complete: boolean;
 }
 
 export interface GroupPackageIssueRequest {
@@ -101,20 +105,24 @@ export class GroupDocumentPackageService {
   }
 
   view(tenantId: string, groupId: string): GroupPackageView {
-    this.requireGroup(tenantId, groupId);
+    const group = this.requireGroup(tenantId, groupId);
     const enrollmentIds = this.activeEnrollments(tenantId, groupId).map((e) => e.id);
     const facts = this.documents.groupPackageFacts(tenantId, groupId, enrollmentIds);
+    const kinds = packageState({
+      groupId,
+      entries: this.entries(tenantId, groupId),
+      enrollmentIds,
+      documents: facts.documents,
+      tasks: facts.tasks,
+      kindName: (code) => documentKindOf(code)?.name
+    });
+    const required = kinds.filter((k) => k.isRequired);
     return {
       groupId,
+      groupStatus: group.status,
       learners: enrollmentIds.length,
-      kinds: packageState({
-        groupId,
-        entries: this.entries(tenantId, groupId),
-        enrollmentIds,
-        documents: facts.documents,
-        tasks: facts.tasks,
-        kindName: (code) => documentKindOf(code)?.name
-      })
+      kinds,
+      complete: required.length > 0 && required.every((k) => k.state === 'issued')
     };
   }
 

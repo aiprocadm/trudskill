@@ -151,7 +151,10 @@ describe('close-group api contract (ФТ-A5)', () => {
     vi.stubGlobal('fetch', fetchMock);
     fetchMock.mockResolvedValueOnce(new Response('empty', { status: 400 }));
 
-    await expect(closeGroupApi.fetchPackage(session, 'g1')).rejects.toThrow(/400/);
+    // Журнал 664: отказ по-прежнему не молчит, но говорит словами, а не кодом HTTP.
+    await expect(closeGroupApi.fetchPackage(session, 'g1')).rejects.toThrow(
+      /Не удалось скачать комплект группы/
+    );
   });
 
   describe('describeProgress', () => {

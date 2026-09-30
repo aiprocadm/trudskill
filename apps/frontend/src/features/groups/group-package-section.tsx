@@ -16,8 +16,10 @@ import { useState } from 'react';
 import {
   PACKAGE_STATE_LABELS,
   type PackageKindRow,
+  canMarkClosed,
   defaultKinds,
   groupPackageApi,
+  hasIssued,
   issuedView,
   toPackageOutcome,
   useGroupPackage
@@ -25,6 +27,9 @@ import {
 import { SectionCard, SectionEmpty, SectionError } from '../../components/state-wrappers';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
+import { closeGroupApi } from '../close-group/api';
+import { useDomainMutations } from '../mvp/hooks';
+import { readApiMessage } from '../mvp/screen-helpers';
 
 const HINT_KEY = 'group-package-kinds';
 
@@ -43,9 +48,45 @@ export function GroupPackageSection({
 }) {
   const { session } = useAuth();
   const canIssue = hasPermission(session?.permissions ?? [], 'documents.generate');
+  const canChangeStatus = hasPermission(session?.permissions ?? [], 'groups.write');
   const query = useGroupPackage(groupId);
+  const { setGroupStatus } = useDomainMutations();
   const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const rows = query.data?.kinds ?? [];
+
+  /* МГ-F2.1 (срез 21.3): «Скачать комплект» — выпущенные документы пакета одним ZIP. */
+  const download = async () => {
+    if (!session) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      await closeGroupApi.downloadPackage(session, groupId);
+    } catch (err) {
+      setActionError(readApiMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /* МГ-B3.1 (срез 21.3): «документы → закрыта», когда выдано всё обязательное. */
+  const markClosed = async () => {
+    setBusy(true);
+    setActionError(null);
+    try {
+      await setGroupStatus(groupId, {
+        status: 'closed',
+        reason: 'Выданы все обязательные документы пакета'
+      });
+      await query.refetch();
+      await onIssued?.();
+    } catch (err) {
+      setActionError(readApiMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <SectionCard
@@ -81,6 +122,38 @@ export function GroupPackageSection({
           rows={rows}
           rowKey={(row) => row.key}
         />
+      ) : null}
+      {rows.length > 0 && (hasIssued(rows) || (query.data && canMarkClosed(query.data))) ? (
+        <div className="ui-stack">
+          {query.data && canMarkClosed(query.data) ? (
+            <p role="status">
+              Все обязательные документы пакета выпущены — группу можно отметить закрытой.
+            </p>
+          ) : null}
+          <div className="ui-inline">
+            {hasIssued(rows) ? (
+              <button
+                type="button"
+                className="ui-button"
+                onClick={() => void download()}
+                disabled={busy}
+              >
+                Скачать комплект (ZIP)
+              </button>
+            ) : null}
+            {canChangeStatus && query.data && canMarkClosed(query.data) ? (
+              <button
+                type="button"
+                className="ui-button"
+                onClick={() => void markClosed()}
+                disabled={busy}
+              >
+                Отметить группу закрытой
+              </button>
+            ) : null}
+          </div>
+          {actionError ? <SectionError message={actionError} /> : null}
+        </div>
       ) : null}
       {open ? (
         <GroupPackageDrawer
