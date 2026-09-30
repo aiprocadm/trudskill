@@ -14,7 +14,8 @@ export type ImportDomain =
   | 'courses'
   | 'learners'
   | 'groups'
-  | 'group_courses';
+  | 'group_courses'
+  | 'enrollments';
 export type ImportRunDomain = ImportDomain | 'all';
 export type ImportRowAction = 'created' | 'updated' | 'skipped' | 'failed';
 export type ImportRunStatus =

@@ -35,7 +35,8 @@ const LEGACY_TYPES = {
   courses: { source: 'course', target: 'course' },
   learners: { source: 'student', target: 'learner' },
   groups: { source: 'group', target: 'group' },
-  group_courses: { source: 'group_course', target: 'group_course' }
+  group_courses: { source: 'group_course', target: 'group_course' },
+  enrollments: { source: 'training', target: 'enrollment' }
 } as const;
 
 export interface RowsPage {

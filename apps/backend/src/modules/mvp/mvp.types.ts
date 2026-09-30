@@ -312,6 +312,9 @@ export interface Enrollment extends BaseEntity {
   certificateNumber?: string;
   certificateSeries?: string;
   certificateRank?: string;
+  /** Импорт из CDOPROF (0102, срез 23.3b): внешний ключ и источник — по ним повтор находит зачисление. */
+  externalId?: string;
+  sourceSystem?: string;
 }
 
 /**

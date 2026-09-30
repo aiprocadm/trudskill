@@ -21,6 +21,7 @@ const DOMAINS = [
   'learners',
   'groups',
   'group_courses',
+  'enrollments',
   'all'
 ] as const;
 const ACTIONS = ['created', 'updated', 'skipped', 'failed'] as const;
