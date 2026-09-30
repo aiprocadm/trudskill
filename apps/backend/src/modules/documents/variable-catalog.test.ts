@@ -110,6 +110,9 @@ const document: GeneratedDocumentEntity = {
   isFinal: false,
   generatedAt: '2026-07-26T00:00:00.000Z',
   documentNumber: '26-ОТ-0001',
+  // МГ-F3.2 (срез 20.3a): серия и разряд удостоверения — на «богатых» данных тоже заполнены.
+  series: 'АБ',
+  rank: '3',
   documentDate: '2026-07-26',
   qrToken: 'tok123'
 };

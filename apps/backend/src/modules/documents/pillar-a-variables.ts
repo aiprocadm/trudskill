@@ -311,6 +311,10 @@ function resolveDocumentKey(
       return '';
     case 'type':
       return d.documentType ?? '';
+    case 'series':
+      return d.series ?? '';
+    case 'rank':
+      return d.rank ?? '';
     case 'qr_url':
       if (!d.qrToken || !publicBaseUrl) return '';
       return `${publicBaseUrl.replace(/\/+$/, '')}/verify/${d.qrToken}`;

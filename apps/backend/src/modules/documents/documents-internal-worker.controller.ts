@@ -99,11 +99,13 @@ export class DocumentsInternalWorkerController {
         ? documents.getTemplateVersion(body.tenantId, started.templateVersionId)
         : undefined;
       const number = documents.getTaskReservedNumber(body.tenantId, started.id);
+      const extras = documents.getTaskReservedExtras(body.tenantId, started.id);
       return {
         claimed: true as const,
         status: started.status,
         templateFileId: version?.fileId,
         number,
+        extras,
         task: started
       };
     });
@@ -121,7 +123,8 @@ export class DocumentsInternalWorkerController {
     const variables = await this.variables.build({
       tenantId: body.tenantId,
       task: claim.task,
-      ...(claim.number ? { reservedNumber: claim.number } : {})
+      ...(claim.number ? { reservedNumber: claim.number } : {}),
+      ...claim.extras
     });
     // ФТ-A7.1: подпись и печать — отдельные файлы; worker получает presigned GET на каждую.
     const images = await this.imageUrls(body.tenantId, variables);

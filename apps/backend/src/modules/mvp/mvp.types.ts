@@ -305,6 +305,13 @@ export interface Enrollment extends BaseEntity {
   proctoringOverride?: ProctoringOverride;
   /** МГ-B7.1: итог по зачислению; `absent` ставит куратор («Отметить неявку»), остальное — экзамен (Фаза 3). */
   resultCode?: EnrollmentResultCode;
+  /**
+   * МГ-F3.2 (срез 20.3a): номер, серия и разряд удостоверения, назначенные ДО выпуска
+   * («Номера удостоверений» группы). Выпуск удостоверения берёт номер отсюда вместо счётчика.
+   */
+  certificateNumber?: string;
+  certificateSeries?: string;
+  certificateRank?: string;
 }
 
 /**

@@ -139,6 +139,8 @@ export const VARIABLE_CATALOG: readonly VariableCatalogEntry[] = [
   entry('document', 'issue_date', 'Дата выдачи (ГГГГ-ММ-ДД)'),
   entry('document', 'issue_date_words', 'Дата выдачи прописью'),
   entry('document', 'type', 'Тип документа'),
+  entry('document', 'series', 'Серия удостоверения'),
+  entry('document', 'rank', 'Разряд (квалификация)'),
   entry('document', 'qr_url', 'Ссылка публичной проверки (для QR)'),
 
   // --- Список слушателей группы (для таблицы протокола) ---

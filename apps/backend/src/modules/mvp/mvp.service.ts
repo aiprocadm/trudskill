@@ -99,6 +99,11 @@ import {
 } from './counterparties/counterparty-requisites.js';
 import { type CourseDetailsRequest, applyCourseDetails } from './courses/course-details.js';
 import { assertDocumentKindFitsTemplate } from '../documents/document-kinds.js';
+import {
+  type CertificateNumberRowInput,
+  type CertificateNumbersOutcome,
+  planCertificateNumbers
+} from './groups/certificate-numbers.js';
 
 import type { CreateDirectionRequest, UpdateDirectionRequest } from './directions/direction.dto.js';
 import type {
@@ -7652,6 +7657,75 @@ export class MvpService {
       report.ready = false;
     }
     return report;
+  }
+
+  /**
+   * МГ-F3.2 (срез 20.3a): «Номера удостоверений» группы — номер, серия и разряд назначаются
+   * слушателям до выпуска. Частичный успех: годные строки сохраняются, отказы — поимённо;
+   * уже выпущенное удостоверение не переназначается (только перевыпуском).
+   */
+  assignCertificateNumbers(
+    tenantId: string,
+    actorId: string | undefined,
+    groupId: string,
+    rows: CertificateNumberRowInput[],
+    ctx: RequestContext
+  ): CertificateNumbersOutcome {
+    const group = this.state.groups.find((g) => g.tenantId === tenantId && g.id === groupId);
+    if (!group) {
+      throw new NotFoundException({ code: 'not_found', message: 'Группа не найдена' });
+    }
+    const groupEnrollments = this.state.enrollments.filter(
+      (e) => e.tenantId === tenantId && e.groupId === groupId && e.status !== 'cancelled'
+    );
+    const issued = (enrollmentId: string) =>
+      this.documentsService
+        .listDocuments(tenantId, {
+          documentType: 'certificate',
+          sourceEntityType: 'enrollment',
+          sourceEntityId: enrollmentId,
+          page: 1,
+          pageSize: 50
+        })
+        .items.some((doc) => doc.status !== 'revoked');
+    const enrollments = new Map(groupEnrollments.map((e) => [e.id, { issued: issued(e.id) }]));
+    const changing = new Set(rows.map((row) => row.enrollmentId));
+    const takenNumbers = new Map<string, string>();
+    for (const e of this.state.enrollments) {
+      if (e.tenantId === tenantId && e.certificateNumber && !changing.has(e.id)) {
+        takenNumbers.set(e.certificateNumber, e.id);
+      }
+    }
+    const { changes, outcome } = planCertificateNumbers(rows, { enrollments, takenNumbers });
+    const now = new Date().toISOString();
+    for (const change of changes) {
+      const enrollment = this.state.enrollments.find(
+        (e) => e.tenantId === tenantId && e.id === change.enrollmentId
+      );
+      if (!enrollment) continue;
+      const assign = <K extends 'certificateNumber' | 'certificateSeries' | 'certificateRank'>(
+        key: K,
+        value: string | undefined
+      ) => {
+        if (value) enrollment[key] = value;
+        else delete enrollment[key];
+      };
+      assign('certificateNumber', change.number);
+      assign('certificateSeries', change.series);
+      assign('certificateRank', change.rank);
+      enrollment.updatedAt = now;
+    }
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.certificate_numbers_assigned',
+      'learning.group',
+      groupId,
+      undefined,
+      { updated: outcome.updated, failed: outcome.failed },
+      ctx
+    );
+    return outcome;
   }
 
   /**

@@ -192,6 +192,8 @@ const VERBS: Record<string, Record<Gender, string>> = {
 const PHRASES: Record<string, string> = {
   /* МГ-F3.1 (срез 19.3): сброс счётчика нумерации — отдельное событие, не «правка правила». */
   'documents.numbering_rule_reset': 'Счётчик нумерации сброшен',
+  /* МГ-F3.2 (срез 20.3a): «Номера удостоверений» группы — назначение номеров до выпуска. */
+  'learning.certificate_numbers_assigned': 'Номера удостоверений назначены',
   /* ТЗ перехода с CDOPROF, МГ-G2: переходы задачи и её комментарии. */
   'tasks.task_status_changed': 'Статус задачи изменён',
   'tasks.task_rescheduled': 'Срок задачи перенесён',
