@@ -85,6 +85,8 @@ export interface GenerateDocumentRequest {
   groupId?: string;
   /** МГ-F1.1: вид документа — ставится на выпущенный документ. */
   kindCode?: string;
+  /** МГ-F2.1 (срез 21.1): дата документа (дата протокола или приказа), ГГГГ-ММ-ДД; пусто — день выпуска. */
+  documentDate?: string;
 }
 
 /**

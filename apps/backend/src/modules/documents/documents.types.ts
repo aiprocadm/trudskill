@@ -130,6 +130,8 @@ export interface DocumentGenerationTaskEntity {
   errorMessage?: string;
   generatedDocumentId?: string;
   numberReservationId?: string;
+  /** МГ-F2.1 (срез 21.1): дата документа из мастера пакета; пусто — день выпуска. */
+  documentDate?: string;
   /** Phase 5B — carried from the generate request to stamp the document at completion. */
   validUntil?: string;
   /** МГ-F1.1 (срез 18.1): вид документа из каталога `document-kinds.ts` (РМ123). */

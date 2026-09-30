@@ -194,7 +194,9 @@ export class DocumentVariablesBuilder {
      * когда бланк рисуют ДО выпуска (предпросмотр): в поясе за Уралом UTC-дата показывала
      * вчерашний день, и предпросмотр расходился с тем, что окажется на документе.
      */
-    const issueDate = params.document?.documentDate ?? todayIn(this.tenantTimezone);
+    // МГ-F2.1: дата из мастера пакета (дата протокола/приказа) — раньше «сегодня».
+    const issueDate =
+      params.document?.documentDate ?? params.task.documentDate ?? todayIn(this.tenantTimezone);
     const snapshotDocument: GeneratedDocumentEntity = {
       ...(params.document ??
         ({

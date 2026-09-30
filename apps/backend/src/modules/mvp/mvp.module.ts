@@ -6,6 +6,8 @@ import {
   NoopInnSuggestProvider
 } from './counterparties/inn-suggest.provider.js';
 import { CourseHistoryService } from './courses/course-history.service.js';
+import { GroupDocumentPackageService } from './groups/group-document-package.service.js';
+import { GroupPackageController } from './groups/group-package.controller.js';
 import { GroupStatusScanner } from './groups/group-status.scanner.service.js';
 import { GroupStatusSchedulerService } from './groups/group-status.scheduler.service.js';
 import { GroupWizardService } from './groups/group-wizard.service.js';
@@ -228,6 +230,8 @@ import { LearnersRegistryExportService } from './learners/learners-registry-expo
     CloseGroupChainController,
     /* МГ-F5.1 (срез 20.1): «что мешает выпустить документы» группы. */
     IssueReadinessController,
+    /* МГ-F2.1 (срез 21.1): пакет документов группы. */
+    GroupPackageController,
     FrdoRegistryController,
     EisotTestingRegistryController,
     RostechnadzorRegistryController,
@@ -416,6 +420,7 @@ import { LearnersRegistryExportService } from './learners/learners-registry-expo
     /* Фаза 2, срез 8.1: шаблон кода и значения по умолчанию группы из настроек центра. */
     GroupSettingsService,
     IssueReadinessService,
+    GroupDocumentPackageService,
     /* МГ-C1.3: описание именованных полей личного дела из настроек центра. */
     LearnerFieldsSettingsService,
     /* Фаза 2, срез 8.4: мастер создания группы поверх request-scoped MvpService. */

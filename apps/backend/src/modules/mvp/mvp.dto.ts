@@ -12,6 +12,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -1313,6 +1314,31 @@ export class CloseGroupWithChecksRequest {
  * Список зачислений НЕ передаётся — цепочка сама отбирает сдавших и отчитывается
  * по отсеянным поимённо (частичный успех).
  */
+/** МГ-F2.1 (срез 21.1): выпуск пакета документов группы. */
+export class IssueGroupPackageRequest {
+  /** Какие виды выпустить (ключи строк пакета); пусто — все. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  kinds?: string[];
+
+  /** Какие слушатели; пусто — все готовые. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(1000)
+  @IsString({ each: true })
+  enrollmentIds?: string[];
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'protocolDate: ожидается дата ГГГГ-ММ-ДД' })
+  protocolDate?: string;
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'orderDate: ожидается дата ГГГГ-ММ-ДД' })
+  orderDate?: string;
+}
+
 /** МГ-F3.2 (срез 20.3a): строка «Номеров удостоверений» — пусто снимает назначение. */
 export class CertificateNumberRowDto {
   @IsString()
