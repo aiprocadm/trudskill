@@ -14,7 +14,15 @@ import {
 } from 'class-validator';
 
 const SOURCES = ['api'] as const;
-const DOMAINS = ['counterparties', 'learners', 'all'] as const;
+const DOMAINS = [
+  'counterparties',
+  'directions',
+  'courses',
+  'learners',
+  'groups',
+  'group_courses',
+  'all'
+] as const;
 const ACTIONS = ['created', 'updated', 'skipped', 'failed'] as const;
 
 /** ТЗ перехода §16: `POST /import/cdoprof/runs`. Выгрузки XLSX (`xlsx`) — срез 23.4. */

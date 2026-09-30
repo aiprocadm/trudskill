@@ -8,7 +8,13 @@
  */
 
 export type ImportSource = 'api';
-export type ImportDomain = 'counterparties' | 'learners';
+export type ImportDomain =
+  | 'counterparties'
+  | 'directions'
+  | 'courses'
+  | 'learners'
+  | 'groups'
+  | 'group_courses';
 export type ImportRunDomain = ImportDomain | 'all';
 export type ImportRowAction = 'created' | 'updated' | 'skipped' | 'failed';
 export type ImportRunStatus =
