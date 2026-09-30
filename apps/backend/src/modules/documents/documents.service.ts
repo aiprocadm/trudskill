@@ -791,7 +791,8 @@ export class DocumentsService {
       },
       ...(req.validUntil ? { validUntil: req.validUntil } : {}),
       ...(req.groupId ? { groupId: req.groupId } : {}),
-      ...(req.kindCode ? { kindCode: req.kindCode } : {})
+      ...(req.kindCode ? { kindCode: req.kindCode } : {}),
+      ...(req.documentDate ? { documentDate: req.documentDate } : {})
     };
     this.state.tasks.push(task);
     this.state.idem.set(idemKey, { taskId: task.id, expiresAt: Date.now() + 24 * 60 * 60 * 1000 });
@@ -896,7 +897,7 @@ export class DocumentsService {
       documentNumber: reserved.reservedNumber,
       ...(reserved.series ? { series: reserved.series } : {}),
       ...(reserved.rank ? { rank: reserved.rank } : {}),
-      documentDate: todayIn(this.state.tenantTimezone, new Date(this.now())),
+      documentDate: task.documentDate ?? todayIn(this.state.tenantTimezone, new Date(this.now())),
       isFinal: false,
       generatedBy,
       generatedAt: this.now(),
@@ -2150,6 +2151,85 @@ export class DocumentsService {
       userAgent: ctx.userAgent
     });
     return { protocol, certificates, created, retried };
+  }
+
+  /** МГ-F2.1 (срез 21.1): документы и задачи группы и её слушателей — для «вид × состояние». */
+  groupPackageFacts(
+    tenantId: string,
+    groupId: string,
+    enrollmentIds: readonly string[]
+  ): { documents: GeneratedDocumentEntity[]; tasks: DocumentGenerationTaskEntity[] } {
+    const enrollments = new Set(enrollmentIds);
+    const ofGroup = (x: { sourceEntityType: string; sourceEntityId: string }) =>
+      (x.sourceEntityType === 'group' && x.sourceEntityId === groupId) ||
+      (x.sourceEntityType === 'enrollment' && enrollments.has(x.sourceEntityId));
+    return {
+      documents: this.state.generatedDocuments.filter(
+        (d) =>
+          d.tenantId === tenantId && d.status !== 'revoked' && d.status !== 'archived' && ofGroup(d)
+      ),
+      tasks: this.state.tasks.filter((t) => t.tenantId === tenantId && ofGroup(t))
+    };
+  }
+
+  /**
+   * МГ-F2.1 (срез 21.1): выпуск пакета документов группы по плану — в порядке плана (приказы →
+   * протокол → документы слушателей). Как «Закрыть группу»: уже выпущенное и стоящее в очереди
+   * возвращается как есть, упавшее — снова в очередь, поэтому повтор не плодит дублей номеров.
+   * Публикует задачи вызывающий (журнал 662–663).
+   */
+  issueGroupPackage(
+    tenantId: string,
+    actorId: string | undefined,
+    groupId: string,
+    plan: ReadonlyArray<{
+      templateId: string;
+      templateType: string;
+      sourceEntityType: string;
+      sourceEntityId: string;
+      kindCode?: string;
+      documentDate?: string;
+    }>,
+    ctx: RequestContext
+  ): { tasks: DocumentGenerationTaskEntity[]; created: number; retried: number } {
+    const before = this.state.tasks.length;
+    let retried = 0;
+    const tasks = plan.map((item) => {
+      const task = this.generateDocument(
+        tenantId,
+        actorId,
+        {
+          idempotencyKey: `group-package:${groupId}:${item.kindCode ?? item.templateId}:${item.sourceEntityId}`,
+          templateId: item.templateId,
+          sourceEntityType: item.sourceEntityType,
+          sourceEntityId: item.sourceEntityId,
+          documentType: item.templateType,
+          groupId,
+          ...(item.kindCode ? { kindCode: item.kindCode } : {}),
+          ...(item.documentDate ? { documentDate: item.documentDate } : {})
+        },
+        ctx
+      );
+      if (task.status === 'failed') {
+        retried += 1;
+        return this.retryTask(tenantId, task.id);
+      }
+      return task;
+    });
+    const created = this.state.tasks.length - before;
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.group_package_issued',
+      entityType: 'learning.group',
+      entityId: groupId,
+      metadata: { tasks: tasks.length, created, retried },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
+    return { tasks, created, retried };
   }
 
   /**

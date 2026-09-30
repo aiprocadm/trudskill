@@ -194,6 +194,8 @@ const PHRASES: Record<string, string> = {
   'documents.numbering_rule_reset': 'Счётчик нумерации сброшен',
   /* МГ-F3.2 (срез 20.3a): «Номера удостоверений» группы — назначение номеров до выпуска. */
   'learning.certificate_numbers_assigned': 'Номера удостоверений назначены',
+  /* МГ-F2.1 (срез 21.1): пакет документов группы. */
+  'documents.group_package_issued': 'Выпущен пакет документов группы',
   /* ТЗ перехода с CDOPROF, МГ-G2: переходы задачи и её комментарии. */
   'tasks.task_status_changed': 'Статус задачи изменён',
   'tasks.task_rescheduled': 'Срок задачи перенесён',
