@@ -35,6 +35,8 @@ const DOMAIN_LABELS: Record<string, string> = {
   auth: 'Вход',
   org: 'Учебный центр',
   tasks: 'Задачи',
+  /* ТЗ перехода, МГ-K3.1 (срез 23.1): перенос данных из прежней системы обучения. */
+  import: 'Перенос данных',
   tenant: 'Настройки центра',
   platform: 'Платформа',
   payments: 'Оплаты',
@@ -124,7 +126,9 @@ const DOMAIN_OBJECTS: Record<string, Record<string, Noun>> = {
     task: { label: 'задача', gender: 'f' },
     comment: { label: 'комментарий к задаче', gender: 'm' }
   },
-  reports: { template: { label: 'шаблон отчёта', gender: 'm' } }
+  reports: { template: { label: 'шаблон отчёта', gender: 'm' } },
+  /* МГ-K3.1 (срез 23.1): запуск переноса данных — «Перенос данных начат». */
+  import: { run: { label: 'перенос данных', gender: 'm' } }
 };
 
 /** Раздел, чьи коды бывают без объекта (`documents.signed`): объект подразумевается. */
@@ -317,6 +321,8 @@ const ENTITY_LABELS: Record<string, string> = {
   /* ТЗ 15.5: обращение из кнопки «Сообщить о проблеме». */
   'support.problem_report': 'Обращение в поддержку',
   'reports.template': 'Шаблон отчёта',
+  /* МГ-K3.1 (срез 23.1): запуск переноса данных из прежней системы. */
+  'import.run': 'Перенос данных',
   /* МГ-H4.1 (срез 11.3): представление реестра — своё или общее центра. */
   'reports.saved_view': 'Представление реестра',
   /* МГ-D2.1 (срез 14.1): люди компании-заказчика. */

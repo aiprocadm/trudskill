@@ -14,6 +14,7 @@ import { EsignModule } from './modules/esign/esign.module.js';
 import { FilesModule } from './modules/files/files.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { IamModule } from './modules/iam/iam.module.js';
+import { ImportCdoprofModule } from './modules/import-cdoprof/import-cdoprof.module.js';
 import { IntegrationsModule } from './modules/integrations/integrations.module.js';
 import { LookupModule } from './modules/lookup/lookup.module.js';
 import { MigrationModule } from './modules/migration/migration.module.js';
@@ -56,6 +57,8 @@ const domainModules = [
   DocumentsModule,
   IntegrationsModule,
   MigrationModule,
+  /* ТЗ перехода с CDOPROF, Фаза 4 (РМ15): импорт подключается вместе со своей ручкой. */
+  ImportCdoprofModule,
   OrgModule,
   PaymentsModule,
   PlatformModule,

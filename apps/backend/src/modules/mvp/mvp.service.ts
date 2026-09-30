@@ -1002,6 +1002,17 @@ export class MvpService {
    * Email сравнивается case-insensitive (trimmed lower-case); СНИЛС — по
    * нормализованным 11 цифрам. Возвращает только поля, нужные классификатору.
    */
+  /**
+   * МГ-K3.2 (срез 23.1): с кем сопоставлять записи CDOPROF — все слушатели и компании центра,
+   * включая архивных: архивный слушатель — всё равно тот же человек.
+   */
+  importMatchSnapshot(tenantId: string): { learners: Learner[]; counterparties: Counterparty[] } {
+    return {
+      learners: this.state.learners.filter((learner) => learner.tenantId === tenantId),
+      counterparties: this.state.counterparties.filter((item) => item.tenantId === tenantId)
+    };
+  }
+
   /** МГ-C3.1 (срез 10.1): компания по ИНН для колонки импорта — сравнение по цифрам, в своём центре. */
   findCounterpartyByInn(tenantId: string, inn: string): Counterparty | undefined {
     const digits = inn.replace(/\D/g, '');
