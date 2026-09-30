@@ -100,6 +100,8 @@ export class PostgresGeneratedDocumentsRepository implements GeneratedDocumentsR
     if (filter.groupOrderDocumentId) {
       push(filter.groupOrderDocumentId, (p) => `group_order_document_id = ${p}`);
     }
+    // МГ-F4.1: выгрузки в реестры — без внешних документов (они уже зарегистрированы там).
+    if (filter.excludeExternal) conditions.push('is_external = false');
     const extra = conditions.map((c) => `and ${c}`).join(' ');
     const totals = await this.db.query<{ total: string }>(
       `select count(*)::text as total from documents.generated_documents where tenant_id = $1 ${extra}`,

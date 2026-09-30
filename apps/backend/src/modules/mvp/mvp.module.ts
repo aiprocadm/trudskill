@@ -6,6 +6,7 @@ import {
   NoopInnSuggestProvider
 } from './counterparties/inn-suggest.provider.js';
 import { CourseHistoryService } from './courses/course-history.service.js';
+import { ExternalDocumentsController } from './external-documents/external-documents.controller.js';
 import { GroupDocumentPackageService } from './groups/group-document-package.service.js';
 import { GroupPackageController } from './groups/group-package.controller.js';
 import { GroupStatusScanner } from './groups/group-status.scanner.service.js';
@@ -232,6 +233,8 @@ import { LearnersRegistryExportService } from './learners/learners-registry-expo
     IssueReadinessController,
     /* МГ-F2.1 (срез 21.1): пакет документов группы. */
     GroupPackageController,
+    /* МГ-F4.1 (срез 22.1): внешние документы. */
+    ExternalDocumentsController,
     FrdoRegistryController,
     EisotTestingRegistryController,
     RostechnadzorRegistryController,
