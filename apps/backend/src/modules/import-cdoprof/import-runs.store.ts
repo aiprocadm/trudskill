@@ -31,7 +31,11 @@ const STALE_TEXT =
 /** Названия типов в `legacy_ids`: как у источника и как у нас. */
 const LEGACY_TYPES = {
   counterparties: { source: 'contragent', target: 'counterparty' },
-  learners: { source: 'student', target: 'learner' }
+  directions: { source: 'parent_course', target: 'direction' },
+  courses: { source: 'course', target: 'course' },
+  learners: { source: 'student', target: 'learner' },
+  groups: { source: 'group', target: 'group' },
+  group_courses: { source: 'group_course', target: 'group_course' }
 } as const;
 
 export interface RowsPage {

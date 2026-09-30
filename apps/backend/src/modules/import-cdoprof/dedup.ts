@@ -11,7 +11,14 @@ import { normalizeSnils } from '../mvp/snils.util.js';
 
 import type { ImportRowPlan } from './import.types.js';
 import type { CounterpartyDraft, LearnerDraft, MappedRecord } from './mappers.js';
-import type { Counterparty, Learner } from '../mvp/mvp.types.js';
+import type {
+  Counterparty,
+  Course,
+  Direction,
+  GroupCourse,
+  GroupEntity,
+  Learner
+} from '../mvp/mvp.types.js';
 
 /** Так CDOPROF записан в `source_system` (0102). */
 export const CDOPROF_SOURCE_SYSTEM = 'cdoprof';
@@ -20,6 +27,11 @@ export const CDOPROF_SOURCE_SYSTEM = 'cdoprof';
 export interface MatchSnapshot {
   learners: readonly Learner[];
   counterparties: readonly Counterparty[];
+  /* Срез 23.3a: каталог и группы; нет — ничего такого в центре ещё нет. */
+  directions?: readonly Direction[];
+  courses?: readonly Course[];
+  groups?: readonly GroupEntity[];
+  groupCourses?: readonly GroupCourse[];
 }
 
 /** ФИО для сравнения: регистр, «ё/е» и лишние пробелы не отличают людей. */

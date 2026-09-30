@@ -1,14 +1,14 @@
 import { HttpException, Inject, Injectable } from '@nestjs/common';
 
-import { CDOPROF_SOURCE_SYSTEM, planCounterparties, planLearners } from './dedup.js';
+import { CDOPROF_SOURCE_SYSTEM } from './dedup.js';
+import { domainsOf, planImport } from './import-planner.js';
 import { ImportRunsStore } from './import-runs.store.js';
-import { UNCHANGED, summarizeRows } from './import.types.js';
-import { mapContragent, mapStudent } from './mappers.js';
+import { MERGE_CANDIDATE, UNCHANGED, summarizeRows } from './import.types.js';
 import { BackgroundTasksService } from '../background-tasks/background-tasks.service.js';
 import { MvpStateWriter } from '../mvp/mvp-state-writer.service.js';
 
-import type { ImportRowPlan, ImportRunDomain } from './import.types.js';
-import type { CounterpartyDraft, LearnerDraft } from './mappers.js';
+import type { ImportDrafts } from './import-planner.js';
+import type { ImportDomain, ImportRowPlan, ImportRunDomain } from './import.types.js';
 import type { CdoprofApiClient } from './sources/cdoprof-api-client.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 import type { MvpService } from '../mvp/mvp.service.js';
@@ -31,11 +31,8 @@ export interface LiveRunInput {
   today: Date;
 }
 
-const collect = async <T>(source: AsyncIterable<T>): Promise<T[]> => {
-  const items: T[] = [];
-  for await (const item of source) items.push(item);
-  return items;
-};
+/** Соответствия «id источника → id центра» по доменам — собираются по ходу переноса. */
+type Links = Record<ImportDomain, Map<string, string>>;
 
 const chunksOf = <T>(items: readonly T[], size: number): T[][] => {
   const chunks: T[][] = [];
@@ -67,13 +64,21 @@ const unchanged = (row: ImportRowPlan): ImportRowPlan => ({
 
 const filledText = (fields: string[]) => `Дописаны пустые поля: ${fields.length}.`;
 
+const moment = (day: string) => `${day}T00:00:00.000Z`;
+
+/** Строка, у которой есть адресат в центре, — адресат для ссылок следующих доменов. */
+const linkable = (row: ImportRowPlan) =>
+  Boolean(row.targetId) && row.action !== 'failed' && row.errorCode !== MERGE_CANDIDATE;
+
 /**
- * Боевой прогон импорта (МГ-K3.1/K2.1, срез 23.2) — вне HTTP-запроса, частями под замком центра.
+ * Боевой прогон импорта (МГ-K3.1/K2.1, срезы 23.2–23.3a) — вне HTTP-запроса, частями под
+ * замком центра.
  *
- * План строится тем же ходом, что и сухой прогон, затем каждая строка применяется:
- * «создать» — заводит запись с меткой источника; «сопоставлено» — дописывает только пустые поля
- * (РМ135); пропуски и отказы остаются как есть. Повтор находит всё по метке источника и отвечает
- * «изменений нет» — 0 новых записей. Одна строка с отказом не останавливает остальные.
+ * План строится той же функцией, что и сухой прогон (`planImport`), затем строки применяются по
+ * доменам в порядке ТЗ: «создать» — заводит запись с меткой источника; «сопоставлено» —
+ * дописывает только пустые поля (РМ135); пропуски и отказы остаются как есть. Повтор находит
+ * всё по метке источника или коду и отвечает «изменений нет» — 0 новых записей. Одна строка с
+ * отказом не останавливает остальные.
  */
 @Injectable()
 export class ImportLiveExecutor {
@@ -87,61 +92,63 @@ export class ImportLiveExecutor {
   async execute(input: LiveRunInput, chunkSize = IMPORT_CHUNK_SIZE): Promise<void> {
     const rows: ImportRowPlan[] = [];
     try {
-      const wants = (domain: string, sourceId: string) =>
-        !input.only || input.only.has(`${domain}:${sourceId}`);
-      const counterpartyIds = new Map<string, string>();
       const snapshot = await this.writer.run(input.tenantId, (mvp) =>
         mvp.importMatchSnapshot(input.tenantId)
       );
-      for (const item of snapshot.counterparties) {
-        if (item.sourceSystem === CDOPROF_SOURCE_SYSTEM && item.externalId)
-          counterpartyIds.set(item.externalId, item.id);
-      }
+      const plan = await planImport({
+        tenantId: input.tenantId,
+        domain: input.domain,
+        client: input.client,
+        snapshot,
+        today: input.today,
+        ...(input.only ? { only: input.only } : {})
+      });
+      const bySourceMark = <T extends { id: string; externalId?: string; sourceSystem?: string }>(
+        items: readonly T[]
+      ) =>
+        new Map(
+          items
+            .filter((item) => item.sourceSystem === CDOPROF_SOURCE_SYSTEM && item.externalId)
+            .map((item) => [item.externalId!, item.id])
+        );
+      const links: Links = {
+        counterparties: bySourceMark(snapshot.counterparties),
+        directions: new Map(),
+        courses: new Map(),
+        learners: bySourceMark(snapshot.learners),
+        groups: bySourceMark(snapshot.groups ?? []),
+        group_courses: new Map()
+      };
 
-      if (input.domain === 'counterparties' || input.domain === 'all') {
-        const records = (await collect(input.client.iterateContragents()))
-          .filter((record) => wants('counterparties', String(record.id)))
-          .map((record) => ({ sourceId: String(record.id), mapped: mapContragent(record) }));
-        const drafts = new Map(
-          records.flatMap((r) => (r.mapped.draft ? [[r.sourceId, r.mapped.draft] as const] : []))
-        );
-        const planned = planCounterparties(records, snapshot, input.tenantId);
-        for (const chunk of chunksOf(planned, chunkSize)) {
-          const applied = await this.writer.run(input.tenantId, (mvp) =>
-            chunk.map((row) => this.applyCounterparty(mvp, input, row, drafts.get(row.sourceId)))
-          );
-          for (const row of applied) {
-            if (row.targetId && row.action !== 'failed' && row.errorCode !== 'merge_candidate') {
-              counterpartyIds.set(row.sourceId, row.targetId);
-            }
-          }
-          rows.push(...applied);
-          await this.store.touchRun(input.tenantId, input.runId);
-        }
-      }
+      /* Запуск только курсов групп: группы и курсы, перенесённые раньше, нашёл план. */
+      plan.sides.groups.forEach((id, sourceId) => links.groups.set(sourceId, id));
+      plan.sides.courses.forEach((id, sourceId) => links.courses.set(sourceId, id));
 
-      if (input.domain === 'learners' || input.domain === 'all') {
-        const records = (await collect(input.client.iterateStudents()))
-          .filter((record) => wants('learners', String(record.id)))
-          .map((record) => ({
-            sourceId: String(record.id),
-            mapped: mapStudent(record, input.today)
-          }));
-        const drafts = new Map(
-          records.flatMap((r) => (r.mapped.draft ? [[r.sourceId, r.mapped.draft] as const] : []))
-        );
-        const planned = planLearners(
-          records,
-          snapshot,
-          input.tenantId,
-          new Set(counterpartyIds.keys())
-        );
+      for (const domain of domainsOf(input.domain)) {
+        const planned = plan.byDomain[domain] ?? [];
+        /* Сопоставленное планом (по коду, по номеру) — адресат для следующих доменов. */
+        planned.filter(linkable).forEach((row) => links[domain].set(row.sourceId, row.targetId!));
         for (const chunk of chunksOf(planned, chunkSize)) {
-          const applied = await this.writer.run(input.tenantId, (mvp) =>
-            chunk.map((row) =>
-              this.applyLearner(mvp, input, row, drafts.get(row.sourceId), counterpartyIds)
-            )
-          );
+          const applied = await this.writer.run(input.tenantId, (mvp) => {
+            const existingPairs =
+              domain === 'group_courses'
+                ? new Set(
+                    (mvp.importMatchSnapshot(input.tenantId).groupCourses ?? []).map(
+                      (item) => `${item.groupId}|${item.courseId}`
+                    )
+                  )
+                : undefined;
+            return chunk.map((row) => {
+              if (row.action !== 'created' && row.action !== 'updated') return row;
+              try {
+                return this.apply(mvp, input, domain, row, plan.drafts, links, existingPairs);
+              } catch (error) {
+                /* Частичный успех: отказ одной записи — строка отчёта с причиной, остальные идут дальше. */
+                return failedBy(row, error);
+              }
+            });
+          });
+          applied.filter(linkable).forEach((row) => links[domain].set(row.sourceId, row.targetId!));
           rows.push(...applied);
           await this.store.touchRun(input.tenantId, input.runId);
         }
@@ -183,100 +190,197 @@ export class ImportLiveExecutor {
     }
   }
 
-  private applyCounterparty(
+  private apply(
     mvp: MvpService,
     input: LiveRunInput,
+    domain: ImportDomain,
     row: ImportRowPlan,
-    draft: CounterpartyDraft | undefined
+    drafts: ImportDrafts,
+    links: Links,
+    existingPairs: Set<string> | undefined
   ): ImportRowPlan {
-    if (!draft || (row.action !== 'created' && row.action !== 'updated')) return row;
-    try {
-      const fields = {
-        ...(draft.legalName ? { legalName: draft.legalName } : {}),
-        ...(draft.inn ? { inn: draft.inn } : {}),
-        ...(draft.kpp ? { kpp: draft.kpp } : {}),
-        ...(draft.email ? { contactEmail: draft.email } : {})
-      };
-      if (row.action === 'updated' && row.targetId) {
-        const filled = mvp.fillImportedCounterparty(
-          input.tenantId,
-          input.actorId,
-          row.targetId,
-          { ...fields, externalId: draft.sourceId, sourceSystem: CDOPROF_SOURCE_SYSTEM },
-          input.context
-        );
-        return filled.length === 0
-          ? unchanged(row)
-          : { ...row, errorText: row.errorText ?? filledText(filled) };
-      }
-      const created = mvp.createCounterpartyExtended(
-        input.tenantId,
-        input.actorId,
-        {
-          code: `ИМП-${draft.sourceId}`,
-          name: draft.name,
-          ...fields,
-          externalId: draft.sourceId,
-          sourceSystem: CDOPROF_SOURCE_SYSTEM
-        },
-        input.context
-      );
-      return { ...row, targetId: created.id };
-    } catch (error) {
-      /* Частичный успех: отказ одной записи — строка отчёта с причиной, остальные идут дальше. */
-      return failedBy(row, error);
-    }
-  }
+    const { tenantId, actorId, context } = input;
+    const settle = (filled: string[]) =>
+      filled.length === 0
+        ? unchanged(row)
+        : { ...row, errorText: row.errorText ?? filledText(filled) };
+    const source = { externalId: row.sourceId, sourceSystem: CDOPROF_SOURCE_SYSTEM };
 
-  private applyLearner(
-    mvp: MvpService,
-    input: LiveRunInput,
-    row: ImportRowPlan,
-    draft: LearnerDraft | undefined,
-    counterpartyIds: ReadonlyMap<string, string>
-  ): ImportRowPlan {
-    if (!draft || (row.action !== 'created' && row.action !== 'updated')) return row;
-    try {
-      const counterpartyId = draft.counterpartySourceId
-        ? counterpartyIds.get(draft.counterpartySourceId)
-        : undefined;
-      const fields = {
-        ...(draft.middleName ? { middleName: draft.middleName } : {}),
-        ...(draft.dateOfBirth ? { dateOfBirth: draft.dateOfBirth } : {}),
-        ...(draft.email ? { email: draft.email } : {}),
-        ...(draft.phone ? { phone: draft.phone } : {}),
-        ...(draft.position ? { position: draft.position } : {}),
-        ...(counterpartyId ? { counterpartyId } : {})
-      };
-      if (row.action === 'updated' && row.targetId) {
-        const filled = mvp.fillImportedLearner(
-          input.tenantId,
-          input.actorId,
-          row.targetId,
-          { ...fields, externalId: draft.sourceId, sourceSystem: CDOPROF_SOURCE_SYSTEM },
-          input.context
+    switch (domain) {
+      case 'counterparties': {
+        const draft = drafts.counterparties.get(row.sourceId);
+        if (!draft) return row;
+        const fields = {
+          ...(draft.legalName ? { legalName: draft.legalName } : {}),
+          ...(draft.inn ? { inn: draft.inn } : {}),
+          ...(draft.kpp ? { kpp: draft.kpp } : {}),
+          ...(draft.email ? { contactEmail: draft.email } : {})
+        };
+        if (row.action === 'updated' && row.targetId) {
+          return settle(
+            mvp.fillImportedCounterparty(
+              tenantId,
+              actorId,
+              row.targetId,
+              { ...fields, ...source },
+              context
+            )
+          );
+        }
+        const created = mvp.createCounterpartyExtended(
+          tenantId,
+          actorId,
+          { code: `ИМП-${draft.sourceId}`, name: draft.name, ...fields, ...source },
+          context
         );
-        return filled.length === 0
-          ? unchanged(row)
-          : { ...row, errorText: row.errorText ?? filledText(filled) };
+        return { ...row, targetId: created.id };
       }
-      const created = mvp.createLearnerExtended(
-        input.tenantId,
-        input.actorId,
-        {
-          firstName: draft.firstName,
-          lastName: draft.lastName,
-          ...fields,
-          ...(draft.snils ? { snils: draft.snils } : {}),
-          externalId: draft.sourceId,
-          sourceSystem: CDOPROF_SOURCE_SYSTEM
-        },
-        input.context
-      );
-      return { ...row, targetId: created.id };
-    } catch (error) {
-      /* Частичный успех: отказ одной записи — строка отчёта с причиной, остальные идут дальше. */
-      return failedBy(row, error);
+      case 'directions': {
+        const draft = drafts.directions.get(row.sourceId);
+        if (!draft) return row;
+        const created = mvp.createDirection(
+          tenantId,
+          actorId,
+          { code: draft.code, name: draft.name },
+          context
+        );
+        return { ...row, targetId: created.id };
+      }
+      case 'courses': {
+        const draft = drafts.courses.get(row.sourceId);
+        if (!draft) return row;
+        const directionId = draft.directionSourceId
+          ? links.directions.get(draft.directionSourceId)
+          : undefined;
+        const fields = {
+          ...(directionId ? { directionId } : {}),
+          ...(draft.price !== undefined ? { price: draft.price } : {}),
+          ...(draft.note ? { note: draft.note } : {})
+        };
+        if (row.action === 'updated' && row.targetId) {
+          return settle(mvp.fillImportedCourse(tenantId, actorId, row.targetId, fields, context));
+        }
+        const created = mvp.createCourse(
+          tenantId,
+          actorId,
+          { code: draft.code, title: draft.title, ...fields },
+          context
+        );
+        return { ...row, targetId: created.id };
+      }
+      case 'learners': {
+        const draft = drafts.learners.get(row.sourceId);
+        if (!draft) return row;
+        const counterpartyId = draft.counterpartySourceId
+          ? links.counterparties.get(draft.counterpartySourceId)
+          : undefined;
+        const fields = {
+          ...(draft.middleName ? { middleName: draft.middleName } : {}),
+          ...(draft.dateOfBirth ? { dateOfBirth: draft.dateOfBirth } : {}),
+          ...(draft.email ? { email: draft.email } : {}),
+          ...(draft.phone ? { phone: draft.phone } : {}),
+          ...(draft.position ? { position: draft.position } : {}),
+          ...(counterpartyId ? { counterpartyId } : {})
+        };
+        if (row.action === 'updated' && row.targetId) {
+          return settle(
+            mvp.fillImportedLearner(
+              tenantId,
+              actorId,
+              row.targetId,
+              { ...fields, ...source },
+              context
+            )
+          );
+        }
+        const created = mvp.createLearnerExtended(
+          tenantId,
+          actorId,
+          {
+            firstName: draft.firstName,
+            lastName: draft.lastName,
+            ...fields,
+            ...(draft.snils ? { snils: draft.snils } : {}),
+            ...source
+          },
+          context
+        );
+        return { ...row, targetId: created.id };
+      }
+      case 'groups': {
+        const draft = drafts.groups.get(row.sourceId);
+        if (!draft) return row;
+        const dates = {
+          ...(draft.startDate ? { startDate: draft.startDate } : {}),
+          ...(draft.endDate ? { endDate: draft.endDate } : {}),
+          ...(draft.examDate ? { examDate: draft.examDate } : {}),
+          ...(draft.materialsAccessUntil
+            ? { materialsAccessUntil: draft.materialsAccessUntil }
+            : {}),
+          ...(draft.practiceFrom && draft.practiceTo
+            ? { practiceFrom: draft.practiceFrom, practiceTo: draft.practiceTo }
+            : {})
+        };
+        const legacy = draft.legacyNumber ? { legacyNumber: draft.legacyNumber } : {};
+        if (row.action === 'updated' && row.targetId) {
+          return settle(
+            mvp.fillImportedGroup(
+              tenantId,
+              actorId,
+              row.targetId,
+              { ...dates, ...legacy, ...source },
+              context
+            )
+          );
+        }
+        const created = mvp.createGroup(
+          tenantId,
+          actorId,
+          {
+            code: draft.code,
+            name: draft.name,
+            status: draft.status,
+            ...dates,
+            ...legacy,
+            ...source
+          },
+          context
+        );
+        /* Статус при создании не ставит моменты закрытия и архива — дописываем их из дат источника. */
+        if (draft.status === 'closed' || draft.status === 'archived') {
+          mvp.fillImportedGroup(
+            tenantId,
+            actorId,
+            created.id,
+            {
+              ...(draft.endDate ? { closedAt: moment(draft.endDate) } : {}),
+              ...(draft.status === 'archived' ? { archivedAt: new Date().toISOString() } : {})
+            },
+            context
+          );
+        }
+        return { ...row, targetId: created.id };
+      }
+      case 'group_courses': {
+        const draft = drafts.group_courses.get(row.sourceId);
+        if (!draft) return row;
+        const groupId = links.groups.get(draft.groupSourceId);
+        const courseId = links.courses.get(draft.courseSourceId);
+        if (!groupId || !courseId) {
+          return {
+            ...row,
+            action: 'failed',
+            errorCode: 'group_course_side_missing',
+            errorText: groupId
+              ? 'Курс из прежней системы не перенесён — курс группе не назначен. Перенесите курсы, затем повторите.'
+              : 'Группа из прежней системы не перенесена — курс группе не назначен. Перенесите группы, затем повторите.'
+          };
+        }
+        if (existingPairs?.has(`${groupId}|${courseId}`)) return unchanged(row);
+        const created = mvp.createGroupCourse(tenantId, { groupId, courseId }, actorId, context);
+        existingPairs?.add(`${groupId}|${courseId}`);
+        return { ...row, targetId: created.id };
+      }
     }
   }
 }

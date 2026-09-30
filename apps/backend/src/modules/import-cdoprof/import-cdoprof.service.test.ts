@@ -235,7 +235,7 @@ describe('запрос запуска и отчёта', () => {
       errorsOf(StartImportRunRequest, { source: 'xlsx', domain: 'all', dryRun: true })
     ).toEqual(['source']);
     expect(
-      errorsOf(StartImportRunRequest, { source: 'api', domain: 'groups', dryRun: true })
+      errorsOf(StartImportRunRequest, { source: 'api', domain: 'payments', dryRun: true })
     ).toEqual(['domain']);
     expect(errorsOf(StartImportRunRequest, { source: 'api', domain: 'all' })).toEqual(['dryRun']);
   });

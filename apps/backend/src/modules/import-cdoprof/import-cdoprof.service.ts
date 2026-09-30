@@ -1,11 +1,10 @@
 import { ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { CDOPROF_SOURCE } from './cdoprof-source.js';
-import { CDOPROF_SOURCE_SYSTEM, planCounterparties, planLearners } from './dedup.js';
 import { ImportLiveExecutor } from './import-live.executor.js';
+import { planImport, planRows } from './import-planner.js';
 import { ImportRunsStore } from './import-runs.store.js';
 import { summarizeRows } from './import.types.js';
-import { mapContragent, mapStudent } from './mappers.js';
 import { AuditService } from '../audit/audit.service.js';
 import { BackgroundTasksService } from '../background-tasks/background-tasks.service.js';
 import { MvpService } from '../mvp/mvp.service.js';
@@ -16,12 +15,6 @@ import type { ImportRowsQuery, StartImportRunRequest } from './import.request-dt
 import type { ImportRowPlan, ImportRun } from './import.types.js';
 import type { CdoprofApiClient } from './sources/cdoprof-api-client.js';
 import type { RequestContext } from '../../common/context/request-context.js';
-
-const collect = async <T>(source: AsyncIterable<T>): Promise<T[]> => {
-  const items: T[] = [];
-  for await (const item of source) items.push(item);
-  return items;
-};
 
 /**
  * Импорт из CDOPROF (МГ-K3.1/K3.2/K2.1; Фаза 4, срезы 23.1–23.2): контрагенты и слушатели.
@@ -228,44 +221,7 @@ export class ImportCdoprofService {
     today: Date
   ): Promise<ImportRowPlan[]> {
     const snapshot = this.mvp.importMatchSnapshot(tenantId);
-    const rows: ImportRowPlan[] = [];
-    const knownCounterparties = new Set(
-      snapshot.counterparties
-        .filter((item) => item.sourceSystem === CDOPROF_SOURCE_SYSTEM && item.externalId)
-        .map((item) => item.externalId!)
-    );
-
-    if (domain === 'counterparties' || domain === 'all') {
-      const contragents = await collect(client.iterateContragents());
-      const planned = planCounterparties(
-        contragents.map((record) => ({
-          sourceId: String(record.id),
-          mapped: mapContragent(record)
-        })),
-        snapshot,
-        tenantId
-      );
-      /* Компания, которую этот запуск перенесёт или сопоставит, для слушателей — известна. */
-      planned
-        .filter((row) => row.action === 'created' || row.action === 'updated')
-        .forEach((row) => knownCounterparties.add(row.sourceId));
-      rows.push(...planned);
-    }
-    if (domain === 'learners' || domain === 'all') {
-      const students = await collect(client.iterateStudents());
-      rows.push(
-        ...planLearners(
-          students.map((record) => ({
-            sourceId: String(record.id),
-            mapped: mapStudent(record, today)
-          })),
-          snapshot,
-          tenantId,
-          knownCounterparties
-        )
-      );
-    }
-    return rows;
+    return planRows(await planImport({ tenantId, domain, client, snapshot, today }));
   }
 
   listRuns(tenantId: string): Promise<ImportRun[]> {

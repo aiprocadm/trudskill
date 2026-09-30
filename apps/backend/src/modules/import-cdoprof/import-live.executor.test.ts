@@ -100,7 +100,11 @@ describe('боевой прогон импорта (МГ-K3.1/K2.1, срез 23.
     const { run, task } = await liveRun(world);
 
     expect(run.status).toBe('succeeded');
-    expect(run.stats).toMatchObject({ created: 11, skipped: 1, failed: 0 });
+    expect(run.stats).toMatchObject({ created: 30, skipped: 1, failed: 0 });
+    expect(run.stats.byDomain).toMatchObject({
+      counterparties: { created: 4 },
+      learners: { created: 7, skipped: 1 }
+    });
     expect(world.state.counterparties).toHaveLength(4);
     expect(world.state.learners).toHaveLength(7);
     const ivanov = world.state.learners.find((l) => l.externalId === '1001')!;
@@ -114,7 +118,7 @@ describe('боевой прогон импорта (МГ-K3.1/K2.1, срез 23.
     /* Кандидат на слияние не заведён: сливать решает человек. */
     expect(world.state.learners.some((l) => l.externalId === '1003')).toBe(false);
     expect(world.store.legacyTargetOf(TENANT, 'learners', '1001')).toBe(ivanov.id);
-    expect(task).toMatchObject({ status: 'succeeded', doneCount: 11 });
+    expect(task).toMatchObject({ status: 'succeeded', doneCount: 30 });
     /* Частями: замок центра отпускается между ними. */
     expect(world.writer.run.mock.calls.length).toBeGreaterThan(3);
   });
@@ -132,7 +136,7 @@ describe('боевой прогон импорта (МГ-K3.1/K2.1, срез 23.
       limit: 50,
       offset: 0
     });
-    expect(unchanged.total).toBe(11);
+    expect(unchanged.total).toBe(30);
   });
 
   it('дописывает только пустые поля: заполненное в центре не перетирается (РМ135)', async () => {

@@ -1013,10 +1013,21 @@ export class MvpService {
    * МГ-K3.2 (срез 23.1): с кем сопоставлять записи CDOPROF — все слушатели и компании центра,
    * включая архивных: архивный слушатель — всё равно тот же человек.
    */
-  importMatchSnapshot(tenantId: string): { learners: Learner[]; counterparties: Counterparty[] } {
+  importMatchSnapshot(tenantId: string): {
+    learners: Learner[];
+    counterparties: Counterparty[];
+    directions: Direction[];
+    courses: Course[];
+    groups: GroupEntity[];
+    groupCourses: GroupCourse[];
+  } {
     return {
       learners: this.state.learners.filter((learner) => learner.tenantId === tenantId),
-      counterparties: this.state.counterparties.filter((item) => item.tenantId === tenantId)
+      counterparties: this.state.counterparties.filter((item) => item.tenantId === tenantId),
+      directions: this.state.directions.filter((item) => item.tenantId === tenantId),
+      courses: this.state.courses.filter((item) => item.tenantId === tenantId),
+      groups: this.state.groups.filter((item) => item.tenantId === tenantId),
+      groupCourses: this.state.groupCourses.filter((item) => item.tenantId === tenantId)
     };
   }
 
@@ -1085,6 +1096,77 @@ export class MvpService {
         filled,
         context,
         { source: 'import' }
+      )
+    );
+  }
+
+  /** То же для курса (срез 23.3a, РМ135): направление, цена, примечание — только пустые. */
+  fillImportedCourse(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    patch: Partial<Pick<Course, 'directionId' | 'price' | 'note'>>,
+    context: RequestContext
+  ): string[] {
+    const current = this.getById(this.state.courses, tenantId, id);
+    return this.fillEmpty(current, patch, (oldValues, filled) =>
+      this.audit(
+        tenantId,
+        actorId,
+        'learning.course_updated',
+        'learning.course',
+        id,
+        oldValues,
+        filled,
+        context,
+        {
+          source: 'import'
+        }
+      )
+    );
+  }
+
+  /**
+   * То же для группы (срез 23.3a, РМ135): даты, номер прежней системы, метка источника и моменты
+   * закрытия/архива, которые статус при создании не ставит. Замок закрытой группы (`group_closed`)
+   * здесь не нужен: пустое поле дописывается, заполненное не трогается.
+   */
+  fillImportedGroup(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    patch: Partial<
+      Pick<
+        GroupEntity,
+        | 'startDate'
+        | 'endDate'
+        | 'examDate'
+        | 'materialsAccessUntil'
+        | 'practiceFrom'
+        | 'practiceTo'
+        | 'legacyNumber'
+        | 'externalId'
+        | 'sourceSystem'
+        | 'closedAt'
+        | 'archivedAt'
+      >
+    >,
+    context: RequestContext
+  ): string[] {
+    const current = this.getById(this.state.groups, tenantId, id);
+    return this.fillEmpty(current, patch, (oldValues, filled) =>
+      this.audit(
+        tenantId,
+        actorId,
+        'learning.group_updated',
+        'learning.group',
+        id,
+        oldValues,
+        filled,
+        context,
+        {
+          source: 'import'
+        }
       )
     );
   }
