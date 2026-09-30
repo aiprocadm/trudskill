@@ -166,7 +166,19 @@ export const closeGroupApi = {
       }
     });
     if (!response.ok) {
-      throw new Error(`Не удалось скачать комплект группы: ${response.status}`);
+      /*
+       * Журнал 664: раньше человек видел «Не удалось скачать комплект группы: 400» — код HTTP
+       * ничего не объясняет. Сервер отвечает конвертом с текстом («ни один документ ещё не
+       * готов»), показываем его.
+       */
+      let message = 'Не удалось скачать комплект группы. Повторите через минуту.';
+      try {
+        const body = (await response.json()) as { error?: { message?: string } };
+        if (body?.error?.message) message = body.error.message;
+      } catch {
+        /* тело не JSON — оставляем общий текст */
+      }
+      throw new Error(message);
     }
     return { blob: await response.blob(), filename: `group-${groupId}.zip` };
   },

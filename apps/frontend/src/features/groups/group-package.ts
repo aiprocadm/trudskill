@@ -28,9 +28,23 @@ export interface PackageKindRow {
 
 export interface GroupPackageView {
   groupId: string;
+  groupStatus: string;
   learners: number;
   kinds: PackageKindRow[];
+  /** Выпущены все обязательные документы пакета. */
+  complete: boolean;
 }
+
+/**
+ * МГ-B3.1 (срез 21.3): «документы → закрыта», когда выдано всё обязательное. Предлагаем, а не
+ * закрываем сами: закрытие — осознанное действие куратора (ТЗ: «или вручную «Закрыть группу»»).
+ */
+export const canMarkClosed = (view: Pick<GroupPackageView, 'complete' | 'groupStatus'>): boolean =>
+  view.complete && view.groupStatus === 'documents';
+
+/** Есть что скачать комплектом: хоть один документ пакета выпущен. */
+export const hasIssued = (rows: readonly Pick<PackageKindRow, 'issued'>[]): boolean =>
+  rows.some((row) => row.issued > 0);
 
 export interface GroupPackageIssueInput {
   kinds?: string[];

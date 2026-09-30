@@ -75,6 +75,29 @@ describe('пакет документов группы на экране (МГ-F
     });
   });
 
+  it('срез 21.3: закрыть группу предлагается, когда пакет выдан и группа в «документах»', () => {
+    expect(mod.canMarkClosed({ complete: true, groupStatus: 'documents' })).toBe(true);
+    expect(mod.canMarkClosed({ complete: true, groupStatus: 'closed' })).toBe(false);
+    expect(mod.canMarkClosed({ complete: false, groupStatus: 'documents' })).toBe(false);
+    expect(mod.hasIssued([{ issued: 0 }, { issued: 2 }])).toBe(true);
+    expect(mod.hasIssued([{ issued: 0 }])).toBe(false);
+  });
+
+  it('журнал 664: неудачная загрузка комплекта — текстом сервера, а не кодом HTTP', async () => {
+    const { closeGroupApi } = await import('../close-group/api');
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          error: { code: 'group_package_empty', message: 'Ни один документ группы ещё не готов' }
+        }),
+        { status: 400 }
+      )
+    );
+    await expect(closeGroupApi.fetchPackage(session, 'g1')).rejects.toThrow(
+      'Ни один документ группы ещё не готов'
+    );
+  });
+
   it('словами: состояние, «выпущено», что выпускать по умолчанию, итог с пропущенными', () => {
     const row = (over: Partial<PackageModule.PackageKindRow>): PackageModule.PackageKindRow => ({
       key: 'k',

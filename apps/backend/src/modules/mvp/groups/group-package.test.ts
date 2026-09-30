@@ -155,8 +155,9 @@ describe('пакет документов группы: правила (МГ-F2.
 
 describe('пакет документов группы: выпуск (МГ-F2.1, срез 21.1)', () => {
   const make = () => {
+    const docState = new InMemoryDocumentsState();
     const documents = new DocumentsService(
-      new InMemoryDocumentsState(),
+      docState,
       new AuditService(),
       new RealtimeEventsService()
     );
@@ -248,7 +249,13 @@ describe('пакет документов группы: выпуск (МГ-F2.1,
       } as never
     );
     const service = new GroupDocumentPackageService(state, mvp, documents);
-    return { service, state, documents };
+    return {
+      service,
+      state,
+      documents,
+      docState,
+      ids: { order: tOrder.id, protocol: tProtocol.id, cert: tCert.id }
+    };
   };
 
   const report = (blocked: string[] = []): IssueReadinessReport => ({
@@ -298,6 +305,30 @@ describe('пакет документов группы: выпуск (МГ-F2.1,
       ['certificate.ot', 'in_progress']
     ]);
     expect(documents.groupPackageFacts(T, 'g1', ['e1', 'e2']).tasks).toHaveLength(3);
+  });
+
+  it('срез 21.3: «пакет выдан» — когда выпущены все обязательные виды; статус группы в ответе', () => {
+    const { service, docState, ids } = make();
+    const first = service.view(T, 'g1');
+    expect(first).toMatchObject({ groupStatus: 'exam', complete: false });
+    const doc = (id: string, templateId: string, kindCode: string, type: string, source: string) =>
+      ({
+        id,
+        tenantId: T,
+        templateId,
+        kindCode,
+        sourceEntityType: type,
+        sourceEntityId: source,
+        status: 'final'
+      }) as never;
+    docState.generatedDocuments.push(
+      doc('d1', ids.order, 'order.enrollment', 'group', 'g1'),
+      doc('d2', ids.protocol, 'protocol.knowledge_check', 'group', 'g1'),
+      doc('d3', ids.cert, 'certificate.ot', 'enrollment', 'e1')
+    );
+    expect(service.view(T, 'g1').complete).toBe(false);
+    docState.generatedDocuments.push(doc('d4', ids.cert, 'certificate.ot', 'enrollment', 'e2'));
+    expect(service.view(T, 'g1').complete).toBe(true);
   });
 
   it('ручки: смотреть — documents.read, выпускать — documents.generate', () => {
