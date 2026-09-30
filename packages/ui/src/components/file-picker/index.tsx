@@ -104,11 +104,13 @@ export const FilePicker = ({
   progress,
   error,
   onReject,
+  onSelectMany,
   variant = 'inline'
 }: {
   /** Что за файл ждём — подпись для скринридера у настоящего поля. */
   ariaLabel: string;
-  onSelect: (file: File | null) => void;
+  /** Один файл; в режиме пачки (`onSelectMany`) не нужен. */
+  onSelect?: (file: File | null) => void;
   accept?: string;
   disabled?: boolean;
   buttonLabel?: string;
@@ -127,6 +129,12 @@ export const FilePicker = ({
   error?: string | null;
   /** Файл не подошёл: причина уходит экрану, наверх файл не идёт. */
   onReject?: (reason: string) => void;
+  /**
+   * Несколько файлов разом (сканы пачкой, срез 23.6): задан — поле принимает много файлов, и
+   * экран получает все подходящие; каждый неподходящий объясняется через `onReject` поимённо.
+   * `onSelect` при этом не зовётся.
+   */
+  onSelectMany?: (files: File[]) => void;
   /** `dropzone` — крупная область с перетаскиванием; `inline` — прежняя кнопка. */
   variant?: 'inline' | 'dropzone';
 }): ReactElement => {
@@ -137,7 +145,7 @@ export const FilePicker = ({
 
   const take = (file: File | null): void => {
     if (!file) {
-      onSelect(null);
+      onSelect?.(null);
       return;
     }
     const reason = fileRejectionReason(file, {
@@ -148,12 +156,30 @@ export const FilePicker = ({
       onReject?.(reason);
       return;
     }
-    onSelect(file);
+    onSelect?.(file);
+  };
+
+  /* Частичный успех: подходящие файлы уходят экрану, неподходящие — объясняются поимённо. */
+  const takeMany = (list: ArrayLike<File> | null | undefined): void => {
+    const accepted: File[] = [];
+    for (const file of Array.from(list ?? [])) {
+      const reason = fileRejectionReason(file, {
+        ...(accept ? { accept } : {}),
+        ...(maxSizeMb !== undefined ? { maxSizeMb } : {})
+      });
+      if (reason) onReject?.(`${file.name}: ${reason}`);
+      else accepted.push(file);
+    }
+    onSelectMany?.(accepted);
   };
 
   const onDrop = (event: DragEvent<HTMLLabelElement>): void => {
     event.preventDefault();
     if (disabled) return;
+    if (onSelectMany) {
+      takeMany(event.dataTransfer?.files);
+      return;
+    }
     take(event.dataTransfer?.files?.[0] ?? null);
   };
 
@@ -170,13 +196,17 @@ export const FilePicker = ({
         {...(accept ? { accept } : {})}
         {...(capture ? { capture } : {})}
         {...(disabled ? { disabled: true } : {})}
+        {...(onSelectMany ? { multiple: true } : {})}
         onChange={(event) => {
-          take(event.target.files?.[0] ?? null);
+          if (onSelectMany) takeMany(event.target.files);
+          else take(event.target.files?.[0] ?? null);
           if (resetAfterSelect) event.target.value = '';
         }}
       />
       {variant === 'dropzone' ? (
-        <span className="ui-file-picker__call">Перетащите файл сюда или</span>
+        <span className="ui-file-picker__call">
+          {onSelectMany ? 'Перетащите файлы сюда или' : 'Перетащите файл сюда или'}
+        </span>
       ) : null}
       <span className="ui-button ui-file-picker__button" aria-hidden>
         {capture ? 'Сделать фото или выбрать' : buttonLabel}

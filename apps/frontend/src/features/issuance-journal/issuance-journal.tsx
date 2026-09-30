@@ -7,6 +7,7 @@ import { type ReactElement, useState } from 'react';
 import { issuanceJournalApi } from './api';
 import { ExternalDocumentDrawer, ExternalScanDrawer } from './external-document-drawers';
 import { journalKindView } from './external-documents';
+import { ExternalScansBatchDrawer } from './external-scans-batch-drawer';
 import { useIssuanceJournal } from './hooks';
 import { type RevokeReissueAction, RevokeReissueModal } from './revoke-reissue-modal';
 import {
@@ -66,6 +67,7 @@ export function IssuanceJournalView() {
   const queryClient = useQueryClient();
   const kinds = useDocumentKinds().data?.items ?? [];
   const [externalOpen, setExternalOpen] = useState(false);
+  const [batchOpen, setBatchOpen] = useState(false);
   const [scanFor, setScanFor] = useState<{ id: string; number: string | undefined } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const afterExternal = async (message: string) => {
@@ -157,7 +159,11 @@ export function IssuanceJournalView() {
               if (session) void issuanceJournalApi.downloadCsv(session, filter);
             },
             disabled: !session || (data?.total ?? 0) === 0
-          }
+          },
+          /* МГ-K6.1 (срез 23.6): сканы внешних документов пачкой — по номеру в имени файла. */
+          ...(canWrite
+            ? [{ label: 'Загрузить сканы пачкой', onSelect: () => setBatchOpen(true) }]
+            : [])
         ]}
       />
 
@@ -325,6 +331,12 @@ export function IssuanceJournalView() {
       {notice ? <p role="status">{notice}</p> : null}
       {externalOpen ? (
         <ExternalDocumentDrawer onClose={() => setExternalOpen(false)} onSaved={afterExternal} />
+      ) : null}
+      {batchOpen ? (
+        <ExternalScansBatchDrawer
+          onClose={() => setBatchOpen(false)}
+          onDone={() => queryClient.invalidateQueries({ queryKey: ['issuance-journal'] })}
+        />
       ) : null}
       {scanFor ? (
         <ExternalScanDrawer

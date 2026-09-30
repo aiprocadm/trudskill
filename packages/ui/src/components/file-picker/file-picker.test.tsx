@@ -95,6 +95,26 @@ describe('FilePicker — загрузка файла (ТЗ 5.9)', () => {
     expect(onReject.mock.calls[0]?.[0]).toContain('Нужен PNG');
   });
 
+  it('пачка файлов (срез 23.6): подходящие уходят экрану, неподходящие объясняются поимённо', () => {
+    const onSelect = vi.fn();
+    const onSelectMany = vi.fn();
+    const onReject = vi.fn();
+    const el = FilePicker({
+      ariaLabel: 'Сканы',
+      onSelect,
+      onSelectMany,
+      onReject,
+      accept: 'application/pdf'
+    });
+    expect(find(el, 'ui-file-picker__input').props.multiple).toBe(true);
+    const good = new File(['x'], '264501-3.pdf', { type: 'application/pdf' });
+    const bad = new File(['x'], 'фото.png', { type: 'image/png' });
+    (propsOf(el) as any).onDrop({ preventDefault: () => {}, dataTransfer: { files: [good, bad] } });
+    expect(onSelectMany).toHaveBeenCalledWith([good]);
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(onReject.mock.calls[0]?.[0]).toMatch(/^фото\.png: .*Нужен PDF/);
+  });
+
   it('на телефоне предлагается снять фото, а не искать файл', () => {
     const el = FilePicker({ ariaLabel: 'Селфи', onSelect: () => {}, capture: 'user' });
     const input = find(el, 'ui-file-picker__input');

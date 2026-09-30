@@ -2299,6 +2299,35 @@ export class DocumentsService {
   }
 
   /** МГ-F4.1: «Загрузить скан» — единственное изменение внешнего документа. */
+  /**
+   * МГ-K6.1 (срез 23.6): действующие внешние документы центра — кандидаты для сканов пачкой.
+   * Отозванный и архивный документ скан не получает: к нему прикреплять нечего.
+   */
+  externalDocumentsForScans(tenantId: string): Array<{
+    id: string;
+    number: string;
+    sourceEntityType: string;
+    sourceEntityId: string;
+    hasScan: boolean;
+  }> {
+    return this.state.generatedDocuments
+      .filter(
+        (d) =>
+          d.tenantId === tenantId &&
+          d.isExternal === true &&
+          d.status !== 'revoked' &&
+          d.status !== 'archived' &&
+          Boolean(d.documentNumber)
+      )
+      .map((d) => ({
+        id: d.id,
+        number: d.documentNumber!,
+        sourceEntityType: d.sourceEntityType,
+        sourceEntityId: d.sourceEntityId,
+        hasScan: Boolean(d.externalFileId)
+      }));
+  }
+
   attachExternalScan(
     tenantId: string,
     actorId: string | undefined,

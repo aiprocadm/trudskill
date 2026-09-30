@@ -104,4 +104,22 @@ describe('внешние документы на экране (МГ-F4.1, сре
     ).toBe('Удостоверение (внешний)');
     expect(mod.journalKindView({}, 'Приказ', kindName)).toBe('Приказ');
   });
+  it('сканы пачкой (срез 23.6): адрес ТЗ, имена файлов уходят серверу; итог — одной фразой', async () => {
+    fetchMock.mockImplementation(async () =>
+      envelope({ total: 1, attached: 1, skipped: 0, failed: 0, rows: [] })
+    );
+    await mod.externalDocumentsApi.attachExternalScans(session, [
+      { fileId: 'f1', fileName: '264501-3.pdf' }
+    ]);
+    expect(String(fetchMock.mock.calls[0]![0])).toMatch(/\/documents\/external\/scans$/);
+    expect(JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body))).toEqual({
+      files: [{ fileId: 'f1', fileName: '264501-3.pdf' }]
+    });
+    expect(
+      mod.batchSummary([
+        { fileName: 'a.pdf', status: 'attached', message: '' },
+        { fileName: 'b.pdf', status: 'failed', message: '' }
+      ])
+    ).toBe('Прикреплено: 1, не прикреплено: 1 — их можно прикрепить по одному в строке документа.');
+  });
 });
