@@ -280,6 +280,10 @@ export interface Enrollment extends BaseEntity {
   proctoringOverride?: 'require' | 'exempt';
   /** МГ-B7.1: итог по зачислению; `absent` — «не явился» (куратор), остальное проставит экзамен. */
   resultCode?: EnrollmentResultCode;
+  /** МГ-F3.2: номер, серия и разряд удостоверения, назначенные до выпуска. */
+  certificateNumber?: string;
+  certificateSeries?: string;
+  certificateRank?: string;
 }
 
 export type EnrollmentResultCode = 'passed' | 'failed' | 'absent';

@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
+import { CertificateNumbersDrawer } from './certificate-numbers-drawer';
 import { DocumentSampleForm } from './document-sample-form';
 import { GroupCoursesList } from './group-courses-list';
 import { GroupEditDrawer } from './group-edit-drawer';
@@ -101,6 +102,7 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
   const { data: groupCourses, refetch: refetchCourses } = useGroupCourses(id);
   const { data: enrollments, refetch: refetchEnrollments } = useEnrollments({ group_id: id });
   const learnerNames = useLearnerNames();
+  const [numbersOpen, setNumbersOpen] = useState(false);
   const { data: progress } = useLearnerCourseProgress(groupCourses?.items[0]?.courseId);
   const {
     createGroupCourse,
@@ -562,14 +564,40 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
         {/* МГ-F5.1 (срез 20.1): что мешает выпустить документы — до нажатия «Закрыть группу». */}
         <IssueReadinessSection groupId={id}>
           {canGenerateDocuments ? (
-            <DocumentSampleForm
+            <>
+              {/* МГ-F3.2 (срез 20.3b): номер, серия и разряд удостоверений — до выпуска. */}
+              <div className="ui-inline">
+                <button type="button" className="ui-button" onClick={() => setNumbersOpen(true)}>
+                  Номера удостоверений
+                </button>
+              </div>
+              <DocumentSampleForm
+                groupId={id}
+                learners={(enrollments?.items ?? [])
+                  .filter((e) => e.status !== 'cancelled')
+                  .map((e) => ({
+                    enrollmentId: e.id,
+                    name: learnerNameCell(learnerNames, e.learnerId)
+                  }))}
+              />
+            </>
+          ) : null}
+          {numbersOpen ? (
+            <CertificateNumbersDrawer
               groupId={id}
               learners={(enrollments?.items ?? [])
                 .filter((e) => e.status !== 'cancelled')
                 .map((e) => ({
                   enrollmentId: e.id,
-                  name: learnerNameCell(learnerNames, e.learnerId)
+                  name: learnerNameCell(learnerNames, e.learnerId),
+                  number: e.certificateNumber,
+                  series: e.certificateSeries,
+                  rank: e.certificateRank
                 }))}
+              onClose={() => setNumbersOpen(false)}
+              onSaved={async () => {
+                await refetchEnrollments();
+              }}
             />
           ) : null}
         </IssueReadinessSection>
