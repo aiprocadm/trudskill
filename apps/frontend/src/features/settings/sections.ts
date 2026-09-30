@@ -39,6 +39,12 @@ export const SETTINGS_LINK_SECTIONS: SettingsSection[] = [
   },
   /* МГ-F5.1 (срез 20.2): что проверять перед выпуском; раздел сам прячется без tenant.settings.write. */
   { id: 'document-issue', title: 'Выпуск документов', hint: 'Что проверять перед выпуском' },
+  /* МГ-K3.1 (срез 23.5): перенос из прежней системы; раздел сам прячется без import.run. */
+  {
+    id: 'data-import',
+    title: 'Перенос данных',
+    hint: 'Компании, слушатели и группы из прежней системы'
+  },
   { id: 'payments', title: 'Оплата', hint: 'Платёжный провайдер центра' },
   { id: 'notifications', title: 'Уведомления', hint: 'Кому дублировать письма' },
   { id: 'webinars', title: 'Вебинары', hint: 'Площадка для занятий' },

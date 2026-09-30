@@ -13,6 +13,7 @@ import { ThemeAppearanceSettings } from '../../components/theme-appearance-setti
 import { useAuth } from '../auth/context';
 import { TwoFactorCard } from '../auth/two-factor-card';
 import { BrandingSettingsSection } from '../branding/branding-section';
+import { DataImportSection } from '../data-import/data-import-section';
 import { useTabParam } from '../navigation/use-tab-param';
 import { NotificationRecipientsSection } from '../notification-recipients/screens';
 import { PaymentProviderSettingsSection } from '../payments/settings-screen';
@@ -87,6 +88,10 @@ export function SettingsScreen() {
         </TabPanel>
         <TabPanel id="document-issue" activeId={activeId}>
           <DocumentIssueSettingsSection />
+        </TabPanel>
+        {/* МГ-K3.1 (срез 23.5): секция сама скрывается без права import.run. */}
+        <TabPanel id="data-import" activeId={activeId}>
+          <DataImportSection />
         </TabPanel>
         <TabPanel id="payments" activeId={activeId}>
           <PaymentProviderSettingsSection />
