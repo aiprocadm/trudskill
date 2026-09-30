@@ -15,6 +15,7 @@ import type {
   Counterparty,
   Course,
   Direction,
+  Enrollment,
   GroupCourse,
   GroupEntity,
   Learner
@@ -32,6 +33,7 @@ export interface MatchSnapshot {
   courses?: readonly Course[];
   groups?: readonly GroupEntity[];
   groupCourses?: readonly GroupCourse[];
+  enrollments?: readonly Enrollment[];
 }
 
 /** ФИО для сравнения: регистр, «ё/е» и лишние пробелы не отличают людей. */

@@ -177,6 +177,7 @@ import type {
   CourseVersion,
   Direction,
   Enrollment,
+  EnrollmentResultCode,
   EnrollmentStatus,
   EnrollmentStatusHistory,
   ExamResult,
@@ -1020,6 +1021,7 @@ export class MvpService {
     courses: Course[];
     groups: GroupEntity[];
     groupCourses: GroupCourse[];
+    enrollments: Enrollment[];
   } {
     return {
       learners: this.state.learners.filter((learner) => learner.tenantId === tenantId),
@@ -1027,7 +1029,8 @@ export class MvpService {
       directions: this.state.directions.filter((item) => item.tenantId === tenantId),
       courses: this.state.courses.filter((item) => item.tenantId === tenantId),
       groups: this.state.groups.filter((item) => item.tenantId === tenantId),
-      groupCourses: this.state.groupCourses.filter((item) => item.tenantId === tenantId)
+      groupCourses: this.state.groupCourses.filter((item) => item.tenantId === tenantId),
+      enrollments: this.state.enrollments.filter((item) => item.tenantId === tenantId)
     };
   }
 
@@ -3294,6 +3297,80 @@ export class MvpService {
       requestId: context.requestId,
       correlationId: context.correlationId
     });
+    return entity;
+  }
+
+  /**
+   * Зачисление из прежней системы (МГ-K3.1, срез 23.3b) — с итогом и датами истории.
+   *
+   * Отличие от `createEnrollment` — намеренное: НИ приглашения, НИ события завершения. Обычное
+   * завершение выпускает документы по комплекту курса, а у перенесённого слушателя документы
+   * уже выданы в прежней системе (они едут отдельно — МГ-F4.1/K6.1); приглашение ушло бы живому
+   * человеку по давно закончившемуся обучению. Одна запись истории «импорт» (ТЗ §13.2).
+   */
+  importEnrollment(
+    tenantId: string,
+    actorId: string | undefined,
+    request: {
+      groupId: string;
+      learnerId: string;
+      status: EnrollmentStatus;
+      resultCode?: EnrollmentResultCode;
+      enrolledAt?: string;
+      completedAt?: string;
+      externalId?: string;
+      sourceSystem?: string;
+    },
+    context: RequestContext
+  ): Enrollment {
+    this.getById(this.state.groups, tenantId, request.groupId);
+    this.getById(this.state.learners, tenantId, request.learnerId);
+    const duplicate = this.state.enrollments.some(
+      (item) =>
+        item.tenantId === tenantId &&
+        item.groupId === request.groupId &&
+        item.learnerId === request.learnerId
+    );
+    if (duplicate) {
+      throw new ConflictException({
+        code: 'conflict',
+        message: 'Слушатель уже зачислен в эту группу.'
+      });
+    }
+    const now = this.now();
+    const entity: Enrollment = {
+      id: this.id('enrollment'),
+      tenantId,
+      groupId: request.groupId,
+      learnerId: request.learnerId,
+      status: request.status,
+      enrolledAt: request.enrolledAt ?? now,
+      ...(request.completedAt ? { completedAt: request.completedAt } : {}),
+      ...(request.resultCode ? { resultCode: request.resultCode } : {}),
+      ...(request.externalId && request.sourceSystem
+        ? { externalId: request.externalId, sourceSystem: request.sourceSystem }
+        : {}),
+      createdAt: now,
+      updatedAt: now
+    };
+    this.state.enrollments.push(entity);
+    this.pushEnrollmentStatusHistory(
+      tenantId,
+      entity.id,
+      entity.status,
+      'импорт из прежней системы'
+    );
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.enrollment_created',
+      'learning.enrollment',
+      entity.id,
+      undefined,
+      entity,
+      context,
+      { source: 'import' }
+    );
     return entity;
   }
 

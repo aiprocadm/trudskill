@@ -117,12 +117,14 @@ export class ImportLiveExecutor {
         courses: new Map(),
         learners: bySourceMark(snapshot.learners),
         groups: bySourceMark(snapshot.groups ?? []),
-        group_courses: new Map()
+        group_courses: new Map(),
+        enrollments: new Map()
       };
 
       /* Запуск только курсов групп: группы и курсы, перенесённые раньше, нашёл план. */
       plan.sides.groups.forEach((id, sourceId) => links.groups.set(sourceId, id));
       plan.sides.courses.forEach((id, sourceId) => links.courses.set(sourceId, id));
+      plan.sides.learners.forEach((id, sourceId) => links.learners.set(sourceId, id));
 
       for (const domain of domainsOf(input.domain)) {
         const planned = plan.byDomain[domain] ?? [];
@@ -130,14 +132,22 @@ export class ImportLiveExecutor {
         planned.filter(linkable).forEach((row) => links[domain].set(row.sourceId, row.targetId!));
         for (const chunk of chunksOf(planned, chunkSize)) {
           const applied = await this.writer.run(input.tenantId, (mvp) => {
+            const current =
+              domain === 'group_courses' || domain === 'enrollments'
+                ? mvp.importMatchSnapshot(input.tenantId)
+                : undefined;
             const existingPairs =
               domain === 'group_courses'
                 ? new Set(
-                    (mvp.importMatchSnapshot(input.tenantId).groupCourses ?? []).map(
-                      (item) => `${item.groupId}|${item.courseId}`
-                    )
+                    (current?.groupCourses ?? []).map((item) => `${item.groupId}|${item.courseId}`)
                   )
-                : undefined;
+                : domain === 'enrollments'
+                  ? new Set(
+                      (current?.enrollments ?? []).map(
+                        (item) => `${item.groupId}|${item.learnerId}`
+                      )
+                    )
+                  : undefined;
             return chunk.map((row) => {
               if (row.action !== 'created' && row.action !== 'updated') return row;
               try {
@@ -379,6 +389,40 @@ export class ImportLiveExecutor {
         if (existingPairs?.has(`${groupId}|${courseId}`)) return unchanged(row);
         const created = mvp.createGroupCourse(tenantId, { groupId, courseId }, actorId, context);
         existingPairs?.add(`${groupId}|${courseId}`);
+        return { ...row, targetId: created.id };
+      }
+      case 'enrollments': {
+        const draft = drafts.enrollments.get(row.sourceId);
+        if (!draft) return row;
+        const learnerId = links.learners.get(draft.learnerSourceId);
+        const groupId = links.groups.get(draft.groupSourceId);
+        if (!learnerId || !groupId) {
+          return {
+            ...row,
+            action: 'failed',
+            errorCode: 'enrollment_side_missing',
+            errorText: learnerId
+              ? 'Группа из прежней системы не перенесена — зачисление не создано. Перенесите группы, затем повторите.'
+              : 'Слушатель из прежней системы не перенесён — зачисление не создано. Перенесите слушателей, затем повторите.'
+          };
+        }
+        if (existingPairs?.has(`${groupId}|${learnerId}`)) return unchanged(row);
+        /* Без событий и писем: история не выпускает документы и не приглашает людей. */
+        const created = mvp.importEnrollment(
+          tenantId,
+          actorId,
+          {
+            groupId,
+            learnerId,
+            status: draft.status,
+            ...(draft.resultCode ? { resultCode: draft.resultCode } : {}),
+            ...(draft.enrolledOn ? { enrolledAt: moment(draft.enrolledOn) } : {}),
+            ...(draft.completedOn ? { completedAt: moment(draft.completedOn) } : {}),
+            ...source
+          },
+          context
+        );
+        existingPairs?.add(`${groupId}|${learnerId}`);
         return { ...row, targetId: created.id };
       }
     }

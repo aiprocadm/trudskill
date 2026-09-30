@@ -3,7 +3,7 @@
  * что покажет сухой прогон, ровно то и сделает боевой.
  *
  * Порядок доменов — ТЗ §13.4: контрагенты → направления → курсы → слушатели → группы → курсы
- * групп (→ зачисления, срез 23.3b). Каждый следующий домен ссылается на предыдущие через
+ * групп → зачисления. Каждый следующий домен ссылается на предыдущие через
  * соответствия «id источника → id центра», которые план собирает по ходу.
  */
 import {
@@ -18,14 +18,16 @@ import {
   withUniqueCodes
 } from './catalog.js';
 import { CDOPROF_SOURCE_SYSTEM, planCounterparties, planLearners } from './dedup.js';
+import { enrollmentsFromTrainings, planEnrollments } from './enrollments.js';
 import { mapContragent, mapStudent } from './mappers.js';
 
 import type { CourseDraft, DirectionDraft, GroupCourseDraft, GroupDraft } from './catalog.js';
 import type { MatchSnapshot } from './dedup.js';
+import type { EnrollmentDraft } from './enrollments.js';
 import type { ImportDomain, ImportRowPlan, ImportRunDomain } from './import.types.js';
 import type { CounterpartyDraft, LearnerDraft, MappedRecord } from './mappers.js';
 import type { CdoprofApiClient } from './sources/cdoprof-api-client.js';
-import type { CdoprofContragent } from './sources/cdoprof-api.schemas.js';
+import type { CdoprofContragent, CdoprofTrainingsResponse } from './sources/cdoprof-api.schemas.js';
 
 export const DOMAIN_ORDER: readonly ImportDomain[] = [
   'counterparties',
@@ -33,7 +35,8 @@ export const DOMAIN_ORDER: readonly ImportDomain[] = [
   'courses',
   'learners',
   'groups',
-  'group_courses'
+  'group_courses',
+  'enrollments'
 ];
 
 export const domainsOf = (domain: ImportRunDomain): readonly ImportDomain[] =>
@@ -46,13 +49,18 @@ export interface ImportDrafts {
   learners: Map<string, LearnerDraft>;
   groups: Map<string, GroupDraft>;
   group_courses: Map<string, GroupCourseDraft>;
+  enrollments: Map<string, EnrollmentDraft>;
 }
 
 export interface ImportPlan {
   byDomain: Partial<Record<ImportDomain, ImportRowPlan[]>>;
   drafts: ImportDrafts;
-  /** Стороны курсов групп, найденные планом: группы и курсы, которые уже есть в центре. */
-  sides: { groups: Map<string, string>; courses: Map<string, string> };
+  /** Стороны курсов групп и зачислений, найденные планом: что уже есть в центре. */
+  sides: {
+    groups: Map<string, string>;
+    courses: Map<string, string>;
+    learners: Map<string, string>;
+  };
 }
 
 export interface PlanInput {
@@ -90,14 +98,15 @@ export const planImport = async (input: PlanInput): Promise<ImportPlan> => {
     records.filter((record) => wants(domain, record.sourceId));
   const { snapshot, tenantId } = input;
   const byDomain: ImportPlan['byDomain'] = {};
-  const sides: ImportPlan['sides'] = { groups: new Map(), courses: new Map() };
+  const sides: ImportPlan['sides'] = { groups: new Map(), courses: new Map(), learners: new Map() };
   const drafts: ImportDrafts = {
     counterparties: new Map(),
     directions: new Map(),
     courses: new Map(),
     learners: new Map(),
     groups: new Map(),
-    group_courses: new Map()
+    group_courses: new Map(),
+    enrollments: new Map()
   };
 
   let contragents: CdoprofContragent[] | undefined;
@@ -178,24 +187,46 @@ export const planImport = async (input: PlanInput): Promise<ImportPlan> => {
     drafts.groups = draftsOf(records);
     byDomain.groups = planGroups(records, snapshot, tenantId);
   }
-  if (domains.has('group_courses')) {
-    const responses = [];
-    for (const contragent of await loadContragents()) {
-      responses.push(await input.client.getContragentTrainings(contragent.id));
+  /* Прохождения — общий источник курсов групп и зачислений: читаются один раз. */
+  let trainings: CdoprofTrainingsResponse[] | undefined;
+  const loadTrainings = async () => {
+    if (!trainings) {
+      trainings = [];
+      for (const contragent of await loadContragents()) {
+        trainings.push(await input.client.getContragentTrainings(contragent.id));
+      }
     }
-    const records = pick('group_courses', groupCoursePairs(responses));
+    return trainings;
+  };
+  /* Группы нужны курсам групп и зачислениям, даже если сами в этот запуск не входят. */
+  let groupSide: { rows: ImportRowPlan[]; drafts: Map<string, GroupDraft> } | undefined;
+  const loadGroupSide = async () => {
+    if (!groupSide) {
+      if (byDomain.groups) {
+        groupSide = { rows: byDomain.groups, drafts: drafts.groups };
+      } else {
+        const records = withUniqueCodes(
+          (await collect(input.client.iterateGroups())).map((record) => ({
+            sourceId: String(record.id),
+            mapped: mapGroup(record, input.today)
+          })),
+          'Номер группы'
+        );
+        groupSide = { rows: planGroups(records, snapshot, tenantId), drafts: draftsOf(records) };
+      }
+      sides.groups = new Map([
+        ...snapshotGroupIds(snapshot, tenantId),
+        ...targetsOf(groupSide.rows)
+      ]);
+    }
+    return groupSide;
+  };
+
+  if (domains.has('group_courses')) {
+    const records = pick('group_courses', groupCoursePairs(await loadTrainings()));
     drafts.group_courses = draftsOf(records);
+    await loadGroupSide();
     /* Запуск только курсов групп: стороны пары ищутся тем же ходом, что и при их собственном переносе. */
-    const groupRows =
-      byDomain.groups ??
-      planGroups(
-        (await collect(input.client.iterateGroups())).map((record) => ({
-          sourceId: String(record.id),
-          mapped: mapGroup(record, input.today)
-        })),
-        snapshot,
-        tenantId
-      );
     const courseRows =
       byDomain.courses ??
       planCourses(
@@ -206,16 +237,39 @@ export const planImport = async (input: PlanInput): Promise<ImportPlan> => {
         snapshot,
         tenantId
       );
-    const groupIds = new Map([...snapshotGroupIds(snapshot, tenantId), ...targetsOf(groupRows)]);
-    const courseIds = targetsOf(courseRows);
-    sides.groups = groupIds;
-    sides.courses = courseIds;
+    sides.courses = targetsOf(courseRows);
     byDomain.group_courses = planGroupCourses(
       records,
       snapshot,
       tenantId,
-      (id) => groupIds.get(id),
-      (id) => courseIds.get(id)
+      (id) => sides.groups.get(id),
+      (id) => sides.courses.get(id)
+    );
+  }
+  if (domains.has('enrollments')) {
+    const groups = await loadGroupSide();
+    const records = pick(
+      'enrollments',
+      enrollmentsFromTrainings(await loadTrainings(), (id) => groups.drafts.get(id))
+    );
+    drafts.enrollments = draftsOf(records);
+    sides.learners = new Map([
+      ...snapshot.learners
+        .filter(
+          (item) =>
+            item.tenantId === tenantId &&
+            item.sourceSystem === CDOPROF_SOURCE_SYSTEM &&
+            item.externalId
+        )
+        .map((item): [string, string] => [item.externalId!, item.id]),
+      ...targetsOf(byDomain.learners)
+    ]);
+    byDomain.enrollments = planEnrollments(
+      records,
+      snapshot,
+      tenantId,
+      (id) => sides.learners.get(id),
+      (id) => sides.groups.get(id)
     );
   }
   return { byDomain, drafts, sides };
