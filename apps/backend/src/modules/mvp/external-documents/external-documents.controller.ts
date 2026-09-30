@@ -10,6 +10,7 @@ import {
   UseInterceptors
 } from '@nestjs/common';
 
+import { matchScan } from './scan-matching.js';
 import { assertValidDto } from '../../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../../common/guards/tenant.guard.js';
@@ -23,6 +24,7 @@ import { MvpRequestPersistenceInterceptor } from '../infrastructure/mvp-request-
 import { MVP_STATE } from '../infrastructure/mvp-state.token.js';
 import {
   AttachExternalScanRequest,
+  AttachExternalScansRequest,
   CreateUploadUrlRequest,
   RegisterExternalDocumentRequest
 } from '../mvp.dto.js';
@@ -123,6 +125,117 @@ export class ExternalDocumentsController {
       mimeAllowlist: EXTERNAL_SCAN_MIME,
       maxBytes: EXTERNAL_SCAN_MAX_BYTES
     });
+  }
+
+  /** Фамилия слушателя документа — разводит одинаковые номера у разных людей. */
+  private learnerLastNameOf(
+    tenantId: string,
+    doc: { sourceEntityType: string; sourceEntityId: string }
+  ) {
+    const learnerId =
+      doc.sourceEntityType === 'enrollment'
+        ? this.state.enrollments.find((e) => e.tenantId === tenantId && e.id === doc.sourceEntityId)
+            ?.learnerId
+        : doc.sourceEntityId;
+    return this.state.learners.find((l) => l.tenantId === tenantId && l.id === learnerId)?.lastName;
+  }
+
+  /**
+   * МГ-K6.1 (срез 23.6): сканы пачкой — каждый файл к своему документу по номеру в имени.
+   * Частичный успех: подошедшие прикрепляются, остальные названы поимённо с причиной.
+   */
+  @Post('documents/external/scans')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.write')
+  async attachScans(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(AttachExternalScansRequest, raw);
+    const tenantId = c.tenantId!;
+    const candidates = this.documents.externalDocumentsForScans(tenantId).map((doc) => {
+      const learnerLastName = this.learnerLastNameOf(tenantId, doc);
+      return {
+        id: doc.id,
+        number: doc.number,
+        hasScan: doc.hasScan,
+        ...(learnerLastName ? { learnerLastName } : {})
+      };
+    });
+    const rows: Array<{
+      fileName: string;
+      status: 'attached' | 'skipped' | 'failed';
+      documentId?: string;
+      documentNumber?: string;
+      message: string;
+    }> = [];
+    for (const file of b.files) {
+      const status = await this.files.getAntivirusStatus(tenantId, file.fileId);
+      if (status === null) {
+        rows.push({
+          fileName: file.fileName,
+          status: 'failed',
+          message: 'Файл не найден — загрузите его заново.'
+        });
+        continue;
+      }
+      const match = matchScan(file.fileName, candidates);
+      if (match.status === 'not_matched') {
+        rows.push({
+          fileName: file.fileName,
+          status: 'failed',
+          message:
+            'Номер документа в имени файла не найден среди внешних документов — прикрепите скан вручную в книге выдачи.'
+        });
+        continue;
+      }
+      if (match.status === 'ambiguous') {
+        rows.push({
+          fileName: file.fileName,
+          status: 'failed',
+          message: `Номер подходит к нескольким документам (${match.numbers.join(', ')}) — добавьте в имя файла фамилию слушателя или прикрепите вручную.`
+        });
+        continue;
+      }
+      if (match.status === 'has_scan') {
+        rows.push({
+          fileName: file.fileName,
+          status: 'skipped',
+          documentId: match.documentId,
+          documentNumber: match.number,
+          message: `У документа № ${match.number} уже есть скан — пачкой не заменяем; замените вручную в книге выдачи.`
+        });
+        continue;
+      }
+      try {
+        this.documents.attachExternalScan(tenantId, c.userId, match.documentId, file.fileId, c);
+      } catch (error) {
+        /* Частичный успех: отказ по одному файлу — строка отчёта, остальные файлы идут дальше. */
+        rows.push({
+          fileName: file.fileName,
+          status: 'failed',
+          documentNumber: match.number,
+          message: error instanceof Error ? error.message : String(error)
+        });
+        continue;
+      }
+      const target = candidates.find((item) => item.id === match.documentId);
+      if (target) target.hasScan = true;
+      void this.files.scanFile(tenantId, file.fileId, c.userId).catch(() => {
+        // Сбой проверки не отменяет привязку: файл «на проверке», скачать его нельзя до вердикта.
+      });
+      rows.push({
+        fileName: file.fileName,
+        status: 'attached',
+        documentId: match.documentId,
+        documentNumber: match.number,
+        message: `Прикреплён к документу № ${match.number}.`
+      });
+    }
+    return {
+      total: rows.length,
+      attached: rows.filter((r) => r.status === 'attached').length,
+      skipped: rows.filter((r) => r.status === 'skipped').length,
+      failed: rows.filter((r) => r.status === 'failed').length,
+      rows
+    };
   }
 
   /** Шаг 2: «Загрузить скан» — единственное, что можно сделать с внешним документом (МГ-F4.1). */

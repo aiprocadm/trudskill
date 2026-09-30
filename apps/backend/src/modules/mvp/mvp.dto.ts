@@ -1376,6 +1376,29 @@ export class AttachExternalScanRequest {
   fileId!: string;
 }
 
+/** МГ-K6.1 (срез 23.6): файл пачки сканов — идентификатор загрузки и имя, по которому ищется номер. */
+export class ExternalScanFileDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(128)
+  fileId!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(255)
+  fileName!: string;
+}
+
+/** МГ-K6.1 (срез 23.6): сканы внешних документов пачкой. */
+export class AttachExternalScansRequest {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(200)
+  @ValidateNested({ each: true })
+  @Type(() => ExternalScanFileDto)
+  files!: ExternalScanFileDto[];
+}
+
 /** МГ-F2.1 (срез 21.1): выпуск пакета документов группы. */
 export class IssueGroupPackageRequest {
   /** Какие виды выпустить (ключи строк пакета); пусто — все. */
