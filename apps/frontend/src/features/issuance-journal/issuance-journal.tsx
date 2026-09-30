@@ -1,9 +1,12 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { DetailDrawer, ListPage, StatusChip } from '@trudskill/ui';
 import { type ReactElement, useState } from 'react';
 
 import { issuanceJournalApi } from './api';
+import { ExternalDocumentDrawer, ExternalScanDrawer } from './external-document-drawers';
+import { journalKindView } from './external-documents';
 import { useIssuanceJournal } from './hooks';
 import { type RevokeReissueAction, RevokeReissueModal } from './revoke-reissue-modal';
 import {
@@ -19,6 +22,7 @@ import { PageContainer, PageHeader, SectionCard } from '../../components/state-w
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 import { CloseGroupSection } from '../close-group/screens';
+import { useDocumentKinds } from '../documents/document-kinds';
 import { formatDate } from '../mvp/screen-helpers';
 
 const PAGE_SIZE = 50;
@@ -31,6 +35,7 @@ interface JournalRow {
   statusView: ReactElement;
   status: string;
   documentNumber: string | undefined;
+  isExternal: boolean;
 }
 
 interface ModalState {
@@ -57,6 +62,18 @@ export function IssuanceJournalView() {
   const [filter, setFilter] = useState<IssuanceJournalFilter>({ limit: PAGE_SIZE, offset: 0 });
   const { data, isLoading, error } = useIssuanceJournal(filter);
   const [modal, setModal] = useState<ModalState | null>(null);
+  /* МГ-F4.1 (срез 22.2): внешние документы — внесение и скан. */
+  const queryClient = useQueryClient();
+  const kinds = useDocumentKinds().data?.items ?? [];
+  const [externalOpen, setExternalOpen] = useState(false);
+  const [scanFor, setScanFor] = useState<{ id: string; number: string | undefined } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const afterExternal = async (message: string) => {
+    setExternalOpen(false);
+    setScanFor(null);
+    setNotice(message);
+    await queryClient.invalidateQueries({ queryKey: ['issuance-journal'] });
+  };
   const [closeGroupOpen, setCloseGroupOpen] = useState(false);
 
   // exactOptionalPropertyTypes: explicit undefined запрещён в Partial<T>.
@@ -100,12 +117,17 @@ export function IssuanceJournalView() {
     id: doc.id,
     documentDateView: formatDate(doc.documentDate),
     documentNumberView: doc.documentNumber ?? 'без номера',
-    documentTypeView: TEMPLATE_TYPE_LABELS[doc.documentType] ?? doc.documentType,
+    documentTypeView: journalKindView(
+      doc,
+      TEMPLATE_TYPE_LABELS[doc.documentType] ?? 'Документ',
+      (code) => kinds.find((k) => k.code === code)?.name
+    ),
     statusView: (
       <StatusChip status={doc.status} label={DOCUMENT_STATUS_LABELS[doc.status] ?? doc.status} />
     ),
     status: doc.status,
-    documentNumber: doc.documentNumber
+    documentNumber: doc.documentNumber,
+    isExternal: doc.isExternal === true
   }));
 
   /*
@@ -120,6 +142,14 @@ export function IssuanceJournalView() {
       <PageHeader
         title="Книга выдачи документов"
         subtitle="Все выпущенные удостоверения, протоколы и приказы — с выгрузкой для проверяющих"
+        {...(canWrite
+          ? {
+              primaryAction: {
+                label: 'Внести внешний документ',
+                onSelect: () => setExternalOpen(true)
+              }
+            }
+          : {})}
         secondaryActions={[
           {
             label: 'Скачать таблицей',
@@ -215,27 +245,35 @@ export function IssuanceJournalView() {
         rowActions={(row) =>
           row.status === 'revoked' || !canWrite
             ? []
-            : [
-                {
-                  label: 'Аннулировать',
-                  danger: true,
-                  onSelect: () =>
-                    setModal({
-                      action: 'revoke',
-                      documentId: row.id,
-                      documentNumber: row.documentNumber
-                    })
-                },
-                {
-                  label: 'Перевыпустить',
-                  onSelect: () =>
-                    setModal({
-                      action: 'reissue',
-                      documentId: row.id,
-                      documentNumber: row.documentNumber
-                    })
-                }
-              ]
+            : row.isExternal
+              ? /* МГ-F4.1: внешний документ не перевыпускается — только скан. */
+                [
+                  {
+                    label: 'Загрузить скан',
+                    onSelect: () => setScanFor({ id: row.id, number: row.documentNumber })
+                  }
+                ]
+              : [
+                  {
+                    label: 'Аннулировать',
+                    danger: true,
+                    onSelect: () =>
+                      setModal({
+                        action: 'revoke',
+                        documentId: row.id,
+                        documentNumber: row.documentNumber
+                      })
+                  },
+                  {
+                    label: 'Перевыпустить',
+                    onSelect: () =>
+                      setModal({
+                        action: 'reissue',
+                        documentId: row.id,
+                        documentNumber: row.documentNumber
+                      })
+                  }
+                ]
         }
         emptyMessage={
           filtersApplied > 0
@@ -282,6 +320,19 @@ export function IssuanceJournalView() {
         >
           <CloseGroupSection />
         </DetailDrawer>
+      ) : null}
+
+      {notice ? <p role="status">{notice}</p> : null}
+      {externalOpen ? (
+        <ExternalDocumentDrawer onClose={() => setExternalOpen(false)} onSaved={afterExternal} />
+      ) : null}
+      {scanFor ? (
+        <ExternalScanDrawer
+          documentId={scanFor.id}
+          documentNumber={scanFor.number}
+          onClose={() => setScanFor(null)}
+          onSaved={afterExternal}
+        />
       ) : null}
 
       {modal ? (
