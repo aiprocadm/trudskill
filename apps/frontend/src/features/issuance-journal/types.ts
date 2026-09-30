@@ -37,6 +37,10 @@ export interface IssuedDocument {
   status: string;
   documentDate?: string;
   groupOrderDocumentId?: string;
+  /** МГ-F1.1: вид документа (приказ о зачислении, удостоверение…). */
+  kindCode?: string;
+  /** МГ-F4.1: документ выдан вне системы — внесён реквизитами, не перевыпускается. */
+  isExternal?: boolean;
 }
 
 export interface IssuanceJournalFilter {
