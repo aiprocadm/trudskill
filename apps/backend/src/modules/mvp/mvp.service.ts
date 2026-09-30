@@ -602,6 +602,9 @@ export class MvpService {
       legalAddress?: string;
       note?: string;
       status?: string;
+      /** МГ-K2.1 (срез 23.2): импорт помечает запись источником — по нему повтор находит её. */
+      externalId?: string;
+      sourceSystem?: string;
     } & CounterpartyRequisitesPatch,
     context: RequestContext
   ): Counterparty {
@@ -628,6 +631,10 @@ export class MvpService {
     if (request.contactPhone?.trim()) entity.contactPhone = request.contactPhone.trim();
     if (request.legalAddress?.trim()) entity.legalAddress = request.legalAddress.trim();
     if (request.note?.trim()) entity.note = request.note.trim();
+    if (request.externalId && request.sourceSystem) {
+      entity.externalId = request.externalId;
+      entity.sourceSystem = request.sourceSystem;
+    }
     applyCounterpartyRequisites(entity, request);
     this.state.counterparties.push(entity);
     this.audit(
@@ -1013,6 +1020,98 @@ export class MvpService {
     };
   }
 
+  /**
+   * МГ-K2.1 (срез 23.2): повтор импорта дописывает ТОЛЬКО пустые поля компании. Заполненное в
+   * центре после переноса важнее прежней системы — перетирать его нельзя (РМ135). Возвращает,
+   * какие поля дописаны; пусто — изменений нет, и журнал не пишется.
+   */
+  fillImportedCounterparty(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    patch: Partial<
+      Pick<
+        Counterparty,
+        'legalName' | 'inn' | 'kpp' | 'contactEmail' | 'externalId' | 'sourceSystem'
+      >
+    >,
+    context: RequestContext
+  ): string[] {
+    const current = this.getById(this.state.counterparties, tenantId, id);
+    return this.fillEmpty(current, patch, (oldValues, filled) =>
+      this.audit(
+        tenantId,
+        actorId,
+        'crm.counterparty_updated',
+        'crm.counterparty',
+        id,
+        oldValues,
+        filled,
+        context,
+        { source: 'import' }
+      )
+    );
+  }
+
+  /** То же для слушателя (МГ-K2.1, срез 23.2, РМ135). */
+  fillImportedLearner(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    patch: Partial<
+      Pick<
+        Learner,
+        | 'middleName'
+        | 'dateOfBirth'
+        | 'email'
+        | 'phone'
+        | 'position'
+        | 'counterpartyId'
+        | 'externalId'
+        | 'sourceSystem'
+      >
+    >,
+    context: RequestContext
+  ): string[] {
+    const current = this.getById(this.state.learners, tenantId, id);
+    return this.fillEmpty(current, patch, (oldValues, filled) =>
+      this.audit(
+        tenantId,
+        actorId,
+        'learning.learner_updated',
+        'learning.learner',
+        id,
+        oldValues,
+        filled,
+        context,
+        { source: 'import' }
+      )
+    );
+  }
+
+  private fillEmpty<T extends object>(
+    current: T,
+    patch: Partial<T>,
+    onChanged: (oldValues: Partial<T>, filled: Partial<T>) => void
+  ): string[] {
+    const target = current as Record<string, unknown>;
+    const oldValues: Record<string, unknown> = {};
+    const filled: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(patch as Record<string, unknown>)) {
+      if (value === undefined || value === '' || (target[key] !== undefined && target[key] !== ''))
+        continue;
+      oldValues[key] = target[key];
+      filled[key] = value;
+      target[key] = value;
+    }
+    const keys = Object.keys(filled);
+    if (keys.length > 0) {
+      target.updatedAt = this.now();
+      onChanged(oldValues as Partial<T>, filled as Partial<T>);
+    }
+    return keys;
+  }
+
   /** МГ-C3.1 (срез 10.1): компания по ИНН для колонки импорта — сравнение по цифрам, в своём центре. */
   findCounterpartyByInn(tenantId: string, inn: string): Counterparty | undefined {
     const digits = inn.replace(/\D/g, '');
@@ -1148,6 +1247,9 @@ export class MvpService {
       citizenship?: string;
       educationLevel?: string;
       counterpartyId?: string;
+      /** МГ-K2.1 (срез 23.2): импорт помечает запись источником — по нему повтор находит её. */
+      externalId?: string;
+      sourceSystem?: string;
     },
     context: RequestContext
   ): Learner {
@@ -1175,6 +1277,10 @@ export class MvpService {
     if (request.citizenship) entity.citizenship = request.citizenship;
     if (request.educationLevel) entity.educationLevel = request.educationLevel;
     if (request.counterpartyId) entity.counterpartyId = request.counterpartyId;
+    if (request.externalId && request.sourceSystem) {
+      entity.externalId = request.externalId;
+      entity.sourceSystem = request.sourceSystem;
+    }
     this.state.learners.push(entity);
     this.audit(
       tenantId,

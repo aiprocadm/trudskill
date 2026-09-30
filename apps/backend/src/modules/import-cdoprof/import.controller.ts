@@ -54,6 +54,13 @@ export class ImportCdoprofController {
     return this.service.getRun(c.tenantId!, id);
   }
 
+  @Post('runs/:id/retry-failed')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('import.run')
+  retryFailed(@Param('id') id: string, @CurrentContext() c: RequestContext) {
+    return this.service.retryFailed(c.tenantId!, c.userId!, id, c);
+  }
+
   @Get('runs/:id/rows')
   @UseGuards(PermissionGuard)
   @RequirePermissions('import.run')

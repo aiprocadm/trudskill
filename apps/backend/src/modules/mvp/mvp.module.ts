@@ -1,26 +1,9 @@
 import { Module, Scope } from '@nestjs/common';
 
-import {
-  DaDataInnSuggestProvider,
-  INN_SUGGEST_PROVIDER,
-  NoopInnSuggestProvider
-} from './counterparties/inn-suggest.provider.js';
-import { CourseHistoryService } from './courses/course-history.service.js';
-import { ExternalDocumentsController } from './external-documents/external-documents.controller.js';
-import { GroupDocumentPackageService } from './groups/group-document-package.service.js';
-import { GroupPackageController } from './groups/group-package.controller.js';
-import { GroupStatusScanner } from './groups/group-status.scanner.service.js';
-import { GroupStatusSchedulerService } from './groups/group-status.scheduler.service.js';
-import { GroupWizardService } from './groups/group-wizard.service.js';
-import { IdentityPolicyController } from './identity/identity-policy.controller.js';
-import { IDENTITY_POLICY_REPOSITORY } from './identity/identity-policy.repository.js';
-import { IdentityPolicyService } from './identity/identity-policy.service.js';
-import { IdentityRetentionScanner } from './identity/identity-retention-scanner.service.js';
-import { IdentityRetentionSchedulerService } from './identity/identity-retention-scheduler.service.js';
-import { MvpNormalizedReadsService } from './infrastructure/mvp-normalized-reads.service.js';
-import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
-import { MVP_STATE } from './infrastructure/mvp-state.token.js';
-import { MvpTenantRunner } from './infrastructure/mvp-tenant-runner.service.js';
+import { LegalLogWriter } from './esignature/legal-log.writer.js';
+import { PostgresSimpleSignatureRepository } from './esignature/postgres-simple-signature.repository.js';
+import { SimpleSignatureController } from './esignature/simple-signature.controller.js';
+import { SIMPLE_SIGNATURE_REPOSITORY } from './esignature/simple-signature.repository.js';
 import { MvpEnrollmentService } from './mvp-enrollment.service.js';
 import { MvpInternalWorkerController } from './mvp-internal-worker.controller.js';
 import { backendEnv } from '../../env.js';
@@ -34,11 +17,17 @@ import { ConsentService } from './consents/consent.service.js';
 import { InMemoryConsentRepository } from './consents/in-memory-consent.repository.js';
 import { PostgresConsentRepository } from './consents/postgres-consent.repository.js';
 import { CounterpartySuggestService } from './counterparties/counterparty-suggest.service.js';
+import {
+  DaDataInnSuggestProvider,
+  INN_SUGGEST_PROVIDER,
+  NoopInnSuggestProvider
+} from './counterparties/inn-suggest.provider.js';
 import { COUNTERPARTY_PEOPLE_REPOSITORY } from './counterparty-people/counterparty-people.repository.js';
 import { CounterpartyPeopleService } from './counterparty-people/counterparty-people.service.js';
 import { CounterpartyRepresentativeService } from './counterparty-people/counterparty-representative.service.js';
 import { InMemoryCounterpartyPeopleRepository } from './counterparty-people/in-memory-counterparty-people.repository.js';
 import { PostgresCounterpartyPeopleRepository } from './counterparty-people/postgres-counterparty-people.repository.js';
+import { CourseHistoryService } from './courses/course-history.service.js';
 import { ManagerDashboardService } from './dashboards/manager-dashboard.service.js';
 import { MethodistDashboardService } from './dashboards/methodist-dashboard.service.js';
 import { EisotTestingRegistryController } from './eisot-testing-registry/eisot-testing-registry.controller.js';
@@ -48,24 +37,35 @@ import { EsiaController } from './esia/esia.controller.js';
 import { ESIA_SERVICE_CONFIG, EsiaService, type EsiaServiceConfig } from './esia/esia.service.js';
 import { InMemorySimpleSignatureRepository } from './esignature/in-memory-simple-signature.repository.js';
 import { LegalLogReader } from './esignature/legal-log.reader.js';
-import { LegalLogWriter } from './esignature/legal-log.writer.js';
-import { PostgresSimpleSignatureRepository } from './esignature/postgres-simple-signature.repository.js';
-import { SimpleSignatureController } from './esignature/simple-signature.controller.js';
-import { SIMPLE_SIGNATURE_REPOSITORY } from './esignature/simple-signature.repository.js';
 import { SimpleSignatureService } from './esignature/simple-signature.service.js';
 import { ExamOutcomeService } from './exam/exam-outcome.service.js';
+import { ExternalDocumentsController } from './external-documents/external-documents.controller.js';
 import { FrdoRegistryXlsxWriter } from './frdo-registry/frdo-registry-xlsx.writer.js';
 import { FrdoRegistryController } from './frdo-registry/frdo-registry.controller.js';
 import { FrdoRegistryService } from './frdo-registry/frdo-registry.service.js';
+import { GroupDocumentPackageService } from './groups/group-document-package.service.js';
+import { GroupPackageController } from './groups/group-package.controller.js';
 import { GroupSettingsService } from './groups/group-settings.service.js';
+import { GroupStatusScanner } from './groups/group-status.scanner.service.js';
+import { GroupStatusSchedulerService } from './groups/group-status.scheduler.service.js';
+import { GroupWizardService } from './groups/group-wizard.service.js';
 import { IssueReadinessController } from './groups/issue-readiness.controller.js';
 import { IssueReadinessService } from './groups/issue-readiness.service.js';
+import { IdentityPolicyController } from './identity/identity-policy.controller.js';
+import { IDENTITY_POLICY_REPOSITORY } from './identity/identity-policy.repository.js';
+import { IdentityPolicyService } from './identity/identity-policy.service.js';
+import { IdentityRetentionScanner } from './identity/identity-retention-scanner.service.js';
+import { IdentityRetentionSchedulerService } from './identity/identity-retention-scheduler.service.js';
 import { InMemoryIdentityPolicyRepository } from './identity/in-memory-identity-policy.repository.js';
 import { LearnerDossierService } from './identity/learner-dossier.service.js';
 import { PostgresIdentityPolicyRepository } from './identity/postgres-identity-policy.repository.js';
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
+import { MvpNormalizedReadsService } from './infrastructure/mvp-normalized-reads.service.js';
 import { MvpPersistenceRepositoryAdapter } from './infrastructure/mvp-persistence.repository.adapter.js';
 import { MVP_PERSISTENCE_BACKEND } from './infrastructure/mvp-persistence.token.js';
+import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
+import { MVP_STATE } from './infrastructure/mvp-state.token.js';
+import { MvpTenantRunner } from './infrastructure/mvp-tenant-runner.service.js';
 import { PostgresMvpPersistenceBackend } from './infrastructure/postgres-mvp-persistence.backend.js';
 import { COUNTERPARTIES_REPOSITORY } from './infrastructure/repositories/counterparties.repository.js';
 import { ENROLLMENTS_REPOSITORY } from './infrastructure/repositories/enrollments.repository.js';
@@ -195,6 +195,7 @@ import { PostgresGroupsRepository } from './infrastructure/repositories/postgres
 import { PostgresLearnersRepository } from './infrastructure/repositories/postgres-learners.repository.js';
 import { LearnerAccessService } from './learners/learner-access.service.js';
 import { LearnersRegistryExportService } from './learners/learners-registry-export.service.js';
+import { MvpStateWriter } from './mvp-state-writer.service.js';
 
 @Module({
   imports: [
@@ -321,6 +322,8 @@ import { LearnersRegistryExportService } from './learners/learners-registry-expo
     // Phase 7 payments — singleton bulk-enrollment helper for fulfillment outside an HTTP request
     // (hydrates+saves tenant MVP state via MvpTenantRunner). NO Scope.REQUEST.
     MvpEnrollmentService,
+    // Импорт из CDOPROF (срез 23.2): запись снимка центра вне запроса, частями.
+    MvpStateWriter,
     CourseDeadlineScanner,
     /* ТЗ 11.3: пороги напоминаний — настройка центра с умолчаниями Р11. */
     ReminderSettingsService,
@@ -611,6 +614,6 @@ import { LearnersRegistryExportService } from './learners/learners-registry-expo
    * модулей (импорт из CDOPROF, срез 23.1): перехватчик собирается в модуле ручки, и без этих
    * двух он не получил бы снимок центра, а MvpService читал бы пустое состояние.
    */
-  exports: [MvpService, MvpEnrollmentService, MVP_STATE, MVP_PERSISTENCE_BACKEND]
+  exports: [MvpService, MvpEnrollmentService, MvpStateWriter, MVP_STATE, MVP_PERSISTENCE_BACKEND]
 })
 export class MvpModule {}

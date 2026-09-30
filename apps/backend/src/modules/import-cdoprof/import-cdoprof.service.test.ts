@@ -9,6 +9,7 @@ import { ImportCdoprofService } from './import-cdoprof.service.js';
 import { ImportRunsStore } from './import-runs.store.js';
 import { ImportRowsQuery, StartImportRunRequest } from './import.request-dto.js';
 import { mapContragent, mapStudent } from './mappers.js';
+import { BackgroundTasksService } from '../background-tasks/background-tasks.service.js';
 import { CdoprofApiClient } from './sources/cdoprof-api-client.js';
 import {
   FixtureCdoprofTransport,
@@ -17,6 +18,7 @@ import {
 
 import type { CdoprofSourceFactory } from './cdoprof-source.js';
 import type { MatchSnapshot } from './dedup.js';
+import type { ImportLiveExecutor } from './import-live.executor.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 import type { AuditService } from '../audit/audit.service.js';
 import type { MvpService } from '../mvp/mvp.service.js';
@@ -47,7 +49,15 @@ const makeService = (options: { snapshot?: MatchSnapshot; source?: CdoprofSource
   const mvp = { importMatchSnapshot: vi.fn(() => snapshot) } as unknown as MvpService;
   const audit = { write: vi.fn() } as unknown as AuditService;
   const store = new ImportRunsStore();
-  const service = new ImportCdoprofService(store, options.source ?? fixtureSource(), mvp, audit);
+  const executor = { execute: vi.fn(async () => undefined) } as unknown as ImportLiveExecutor;
+  const service = new ImportCdoprofService(
+    store,
+    options.source ?? fixtureSource(),
+    mvp,
+    audit,
+    executor,
+    new BackgroundTasksService()
+  );
   return { service, store, audit, snapshot };
 };
 
@@ -158,12 +168,8 @@ describe('сухой прогон импорта (МГ-K3.1/K3.2, срез 23.1)
     expect(run.stats.withNotes).toBeGreaterThan(0);
   });
 
-  it('отказы словами: боевой прогон, нет источника, импорт уже идёт', async () => {
+  it('отказы словами: нет источника, перенос уже идёт', async () => {
     const { service, store } = makeService();
-    await expect(
-      service.startRun(TENANT, 'u', { ...dryRun('all'), dryRun: false }, ctx, TODAY)
-    ).rejects.toMatchObject({ response: { code: 'import_live_run_not_ready' } });
-
     const unconfigured = makeService({ source: { clientFor: () => null } });
     await expect(
       unconfigured.service.startRun(TENANT, 'u', dryRun('all'), ctx, TODAY)

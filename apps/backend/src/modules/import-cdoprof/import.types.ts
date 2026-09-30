@@ -52,6 +52,8 @@ export interface ImportDomainStats {
 
 export interface ImportRunStats extends ImportDomainStats {
   byDomain: Partial<Record<ImportDomain, ImportDomainStats>>;
+  /** «Повторить только ошибки»: чей запуск повторён. */
+  retryOf?: string;
 }
 
 export interface ImportRun {
@@ -63,6 +65,8 @@ export interface ImportRun {
   dryRun: boolean;
   stats: ImportRunStats;
   startedBy?: string;
+  /** Боевой прогон идёт фоновой задачей — её видно в разделе «Фоновые задачи». */
+  backgroundTaskId?: string;
   errorText?: string;
   startedAt?: string;
   finishedAt?: string;
@@ -75,6 +79,9 @@ export interface ImportRow extends ImportRowPlan {
   runId: string;
   createdAt: string;
 }
+
+/** Код пропуска «уже перенесено, изменений нет» — так повтор отвечает на известные записи (МГ-K2.1). */
+export const UNCHANGED = 'unchanged';
 
 /** Код пропуска «похоже на уже известного — сливать решает человек» (РМ133). */
 export const MERGE_CANDIDATE = 'merge_candidate';
