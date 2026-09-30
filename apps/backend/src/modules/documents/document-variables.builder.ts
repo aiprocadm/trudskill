@@ -115,6 +115,10 @@ export class DocumentVariablesBuilder {
         });
         const position = enrollment ? order.indexOf(enrollment.learnerId) : -1;
         return {
+          // МГ-F3.2 (срез 20.3a): заранее назначенные номер, серия и разряд удостоверения.
+          ...(enrollment?.certificateNumber ? { presetNumber: enrollment.certificateNumber } : {}),
+          ...(enrollment?.certificateSeries ? { series: enrollment.certificateSeries } : {}),
+          ...(enrollment?.certificateRank ? { rank: enrollment.certificateRank } : {}),
           groupId: group.id,
           ...(group.code ? { groupCode: group.code } : {}),
           ...(position >= 0 ? { seqGroup: position + 1 } : {})
@@ -134,6 +138,9 @@ export class DocumentVariablesBuilder {
     tenantId: string;
     task: DocumentGenerationTaskEntity;
     reservedNumber?: string;
+    /** МГ-F3.2: серия и разряд из резерва — до выпуска документа их больше взять неоткуда. */
+    series?: string;
+    rank?: string;
     document?: GeneratedDocumentEntity;
   }): Promise<Record<string, unknown>> {
     // МГ-C1.3 (РМ86): именованные поля центра — свои коды поверх общего каталога.
@@ -176,6 +183,8 @@ export class DocumentVariablesBuilder {
     params: {
       task: DocumentGenerationTaskEntity;
       reservedNumber?: string;
+      series?: string;
+      rank?: string;
       document?: GeneratedDocumentEntity;
     },
     codes: string[]
@@ -195,7 +204,13 @@ export class DocumentVariablesBuilder {
           documentDate: issueDate
         } as GeneratedDocumentEntity)),
       documentNumber: params.document?.documentNumber ?? params.reservedNumber ?? '',
-      documentDate: issueDate
+      documentDate: issueDate,
+      ...((params.document?.series ?? params.series)
+        ? { series: params.document?.series ?? params.series }
+        : {}),
+      ...((params.document?.rank ?? params.rank)
+        ? { rank: params.document?.rank ?? params.rank }
+        : {})
     };
     return {
       ...resolveDocumentVariables(

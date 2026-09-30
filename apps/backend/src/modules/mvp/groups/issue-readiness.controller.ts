@@ -1,12 +1,23 @@
-import { Controller, Get, Inject, Param, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  Put,
+  UseGuards,
+  UseInterceptors
+} from '@nestjs/common';
 
 import { IssueReadinessService } from './issue-readiness.service.js';
+import { assertValidDto } from '../../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../../common/guards/tenant.guard.js';
 import { DocumentsRequestPersistenceInterceptor } from '../../documents/infrastructure/documents-request-persistence.interceptor.js';
 import { RequirePermissions } from '../../iam/permission.decorator.js';
 import { PermissionGuard } from '../../iam/permission.guard.js';
 import { MvpRequestPersistenceInterceptor } from '../infrastructure/mvp-request-persistence.interceptor.js';
+import { AssignCertificateNumbersRequest } from '../mvp.dto.js';
 import { MvpService } from '../mvp.service.js';
 
 import type { RequestContext } from '../../../common/context/request-context.js';
@@ -35,5 +46,21 @@ export class IssueReadinessController {
   async issueReadiness(@CurrentContext() c: RequestContext, @Param('groupId') groupId: string) {
     const facts = this.mvp.issueReadinessFacts(c.tenantId!, groupId);
     return this.readiness.report(c.tenantId!, facts);
+  }
+
+  /**
+   * МГ-F3.2 (срез 20.3a): «Номера удостоверений» — номер, серия и разряд до выпуска. Право —
+   * выпуск документов: назначение номера — часть подготовки пакета группы.
+   */
+  @Put('groups/:groupId/certificate-numbers')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.generate')
+  assignCertificateNumbers(
+    @CurrentContext() c: RequestContext,
+    @Param('groupId') groupId: string,
+    @Body() raw: unknown
+  ) {
+    const body = assertValidDto(AssignCertificateNumbersRequest, raw);
+    return this.mvp.assignCertificateNumbers(c.tenantId!, c.userId, groupId, body.rows, c);
   }
 }

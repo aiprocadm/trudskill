@@ -1313,6 +1313,37 @@ export class CloseGroupWithChecksRequest {
  * Список зачислений НЕ передаётся — цепочка сама отбирает сдавших и отчитывается
  * по отсеянным поимённо (частичный успех).
  */
+/** МГ-F3.2 (срез 20.3a): строка «Номеров удостоверений» — пусто снимает назначение. */
+export class CertificateNumberRowDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(128)
+  enrollmentId!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  number?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  series?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  rank?: string | null;
+}
+
+export class AssignCertificateNumbersRequest {
+  @IsArray()
+  @ArrayMaxSize(1000)
+  @ValidateNested({ each: true })
+  @Type(() => CertificateNumberRowDto)
+  rows!: CertificateNumberRowDto[];
+}
+
 export class CloseGroupChainRequest {
   @IsString()
   @MinLength(1)

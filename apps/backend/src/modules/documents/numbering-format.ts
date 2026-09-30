@@ -34,6 +34,11 @@ export interface NumberingFacts {
   groupCode?: string | undefined;
   protocolNumber?: string | undefined;
   seqGroup?: number | undefined;
+  /** МГ-F3.2 (срез 20.3a): номер, назначенный слушателю заранее («Номера удостоверений»). */
+  presetNumber?: string | undefined;
+  /** Серия и разряд удостоверения слушателя — на документ и в бланк. */
+  series?: string | undefined;
+  rank?: string | undefined;
 }
 
 export interface NumberingRuleShape {

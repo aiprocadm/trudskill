@@ -894,6 +894,8 @@ export class DocumentsService {
       })(),
       status: 'generated',
       documentNumber: reserved.reservedNumber,
+      ...(reserved.series ? { series: reserved.series } : {}),
+      ...(reserved.rank ? { rank: reserved.rank } : {}),
       documentDate: todayIn(this.state.tenantTimezone, new Date(this.now())),
       isFinal: false,
       generatedBy,
@@ -912,6 +914,17 @@ export class DocumentsService {
     this.writeTaskAudit(task, 'documents.task.completed', { generatedDocumentId: generated.id });
     return generated;
   }
+  /** МГ-F3.2 (срез 20.3a): серия и разряд, зарезервированные под задачу, — для бланка. */
+  getTaskReservedExtras(tenantId: string, taskId: string): { series?: string; rank?: string } {
+    const task = this.getDocumentTask(tenantId, taskId);
+    if (!task.numberReservationId) return {};
+    const reserved = this.getReservation(tenantId, task.numberReservationId);
+    return {
+      ...(reserved.series ? { series: reserved.series } : {}),
+      ...(reserved.rank ? { rank: reserved.rank } : {})
+    };
+  }
+
   /** Номер, зарезервированный под задачу (для рендера и ответа internal-worker). */
   getTaskReservedNumber(tenantId: string, taskId: string): string | undefined {
     const task = this.getDocumentTask(tenantId, taskId);
@@ -1380,6 +1393,8 @@ export class DocumentsService {
    */
   numberingNeedsFacts(tenantId: string, task: DocumentGenerationTaskEntity): boolean {
     if (task.numberReservationId) return false;
+    // МГ-F3.2: удостоверению слушателя может быть заранее назначен номер, серия и разряд.
+    if (task.documentType === 'certificate' && task.sourceEntityType === 'enrollment') return true;
     const rule = this.findActiveNumberingRule(tenantId, task.documentType, task.kindCode);
     return rule ? factTokensOf(rule.pattern).length > 0 : false;
   }
@@ -1473,7 +1488,10 @@ export class DocumentsService {
       this.state.numberingRules.push(rule);
     }
     const activeRule = rule;
-    const usesFacts = factTokensOf(activeRule.pattern).length > 0;
+    // МГ-F3.2 (срез 20.3a): номер, назначенный слушателю заранее, важнее шаблона правила —
+    // счётчик не расходуется, но уникальность в пределах вида проверяется так же.
+    const presetNumber = facts.presetNumber?.trim() || undefined;
+    const usesFacts = presetNumber !== undefined || factTokensOf(activeRule.pattern).length > 0;
     const fullFacts: NumberingFacts = activeRule.pattern.includes('{protocol.number}')
       ? {
           ...facts,
@@ -1482,7 +1500,7 @@ export class DocumentsService {
             this.protocolNumberOfGroup(tenantId, facts.groupId, facts.groupCode, true)
         }
       : facts;
-    if (usesFacts) this.assertNumberingFacts(activeRule, fullFacts);
+    if (usesFacts && !presetNumber) this.assertNumberingFacts(activeRule, fullFacts);
     const periodKey = this.periodKey(activeRule.resetPeriod);
     // ФТ-A4.2: номер, освобождённый упавшей задачей, возвращается в оборот раньше,
     // чем счётчик выдаст следующий — иначе в реестре остаётся дыра, а дыра в
@@ -1510,12 +1528,14 @@ export class DocumentsService {
     // but omit {period} from their pattern are qualified here so issuance never
     // silently fails on rollover.
     const periodToken = activeRule.resetPeriod === 'none' ? '' : periodKey;
-    const formatted = formatRuleNumber(
-      { ...activeRule, pattern: this.patternWithPeriod(activeRule) },
-      nextCounter,
-      periodToken,
-      fullFacts
-    );
+    const formatted =
+      presetNumber ??
+      formatRuleNumber(
+        { ...activeRule, pattern: this.patternWithPeriod(activeRule) },
+        nextCounter,
+        periodToken,
+        fullFacts
+      );
     // РМ125: номер уникален в пределах вида правила — «номер приказа = код группы» и
     // «номер протокола = код группы» не мешают друг другу, дубль внутри вида запрещён.
     const numberScope = activeRule.kindCode ?? '';
@@ -1541,7 +1561,9 @@ export class DocumentsService {
     }
     // Commit the sequence advance only after the uniqueness check passed. Номер только из
     // данных группы счётчик не расходует — «выдано» на экране нумерации не врёт.
-    if (!isDerivedPattern(activeRule.pattern)) activeRule.currentCounter = nextCounter;
+    if (!presetNumber && !isDerivedPattern(activeRule.pattern)) {
+      activeRule.currentCounter = nextCounter;
+    }
     activeRule.periodKey = periodKey;
     const reservation: NumberReservationEntity = {
       id: this.id('nres'),
@@ -1551,7 +1573,9 @@ export class DocumentsService {
       reservedAt: this.now(),
       status: 'reserved',
       periodKey,
-      ...(activeRule.kindCode ? { kindCode: activeRule.kindCode } : {})
+      ...(activeRule.kindCode ? { kindCode: activeRule.kindCode } : {}),
+      ...((facts.series ?? activeRule.series) ? { series: facts.series ?? activeRule.series } : {}),
+      ...(facts.rank ? { rank: facts.rank } : {})
     };
     this.state.reservations.push(reservation);
     return reservation;

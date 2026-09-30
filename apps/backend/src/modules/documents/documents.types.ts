@@ -164,6 +164,9 @@ export interface GeneratedDocumentEntity {
   archivedAt?: string;
   /** МГ-F1.1 (срез 18.1): вид документа из каталога `document-kinds.ts` (РМ123). */
   kindCode?: string;
+  /** МГ-F3.2 (срез 20.3a): серия и разряд удостоверения (колонки 0108). */
+  series?: string;
+  rank?: string;
   /** §5.7 — id документа-приказа, по которому выпущено это удостоверение (для трассировки каскада). */
   groupOrderDocumentId?: string;
   /** §5.8 — публичный токен для QR-проверки подлинности. ≥22 chars base64url (~128 бит). */
@@ -237,6 +240,9 @@ export interface NumberReservationEntity {
   reservedNumber: string;
   /** МГ-F3.1: вид правила, выдавшего номер, — область уникальности номера (РМ125). */
   kindCode?: string;
+  /** МГ-F3.2 (срез 20.3a): серия и разряд, которые получит документ с этим номером. */
+  series?: string;
+  rank?: string;
   reservedAt: string;
   usedAt?: string;
   status: 'reserved' | 'used' | 'released' | 'failed';

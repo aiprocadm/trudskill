@@ -55,6 +55,8 @@ function makeHarness() {
   };
   // Сборщик словаря (Task 4) в этих тестах заглушен — его собственные тесты отдельно.
   const variables = {
+    // МГ-F3.2: удостоверению слушателя сборщик даёт заранее назначенный номер; здесь — пусто.
+    numberingFacts: vi.fn(async (): Promise<Record<string, string>> => ({})),
     build: vi.fn(
       async (): Promise<Record<string, string>> => ({
         'document.number': 'N-1',
