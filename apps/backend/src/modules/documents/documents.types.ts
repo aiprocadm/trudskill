@@ -166,6 +166,16 @@ export interface GeneratedDocumentEntity {
   archivedAt?: string;
   /** МГ-F1.1 (срез 18.1): вид документа из каталога `document-kinds.ts` (РМ123). */
   kindCode?: string;
+  /**
+   * МГ-F4.1 (срез 22.1): документ выдан раньше — в CDOPROF или на бумаге — и занесён
+   * реквизитами. Движок его не выпускал и не перевыпускает (только «загрузить скан»).
+   */
+  isExternal?: boolean;
+  /** Откуда документ (`cdoprof`, `manual`) и его номер там — повторный импорт не плодит дублей. */
+  sourceSystem?: string;
+  externalId?: string;
+  /** Скан внешнего документа (колонка 0102). */
+  externalFileId?: string;
   /** МГ-F3.2 (срез 20.3a): серия и разряд удостоверения (колонки 0108). */
   series?: string;
   rank?: string;

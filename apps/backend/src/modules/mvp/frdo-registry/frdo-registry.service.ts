@@ -104,6 +104,7 @@ export class FrdoRegistryService {
     // Exhaust every page so a tenant with >1000 issued documents is never silently truncated.
     const docs = collectAllPages((page, pageSize) =>
       this.documents.listIssuedDocuments(tenantId, {
+        excludeExternal: true,
         types: filter.types?.length ? filter.types : ['certificate', 'diploma'],
         ...(filter.from ? { from: filter.from } : {}),
         ...(filter.to ? { to: filter.to } : {}),

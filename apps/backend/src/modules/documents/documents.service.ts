@@ -10,7 +10,11 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
-import { assertDocumentKindFitsTemplate, assertDocumentKindFitsType } from './document-kinds.js';
+import {
+  assertDocumentKindFitsTemplate,
+  assertDocumentKindFitsType,
+  assertDocumentKindKnown
+} from './document-kinds.js';
 import { DOCUMENT_REVOKED_EVENT } from './document-revoked.event.js';
 import { DOCUMENTS_STATE } from './documents-state.token.js';
 import {
@@ -84,6 +88,12 @@ export interface IssuedDocumentFilter {
   status?: string;
   /** Все удостоверения, выпущенные по одному групповому приказу. */
   groupOrderDocumentId?: string;
+  /**
+   * МГ-F4.1 (срез 22.1): без внешних документов. Выгрузки в ФРДО и НМО берут только выданное
+   * этим центром в этой системе — внешнее уже зарегистрировано там, откуда пришло, и вторая
+   * отправка стала бы дублем в государственном реестре.
+   */
+  excludeExternal?: boolean;
   /** Лимит на страницу (default — все строки). */
   limit?: number;
   /** Смещение в отсортированном списке. */
@@ -637,6 +647,9 @@ export class DocumentsService {
     }
     if (filter.groupOrderDocumentId) {
       rows = rows.filter((d) => d.groupOrderDocumentId === filter.groupOrderDocumentId);
+    }
+    if (filter.excludeExternal) {
+      rows = rows.filter((d) => !d.isExternal);
     }
 
     rows.sort((a, b) => {
@@ -1960,6 +1973,13 @@ export class DocumentsService {
         return { original, replacement: cached };
       }
     }
+    if (original.isExternal) {
+      throw new ConflictException({
+        code: 'external_document_not_reissuable',
+        message:
+          'Это внешний документ: его выдали вне системы, поэтому перевыпустить его здесь нельзя — можно только загрузить скан.'
+      });
+    }
     if (original.status === 'revoked') {
       throw new ConflictException({
         code: 'cannot_reissue_revoked',
@@ -2165,6 +2185,152 @@ export class DocumentsService {
       userAgent: ctx.userAgent
     });
     return { protocol, certificates, created, retried };
+  }
+
+  /**
+   * МГ-F4.1 (срез 22.1): внести внешний документ — выданный раньше в CDOPROF или на бумаге.
+   *
+   * Номер уникален в пределах вида, как у выпущенных здесь: под него заводится резерв со статусом
+   * «использован», поэтому заявка номера 0088 защищает и его, а следующий выпуск этого вида такой
+   * номер не выдаст. Повтор с теми же `sourceSystem` + `externalId` возвращает уже внесённый
+   * документ, а не второй (импорт из CDOPROF можно повторять).
+   */
+  registerExternalDocument(
+    tenantId: string,
+    actorId: string | undefined,
+    req: {
+      kindCode: string;
+      number: string;
+      date: string;
+      sourceEntityType: string;
+      sourceEntityId: string;
+      series?: string;
+      rank?: string;
+      validUntil?: string;
+      fileId?: string;
+      sourceSystem?: string;
+      externalId?: string;
+    },
+    ctx: RequestContext
+  ): GeneratedDocumentEntity {
+    const kind = assertDocumentKindKnown(req.kindCode);
+    const sourceSystem = req.sourceSystem ?? 'manual';
+    if (req.externalId) {
+      const known = this.state.generatedDocuments.find(
+        (d) =>
+          d.tenantId === tenantId &&
+          d.isExternal === true &&
+          d.sourceSystem === sourceSystem &&
+          d.externalId === req.externalId
+      );
+      if (known) return known;
+    }
+    const number = req.number.trim();
+    const taken =
+      this.state.generatedDocuments.some(
+        (d) =>
+          d.tenantId === tenantId &&
+          d.status !== 'revoked' &&
+          d.documentNumber === number &&
+          (d.kindCode ? d.kindCode === kind.code : d.documentType === kind.templateType)
+      ) ||
+      this.state.reservations.some(
+        (r) => r.tenantId === tenantId && r.reservedNumber === number && r.kindCode === kind.code
+      );
+    if (taken) {
+      throw new ConflictException({
+        code: 'document_number_taken',
+        message: `Номер ${number} уже есть у документа вида «${kind.name}».`
+      });
+    }
+    const now = this.now();
+    const document: GeneratedDocumentEntity = {
+      id: this.id('gdoc'),
+      tenantId,
+      templateId: '',
+      templateVersionId: '',
+      documentType: kind.templateType,
+      kindCode: kind.code,
+      name: `${kind.name} ${number}`,
+      sourceEntityType: req.sourceEntityType,
+      sourceEntityId: req.sourceEntityId,
+      fileId: req.fileId ?? '',
+      status: 'final',
+      documentNumber: number,
+      documentDate: req.date,
+      isFinal: true,
+      finalizedAt: now,
+      generatedBy: actorId,
+      generatedAt: now,
+      isExternal: true,
+      sourceSystem,
+      ...(req.externalId ? { externalId: req.externalId } : {}),
+      ...(req.fileId ? { externalFileId: req.fileId } : {}),
+      ...(req.series ? { series: req.series } : {}),
+      ...(req.rank ? { rank: req.rank } : {}),
+      ...(req.validUntil ? { validUntil: req.validUntil } : {})
+    } as GeneratedDocumentEntity;
+    this.state.generatedDocuments.push(document);
+    this.state.reservations.push({
+      id: this.id('nres'),
+      tenantId,
+      ruleId: 'external',
+      reservedNumber: number,
+      reservedAt: now,
+      usedAt: now,
+      status: 'used',
+      documentId: document.id,
+      periodKey: '',
+      kindCode: kind.code
+    });
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.external_registered',
+      entityType: 'documents.generated',
+      entityId: document.id,
+      newValues: { kindCode: kind.code, number, date: req.date, sourceSystem },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
+    return document;
+  }
+
+  /** МГ-F4.1: «Загрузить скан» — единственное изменение внешнего документа. */
+  attachExternalScan(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    fileId: string,
+    ctx: RequestContext
+  ): GeneratedDocumentEntity {
+    const document = this.must(this.state.generatedDocuments, tenantId, id);
+    if (!document.isExternal) {
+      throw new ConflictException({
+        code: 'document_not_external',
+        message:
+          'Скан загружается только к внешнему документу; выпущенный здесь документ уже есть файлом.'
+      });
+    }
+    const oldValues = { fileId: document.fileId };
+    document.fileId = fileId;
+    document.externalFileId = fileId;
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.external_scan_attached',
+      entityType: 'documents.generated',
+      entityId: id,
+      oldValues,
+      newValues: { fileId },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
+    return document;
   }
 
   /** МГ-F2.1 (срез 21.1): документы и задачи группы и её слушателей — для «вид × состояние». */

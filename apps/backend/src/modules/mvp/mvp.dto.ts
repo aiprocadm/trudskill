@@ -1314,6 +1314,68 @@ export class CloseGroupWithChecksRequest {
  * Список зачислений НЕ передаётся — цепочка сама отбирает сдавших и отчитывается
  * по отсеянным поимённо (частичный успех).
  */
+/** МГ-F4.1 (срез 22.1): внешний документ — выданный раньше в CDOPROF или на бумаге (ТЗ §16). */
+export class RegisterExternalDocumentRequest {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  kindCode!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  number!: string;
+
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'date: ожидается дата ГГГГ-ММ-ДД' })
+  date!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(128)
+  learnerId!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  groupId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  series?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  rank?: string;
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'validUntil: ожидается дата ГГГГ-ММ-ДД' })
+  validUntil?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  fileId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  sourceSystem?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  externalId?: string;
+}
+
+export class AttachExternalScanRequest {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(128)
+  fileId!: string;
+}
+
 /** МГ-F2.1 (срез 21.1): выпуск пакета документов группы. */
 export class IssueGroupPackageRequest {
   /** Какие виды выпустить (ключи строк пакета); пусто — все. */
