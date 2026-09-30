@@ -779,10 +779,20 @@ export class DocumentsController {
   @Post('admin/documents/close-group')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.generate')
-  closeGroup(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+  async closeGroup(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
     /* «Закрыть группу» выпускает протокол и удостоверения — вход проверяется явно. */
     const b = assertValidDto(CloseGroupDto, raw);
-    return this.documentsService.closeGroup(c.tenantId!, c.userId, b, c);
+    const result = this.documentsService.closeGroup(c.tenantId!, c.userId, b, c);
+    /*
+     * Журнал 662: задачи закрытия группы создавались, но в очередь не отправлялись — рабочий
+     * выпуск берёт задачи ТОЛЬКО из очереди, и протокол с удостоверениями стояли «в очереди»
+     * навсегда. Публикуем то же, что `documents/generate`: повтор того же taskId безопасен.
+     */
+    await this.enqueue.publishQueuedTasks(c.tenantId!, [result.protocol, ...result.certificates], {
+      requestId: c.requestId,
+      correlationId: c.correlationId
+    });
+    return result;
   }
 
   /** Сводка статусов по закрытию группы — прогресс для админа (ФТ-A5.3). */

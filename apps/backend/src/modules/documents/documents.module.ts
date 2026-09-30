@@ -133,6 +133,8 @@ const persistenceBackendClass =
     DocumentsService,
     /* МГ-F5.1 (срез 20.1): «что мешает выпустить» группы показывает и настройку центра. */
     IssuanceReadinessService,
+    /* Журнал 662: закрытие группы из модуля групп публикует свои задачи выпуска. */
+    DocumentsEnqueueService,
     DocumentsTenantRunner,
     DOCUMENTS_PERSISTENCE_BACKEND,
     DocumentsRequestPersistenceInterceptor,
