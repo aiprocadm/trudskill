@@ -21,6 +21,7 @@ import { CertificateNumbersDrawer } from './certificate-numbers-drawer';
 import { DocumentSampleForm } from './document-sample-form';
 import { GroupCoursesList } from './group-courses-list';
 import { GroupEditDrawer } from './group-edit-drawer';
+import { GroupPackageSection } from './group-package-section';
 import {
   GROUP_STATUS_LABEL,
   STUDY_FORM_LABEL,
@@ -601,6 +602,14 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
             />
           ) : null}
         </IssueReadinessSection>
+
+        {/* МГ-F2.1 (срез 21.2): пакет документов группы — «вид × состояние» и «Сформировать пакет». */}
+        <GroupPackageSection
+          groupId={id}
+          onIssued={async () => {
+            await refetchGroup();
+          }}
+        />
 
         {/* ФТ-B3.4: доказательная база на проверке ГИТ/Минтруда. */}
         <LearningJournalSection groupId={id} />
