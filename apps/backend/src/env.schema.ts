@@ -126,6 +126,14 @@ export const backendEnvSchema = z
      * выключена, реквизиты вводятся вручную (ручка отвечает 503 `inn_suggest_unavailable`).
      */
     DADATA_API_KEY: z.string().default(''),
+    /**
+     * МГ-K3.1 (срез 23.1, РМ134): API CDOPROF для импорта. Ключ принадлежит ОДНОМУ центру,
+     * поэтому привязан к нему явно; пусто любое из трёх — импорт отвечает 409
+     * `import_source_not_configured`.
+     */
+    CDOPROF_API_BASE_URL: z.string().default(''),
+    CDOPROF_API_KEY: z.string().default(''),
+    CDOPROF_IMPORT_TENANT_ID: z.string().default(''),
     TELEGRAM_WEBHOOK_SECRET: z.string().default(''),
     TELEGRAM_BOT_USERNAME: z.string().default(''),
     RENTAL_YOOKASSA_SHOP_ID: z.string().default(''),

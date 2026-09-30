@@ -606,6 +606,11 @@ import { LearnersRegistryExportService } from './learners/learners-registry-expo
       }
     }
   ],
-  exports: [MvpService, MvpEnrollmentService]
+  /*
+   * MVP_STATE и MVP_PERSISTENCE_BACKEND — для MvpRequestPersistenceInterceptor на ручках других
+   * модулей (импорт из CDOPROF, срез 23.1): перехватчик собирается в модуле ручки, и без этих
+   * двух он не получил бы снимок центра, а MvpService читал бы пустое состояние.
+   */
+  exports: [MvpService, MvpEnrollmentService, MVP_STATE, MVP_PERSISTENCE_BACKEND]
 })
 export class MvpModule {}
