@@ -1197,6 +1197,26 @@ export class MvpService {
     return keys;
   }
 
+  /**
+   * МГ-G1.1 (срез 24.1): источники календаря — группы, их курсы, курсы, компании и зачисления
+   * центра. Календарь своих событий не хранит: он строится по этим датам.
+   */
+  calendarSnapshot(tenantId: string): {
+    groups: GroupEntity[];
+    groupCourses: GroupCourse[];
+    courses: Course[];
+    counterparties: Counterparty[];
+    enrollments: Enrollment[];
+  } {
+    return {
+      groups: this.state.groups.filter((item) => item.tenantId === tenantId),
+      groupCourses: this.state.groupCourses.filter((item) => item.tenantId === tenantId),
+      courses: this.state.courses.filter((item) => item.tenantId === tenantId),
+      counterparties: this.state.counterparties.filter((item) => item.tenantId === tenantId),
+      enrollments: this.state.enrollments.filter((item) => item.tenantId === tenantId)
+    };
+  }
+
   /** МГ-C3.1 (срез 10.1): компания по ИНН для колонки импорта — сравнение по цифрам, в своём центре. */
   findCounterpartyByInn(tenantId: string, inn: string): Counterparty | undefined {
     const digits = inn.replace(/\D/g, '');

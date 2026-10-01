@@ -7,6 +7,7 @@ import { RequestObservabilityInterceptor } from './common/interceptors/request-o
 import { InfrastructureModule } from './infrastructure/infrastructure.module.js';
 import { AuditModule } from './modules/audit/audit.module.js';
 import { BackgroundTasksModule } from './modules/background-tasks/background-tasks.module.js';
+import { CalendarModule } from './modules/calendar/calendar.module.js';
 import { CommunicationModule } from './modules/communication/communication.module.js';
 import { CoreModule } from './modules/core/core.module.js';
 import { DocumentsModule } from './modules/documents/documents.module.js';
@@ -59,6 +60,8 @@ const domainModules = [
   MigrationModule,
   /* ТЗ перехода с CDOPROF, Фаза 4 (РМ15): импорт подключается вместе со своей ручкой. */
   ImportCdoprofModule,
+  /* ТЗ перехода с CDOPROF, Фаза 5: календарь — запрос по источникам (срез 24.1). */
+  CalendarModule,
   OrgModule,
   PaymentsModule,
   PlatformModule,
